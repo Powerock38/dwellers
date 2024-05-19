@@ -1,0 +1,28 @@
+[package]
+name = "dungeons"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bevy = "0.13.2"
+bevy-inspector-egui = "0.24.0"
+bevy_entitiles = "0.9.0"
+rand = "0.8.5"
+
+[features]
+dev = ["bevy/dynamic_linking", "bevy/file_watcher"]
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+wildcard_imports = "allow"
+module_name_repetitions = "allow"
+similar_names = "allow"
+type_complexity = "allow"
+too_many_lines = "allow"
+too_many_arguments = "allow"
+cast_possible_truncation = "allow"
+cast_precision_loss = "allow"
+cast_possible_wrap = "allow"
+cast_sign_loss = "allow"
+cast_lossless = "allow"
+needless_pass_by_value = "allow"
