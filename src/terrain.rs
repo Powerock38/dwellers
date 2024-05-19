@@ -3,11 +3,17 @@ use bevy_entitiles::{
     prelude::*, render::material::StandardTilemapMaterial, tilemap::map::TilemapTextures,
 };
 
+use crate::utils::BoolMap;
+
 pub const TILE_SIZE_U: u32 = 16;
 pub const TILE_SIZE: f32 = TILE_SIZE_U as f32;
 pub const TERRAIN_SIZE: u32 = 64;
+const TERRAIN_SIZE_USIZE: usize = TERRAIN_SIZE as usize;
 const MOUNTAIN_RADIUS: f32 = 28.;
 const DIRT_LAYER_SIZE: f32 = 4.;
+
+#[derive(Resource)]
+pub struct Walkable(pub BoolMap<TERRAIN_SIZE_USIZE>);
 
 pub fn spawn_terrain(
     mut commands: Commands,
@@ -29,11 +35,11 @@ pub fn spawn_terrain(
         textures: textures.add(TilemapTextures::new(
             vec![
                 TilemapTexture::new(
-                    assets_server.load("floors.png"),
+                    assets_server.load("tilemaps/floors.png"),
                     TilemapTextureDescriptor::new(UVec2::new(32, 32), UVec2::splat(TILE_SIZE_U)),
                 ),
                 TilemapTexture::new(
-                    assets_server.load("walls.png"),
+                    assets_server.load("tilemaps/walls.png"),
                     TilemapTextureDescriptor::new(UVec2::new(32, 32), UVec2::splat(TILE_SIZE_U)),
                 ),
             ],
@@ -47,6 +53,8 @@ pub fn spawn_terrain(
         TileArea::new(IVec2::ZERO, UVec2::splat(TERRAIN_SIZE)),
         TileBuilder::new().with_layer(0, TileLayer::no_flip(0)),
     );
+
+    let mut walkable = Walkable(BoolMap::new());
 
     for x in 0..TERRAIN_SIZE {
         for y in 0..TERRAIN_SIZE {
@@ -66,9 +74,13 @@ pub fn spawn_terrain(
                     IVec2::new(x as i32, y as i32),
                     TileBuilder::new().with_layer(0, TileLayer::no_flip(tile)),
                 );
+            } else {
+                walkable.0.set(x as usize, y as usize, true);
             }
         }
     }
+
+    commands.insert_resource(walkable);
 
     commands.entity(entity).insert(tilemap);
 }

@@ -3,7 +3,9 @@ use bevy_entitiles::prelude::*;
 
 use crate::{extract_ok, extract_some, terrain::TILE_SIZE};
 
-pub fn dig_terrain(
+//TODO: CurrentAction resource + Action enum
+
+pub fn click_terrain(
     mut commands: Commands,
     mouse_input: Res<ButtonInput<MouseButton>>,
     q_camera: Query<(&Camera, &GlobalTransform)>,
@@ -25,6 +27,7 @@ pub fn dig_terrain(
 
         let tile = tilemap.get(index);
 
+        // TODO: match CurrentAction
         if tile.is_some() {
             tilemap.set(
                 &mut commands,

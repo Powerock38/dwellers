@@ -610,7 +610,11 @@ checksum = "4e98ccdc83e8eb1169474c95099991f6d64a0a43c4a7dc7c6ae39193d1230542"
 dependencies = [
  "bevy",
  "bitflags 2.5.0",
+ "futures-lite",
  "radsort",
+ "rand",
+ "ron",
+ "serde",
 ]
 
 [[package]]
