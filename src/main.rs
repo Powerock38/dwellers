@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use actions::click_terrain;
+use actions::{click_terrain, keyboard_current_action};
 use bevy::{prelude::*, time::common_conditions::on_timer};
 use bevy_entitiles::EntiTilesPlugin;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
@@ -11,6 +11,7 @@ use terrain::spawn_terrain;
 mod actions;
 mod camera;
 mod dwellers;
+mod tasks;
 mod terrain;
 mod utils;
 
@@ -27,6 +28,7 @@ fn main() {
             Update,
             (
                 update_camera,
+                keyboard_current_action,
                 click_terrain,
                 update_dwellers.run_if(on_timer(Duration::from_millis(100))),
             ),

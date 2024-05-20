@@ -1,7 +1,10 @@
 use bevy::prelude::*;
 use rand::Rng;
 
-use crate::terrain::{Walkable, TILE_SIZE};
+use crate::{
+    extract_ok, extract_some,
+    terrain::{TilemapData, TILE_SIZE},
+};
 
 #[derive(Component)]
 pub struct Dweller {
@@ -37,7 +40,10 @@ pub fn spawn_dwellers(mut commands: Commands, asset_server: Res<AssetServer>) {
     });
 }
 
-pub fn update_dwellers(mut q_dwellers: Query<(&Dweller, &mut Transform)>, walkable: Res<Walkable>) {
+pub fn update_dwellers(
+    mut q_dwellers: Query<(&Dweller, &mut Transform)>,
+    q_tilemap_data: Query<&TilemapData>,
+) {
     for (dweller, mut transform) in q_dwellers.iter_mut() {
         // Wander around
 
@@ -54,9 +60,14 @@ pub fn update_dwellers(mut q_dwellers: Query<(&Dweller, &mut Transform)>, walkab
             index.y += rng.gen_range(-1..=1);
         }
 
-        if index.x >= 0 && index.y >= 0 && walkable.0.get(index.x as usize, index.y as usize) {
+        let tilemap_data = extract_ok!(q_tilemap_data.get_single());
+        let tiledata = extract_some!(tilemap_data.0.get(index));
+
+        if !tiledata.wall {
             transform.translation.x = index.x as f32 * TILE_SIZE;
             transform.translation.y = index.y as f32 * TILE_SIZE;
         }
+
+        //TODO: check for Tasks
     }
 }

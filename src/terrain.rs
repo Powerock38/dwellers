@@ -2,18 +2,24 @@ use bevy::{prelude::*, render::render_resource::FilterMode};
 use bevy_entitiles::{
     prelude::*, render::material::StandardTilemapMaterial, tilemap::map::TilemapTextures,
 };
+use rand::Rng;
 
-use crate::utils::BoolMap;
+use crate::utils::Map2D;
 
 pub const TILE_SIZE_U: u32 = 16;
 pub const TILE_SIZE: f32 = TILE_SIZE_U as f32;
 pub const TERRAIN_SIZE: u32 = 64;
 const TERRAIN_SIZE_USIZE: usize = TERRAIN_SIZE as usize;
 const MOUNTAIN_RADIUS: f32 = 28.;
-const DIRT_LAYER_SIZE: f32 = 4.;
+const DIRT_LAYER_SIZE: f32 = 6.;
 
-#[derive(Resource)]
-pub struct Walkable(pub BoolMap<TERRAIN_SIZE_USIZE>);
+#[derive(Default, Clone, Copy)]
+pub struct TileData {
+    pub wall: bool,
+}
+
+#[derive(Component)]
+pub struct TilemapData(pub Map2D<TERRAIN_SIZE_USIZE, TileData>);
 
 pub fn spawn_terrain(
     mut commands: Commands,
@@ -54,7 +60,7 @@ pub fn spawn_terrain(
         TileBuilder::new().with_layer(0, TileLayer::no_flip(0)),
     );
 
-    let mut walkable = Walkable(BoolMap::new());
+    let mut tilemap_data = TilemapData(Map2D::new());
 
     for x in 0..TERRAIN_SIZE {
         for y in 0..TERRAIN_SIZE {
@@ -63,7 +69,10 @@ pub fn spawn_terrain(
             let distance = (dx * dx + dy * dy) as f32;
 
             if distance < MOUNTAIN_RADIUS.powi(2) {
-                let tile = if distance < (MOUNTAIN_RADIUS - DIRT_LAYER_SIZE).powi(2) {
+                let mut rng = rand::thread_rng();
+                let dirt = rng.gen_range(DIRT_LAYER_SIZE * 0.5..DIRT_LAYER_SIZE);
+
+                let tile = if distance < (MOUNTAIN_RADIUS - dirt).powi(2) {
                     4
                 } else {
                     5
@@ -74,13 +83,13 @@ pub fn spawn_terrain(
                     IVec2::new(x as i32, y as i32),
                     TileBuilder::new().with_layer(0, TileLayer::no_flip(tile)),
                 );
-            } else {
-                walkable.0.set(x as usize, y as usize, true);
+
+                tilemap_data
+                    .0
+                    .set(x as usize, y as usize, TileData { wall: true });
             }
         }
     }
 
-    commands.insert_resource(walkable);
-
-    commands.entity(entity).insert(tilemap);
+    commands.entity(entity).insert((tilemap, tilemap_data));
 }
