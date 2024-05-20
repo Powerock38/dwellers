@@ -2,20 +2,24 @@ use bevy::{prelude::*, window::PrimaryWindow};
 
 use crate::{
     extract_ok, extract_some,
-    tasks::Task,
+    tasks::{Task, TaskKind},
     terrain::{TilemapData, TILE_SIZE},
+    tiles::{DIRT_WALL, STONE_FLOOR, STONE_WALL},
 };
 
 #[derive(Resource)]
 pub enum CurrentAction {
     Dig,
+    Smoothen,
 }
 
 pub fn keyboard_current_action(mut commands: Commands, keyboard_input: Res<ButtonInput<KeyCode>>) {
     if keyboard_input.just_pressed(KeyCode::Escape) {
         commands.remove_resource::<CurrentAction>();
-    } else if keyboard_input.just_pressed(KeyCode::KeyZ) {
+    } else if keyboard_input.just_pressed(KeyCode::KeyX) {
         commands.insert_resource(CurrentAction::Dig);
+    } else if keyboard_input.just_pressed(KeyCode::KeyZ) {
+        commands.insert_resource(CurrentAction::Smoothen);
     }
 }
 
@@ -46,7 +50,15 @@ pub fn click_terrain(
             match *current_action {
                 CurrentAction::Dig => {
                     if tile_data.wall {
-                        commands.spawn(Task::Dig(index));
+                        commands.spawn(Task::new(index, TaskKind::Dig, tilemap_data));
+                        println!("Digging task at {index:?}");
+                    }
+                }
+                CurrentAction::Smoothen => {
+                    if tile_data == DIRT_WALL || tile_data == STONE_WALL || tile_data == STONE_FLOOR
+                    {
+                        commands.spawn(Task::new(index, TaskKind::Smoothen, tilemap_data));
+                        println!("Smoothening task at {index:?}");
                     }
                 }
             }

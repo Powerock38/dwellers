@@ -1,16 +1,14 @@
 use bevy::{prelude::*, render::render_resource::FilterMode};
 use bevy_entitiles::{
-    algorithm::pathfinding::{PathFindingQueue, PathTilemaps},
-    prelude::*,
-    render::material::StandardTilemapMaterial,
-    tilemap::{
-        algorithm::path::{PathTile, PathTilemap},
-        map::TilemapTextures,
-    },
+    algorithm::pathfinding::PathFindingQueue, prelude::*,
+    render::material::StandardTilemapMaterial, tilemap::map::TilemapTextures,
 };
 use rand::Rng;
 
-use crate::{extract_ok, utils::Map2D};
+use crate::{
+    tiles::{set_tile, TileData, DIRT_WALL, GRASS_FLOOR, STONE_WALL},
+    utils::Map2D,
+};
 
 pub const TILE_SIZE_U: u32 = 16;
 pub const TILE_SIZE: f32 = TILE_SIZE_U as f32;
@@ -19,16 +17,8 @@ const TERRAIN_SIZE_USIZE: usize = TERRAIN_SIZE as usize;
 const MOUNTAIN_RADIUS: f32 = 28.;
 const DIRT_LAYER_SIZE: f32 = 6.;
 
-#[derive(Default, Clone, Copy)]
-pub struct TileData {
-    pub wall: bool,
-}
-
 #[derive(Component)]
 pub struct TilemapData(pub Map2D<TERRAIN_SIZE_USIZE, TileData>);
-
-#[derive(Event)]
-pub struct MineTile(pub IVec2);
 
 pub fn spawn_terrain(
     mut commands: Commands,
@@ -41,7 +31,7 @@ pub fn spawn_terrain(
     let entity = commands.spawn_empty().id();
 
     let mut tilemap = StandardTilemapBundle {
-        name: TilemapName("dungeon_terrain".to_string()),
+        name: TilemapName("terrain".to_string()),
         tile_render_size: TileRenderSize(Vec2::splat(TILE_SIZE)),
         slot_size: TilemapSlotSize(Vec2::splat(TILE_SIZE)),
         ty: TilemapType::Square,
@@ -51,11 +41,17 @@ pub fn spawn_terrain(
             vec![
                 TilemapTexture::new(
                     assets_server.load("tilemaps/floors.png"),
-                    TilemapTextureDescriptor::new(UVec2::new(32, 32), UVec2::splat(TILE_SIZE_U)),
+                    TilemapTextureDescriptor::new(
+                        UVec2::new(2, 2) * TILE_SIZE_U,
+                        UVec2::splat(TILE_SIZE_U),
+                    ),
                 ),
                 TilemapTexture::new(
                     assets_server.load("tilemaps/walls.png"),
-                    TilemapTextureDescriptor::new(UVec2::new(32, 32), UVec2::splat(TILE_SIZE_U)),
+                    TilemapTextureDescriptor::new(
+                        UVec2::new(2, 2) * TILE_SIZE_U,
+                        UVec2::splat(TILE_SIZE_U),
+                    ),
                 ),
             ],
             FilterMode::Nearest,
@@ -63,16 +59,15 @@ pub fn spawn_terrain(
         ..default()
     };
 
+    let base_tile = GRASS_FLOOR;
+
     tilemap.storage.fill_rect(
         &mut commands,
         TileArea::new(IVec2::ZERO, UVec2::splat(TERRAIN_SIZE)),
-        TileBuilder::new().with_layer(
-            0, // grass floor
-            TileLayer::no_flip(0),
-        ),
+        TileBuilder::new().with_layer(0, base_tile.layer()),
     );
 
-    let mut tilemap_data = TilemapData(Map2D::new());
+    let mut tilemap_data = TilemapData(Map2D::new(base_tile));
 
     for x in 0..TERRAIN_SIZE {
         for y in 0..TERRAIN_SIZE {
@@ -82,23 +77,23 @@ pub fn spawn_terrain(
 
             if distance < MOUNTAIN_RADIUS.powi(2) {
                 let mut rng = rand::thread_rng();
-                let dirt = rng.gen_range(DIRT_LAYER_SIZE * 0.5..DIRT_LAYER_SIZE);
+                let dirt_layer_size = rng.gen_range(DIRT_LAYER_SIZE * 0.5..DIRT_LAYER_SIZE);
 
-                let tile = if distance < (MOUNTAIN_RADIUS - dirt).powi(2) {
-                    4 // stone wall
+                let tile = if distance < (MOUNTAIN_RADIUS - dirt_layer_size).powi(2) {
+                    STONE_WALL
                 } else {
-                    5 // dirt wall
+                    DIRT_WALL
                 };
 
                 let index = IVec2::new(x as i32, y as i32);
 
-                tilemap.storage.set(
-                    &mut commands,
+                set_tile(
                     index,
-                    TileBuilder::new().with_layer(0, TileLayer::no_flip(tile)),
+                    tile,
+                    &mut commands,
+                    &mut tilemap.storage,
+                    &mut tilemap_data,
                 );
-
-                tilemap_data.0.set(index, TileData { wall: true });
             }
         }
     }
@@ -108,48 +103,4 @@ pub fn spawn_terrain(
     commands
         .entity(entity)
         .insert((tilemap, tilemap_data, pathfinding_queue));
-}
-
-pub fn event_mine_tile(
-    mut commands: Commands,
-    mut ev_mine_tile: EventReader<MineTile>,
-    mut q_tilemap: Query<(&mut TilemapStorage, &mut TilemapData)>,
-) {
-    let (mut tilemap, mut tilemap_data) = extract_ok!(q_tilemap.get_single_mut());
-
-    for MineTile(index) in ev_mine_tile.read() {
-        if let Some(tile_data) = tilemap_data.0.get(*index) {
-            if tile_data.wall {
-                tilemap.set(
-                    &mut commands,
-                    *index,
-                    TileBuilder::new().with_layer(0, TileLayer::no_flip(4)),
-                );
-
-                tilemap_data.0.set(*index, TileData { wall: false });
-            }
-        }
-    }
-}
-
-pub fn update_path_tilemaps(
-    q_tilemap: Query<(Entity, &TilemapData), Changed<TilemapData>>,
-    mut path_tilemaps: ResMut<PathTilemaps>,
-) {
-    let (entity, tilemap_data) = extract_ok!(q_tilemap.get_single());
-
-    let mut path_tilemap = PathTilemap::new();
-    path_tilemap.fill_path_rect_custom(
-        TileArea::new(IVec2::ZERO, UVec2::splat(TERRAIN_SIZE)),
-        |index| {
-            if let Some(tile_data) = tilemap_data.0.get(index) {
-                if !tile_data.wall {
-                    return Some(PathTile { cost: 1 });
-                }
-            }
-            None
-        },
-    );
-
-    path_tilemaps.insert(entity, path_tilemap);
 }

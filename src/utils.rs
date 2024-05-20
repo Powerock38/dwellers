@@ -20,14 +20,14 @@ macro_rules! extract_some {
     };
 }
 
-pub struct Map2D<const N: usize, T: Default> {
+pub struct Map2D<const N: usize, T: Copy> {
     data: [[T; N]; N],
 }
 
-impl<const N: usize, T: Default + Copy> Map2D<N, T> {
-    pub fn new() -> Self {
+impl<const N: usize, T: Copy> Map2D<N, T> {
+    pub fn new(fill_with: T) -> Self {
         Self {
-            data: [[T::default(); N]; N],
+            data: [[fill_with; N]; N],
         }
     }
 
