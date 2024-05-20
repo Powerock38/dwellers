@@ -46,7 +46,14 @@ impl<const N: usize, T: Default + Copy> Map2D<N, T> {
         Some(self.data[x][y])
     }
 
-    pub fn set(&mut self, x: usize, y: usize, value: T) {
+    pub fn set(&mut self, index: IVec2, value: T) {
+        if index.x < 0 || index.y < 0 {
+            return;
+        }
+
+        let x = index.x as usize;
+        let y = index.y as usize;
+
         if x < N && y < N {
             self.data[x][y] = value;
         }
