@@ -7,7 +7,7 @@ use crate::{
     tiles::TileData,
 };
 
-#[derive(Resource)]
+#[derive(Resource, Debug)]
 pub struct CurrentAction {
     pub task_kind: TaskKind,
     pub index_start: Option<IVec2>,
@@ -34,6 +34,7 @@ pub fn keyboard_current_action(mut commands: Commands, keyboard_input: Res<Butto
 
 pub fn click_terrain(
     mut commands: Commands,
+    mut gizmos: Gizmos,
     asset_server: Res<AssetServer>,
     mouse_input: Res<ButtonInput<MouseButton>>,
     q_camera: Query<(&Camera, &GlobalTransform)>,
@@ -55,10 +56,22 @@ pub fn click_terrain(
             (world_position.y / TILE_SIZE) as i32,
         );
 
+        if let Some(index_start) = current_action.index_start {
+            let from = Vec2::new(index_start.x as f32, index_start.y as f32) * TILE_SIZE;
+            let to = Vec2::new(index.x as f32, index.y as f32) * TILE_SIZE;
+
+            let center = (from + to) / 2. + TILE_SIZE / 2.;
+            let size = (to - from).abs() + TILE_SIZE / 2.;
+
+            gizmos.rect_2d(center, 0., size, Color::WHITE);
+        }
+
         if mouse_input.just_pressed(MouseButton::Left) {
             // Start selection
             current_action.index_start = Some(index);
-        } else if mouse_input.just_released(MouseButton::Left) {
+        }
+
+        if mouse_input.just_released(MouseButton::Left) {
             // End selection
             if let Some(index_start) = current_action.index_start {
                 let index_min = IVec2::new(index_start.x.min(index.x), index_start.y.min(index.y));
@@ -101,6 +114,8 @@ pub fn click_terrain(
                         }
                     }
                 }
+
+                current_action.index_start = None;
             }
         }
     }

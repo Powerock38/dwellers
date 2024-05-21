@@ -60,6 +60,22 @@ impl TileData {
     pub fn layer(self) -> TileLayer {
         TileLayer::no_flip(self.atlas_index)
     }
+
+    pub fn set_at(
+        self,
+        index: IVec2,
+        commands: &mut Commands,
+        tilemap: &mut TilemapStorage,
+        tilemap_data: &mut TilemapData,
+    ) {
+        tilemap.set(
+            commands,
+            index,
+            TileBuilder::new().with_layer(0, self.layer()),
+        );
+
+        tilemap_data.0.set(index, self);
+    }
 }
 
 impl PartialEq for TileData {
@@ -81,9 +97,8 @@ pub fn event_mine_tile(
     for MineTile(index) in ev_mine_tile.read() {
         if let Some(tile_data) = tilemap_data.0.get(*index) {
             if tile_data.is_blocking() {
-                set_tile(
+                TileData::STONE_FLOOR.set_at(
                     *index,
-                    TileData::STONE_FLOOR,
                     &mut commands,
                     &mut tilemap,
                     &mut tilemap_data,
@@ -108,9 +123,8 @@ pub fn event_smoothen_tile(
     for SmoothenTile(index) in ev_smoothen_tile.read() {
         if let Some(tile_data) = tilemap_data.0.get(*index) {
             if tile_data == TileData::DIRT_WALL || tile_data == TileData::STONE_WALL {
-                set_tile(
+                TileData::DUNGEON_WALL.set_at(
                     *index,
-                    TileData::DUNGEON_WALL,
                     &mut commands,
                     &mut tilemap,
                     &mut tilemap_data,
@@ -118,9 +132,8 @@ pub fn event_smoothen_tile(
 
                 println!("Smoothened wall at {index:?}");
             } else if tile_data == TileData::STONE_FLOOR {
-                set_tile(
+                TileData::DUNGEON_FLOOR.set_at(
                     *index,
-                    TileData::DUNGEON_FLOOR,
                     &mut commands,
                     &mut tilemap,
                     &mut tilemap_data,
@@ -130,20 +143,4 @@ pub fn event_smoothen_tile(
             }
         }
     }
-}
-
-pub fn set_tile(
-    index: IVec2,
-    tile: TileData,
-    commands: &mut Commands,
-    tilemap: &mut TilemapStorage,
-    tilemap_data: &mut TilemapData,
-) {
-    tilemap.set(
-        commands,
-        index,
-        TileBuilder::new().with_layer(0, tile.layer()),
-    );
-
-    tilemap_data.0.set(index, tile);
 }

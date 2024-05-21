@@ -5,10 +5,7 @@ use bevy_entitiles::{
 };
 use rand::Rng;
 
-use crate::{
-    tiles::{set_tile, TileData},
-    utils::Map2D,
-};
+use crate::{tiles::TileData, utils::Map2D};
 
 pub const TILE_SIZE_U: u32 = 16;
 pub const TILE_SIZE: f32 = TILE_SIZE_U as f32;
@@ -87,9 +84,8 @@ pub fn spawn_terrain(
 
                 let index = IVec2::new(x as i32, y as i32);
 
-                set_tile(
+                tile.set_at(
                     index,
-                    tile,
                     &mut commands,
                     &mut tilemap.storage,
                     &mut tilemap_data,

@@ -73,11 +73,12 @@ pub fn update_dwellers(
         // Check if dweller has a task assigned in all tasks
         for (entity_task, task) in &mut q_tasks {
             if Some(entity) == task.dweller {
-                if task
-                    .pos
-                    .neighbours(TilemapType::Square, false)
-                    .iter()
-                    .any(|pos| pos.map_or(false, |pos| pos == index))
+                if task.pos == index
+                    || task
+                        .pos
+                        .neighbours(TilemapType::Square, false)
+                        .iter()
+                        .any(|pos| pos.map_or(false, |pos| pos == index))
                 {
                     // Reached task location
                     match task.kind {

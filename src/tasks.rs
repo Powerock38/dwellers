@@ -11,10 +11,16 @@ use crate::{
     terrain::{TilemapData, TERRAIN_SIZE, TILE_SIZE},
 };
 
-#[derive(Debug)]
+#[derive(PartialEq, Clone, Copy, Debug)]
 pub enum TaskKind {
     Dig,
     Smoothen,
+}
+
+impl std::fmt::Display for TaskKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{self:?}")
+    }
 }
 
 #[derive(Bundle)]
@@ -67,6 +73,12 @@ impl Task {
     }
 
     fn compute_pos_adjacent(pos: IVec2, tilemap_data: &TilemapData) -> Vec<IVec2> {
+        if let Some(tile_data) = tilemap_data.0.get(pos) {
+            if !tile_data.is_blocking() {
+                return vec![pos];
+            }
+        }
+
         pos.neighbours(TilemapType::Square, false)
             .into_iter()
             .filter_map(|pos| {
