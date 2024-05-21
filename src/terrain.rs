@@ -6,7 +6,7 @@ use bevy_entitiles::{
 use rand::Rng;
 
 use crate::{
-    tiles::{set_tile, TileData, DIRT_WALL, GRASS_FLOOR, STONE_WALL},
+    tiles::{set_tile, TileData},
     utils::Map2D,
 };
 
@@ -59,7 +59,7 @@ pub fn spawn_terrain(
         ..default()
     };
 
-    let base_tile = GRASS_FLOOR;
+    let base_tile = TileData::GRASS_FLOOR;
 
     tilemap.storage.fill_rect(
         &mut commands,
@@ -80,9 +80,9 @@ pub fn spawn_terrain(
                 let dirt_layer_size = rng.gen_range(DIRT_LAYER_SIZE * 0.5..DIRT_LAYER_SIZE);
 
                 let tile = if distance < (MOUNTAIN_RADIUS - dirt_layer_size).powi(2) {
-                    STONE_WALL
+                    TileData::STONE_WALL
                 } else {
-                    DIRT_WALL
+                    TileData::DIRT_WALL
                 };
 
                 let index = IVec2::new(x as i32, y as i32);

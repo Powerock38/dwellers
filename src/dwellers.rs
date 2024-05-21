@@ -17,6 +17,7 @@ use crate::{
 #[derive(Component)]
 pub struct Dweller {
     name: String,
+    speed: f32,
     move_queue: Vec<IVec2>, // next move is at the end
 }
 
@@ -40,6 +41,7 @@ pub fn spawn_dwellers(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
             dweller: Dweller {
                 name: name.to_string(),
+                speed: 1.0,
                 move_queue: vec![],
             },
         });
@@ -58,7 +60,7 @@ if still no task
 
 pub fn update_dwellers(
     mut commands: Commands,
-    mut q_dwellers: Query<(Entity, &mut Dweller, &mut Transform, Option<&Children>)>,
+    mut q_dwellers: Query<(Entity, &mut Dweller, &Transform, Option<&Children>)>,
     mut q_tilemap: Query<(&TilemapData, &mut PathFindingQueue)>,
     q_tasks_available: Query<(Entity, &Task), Without<Parent>>,
     q_tasks_dwellers: Query<&Task, With<Parent>>,
@@ -67,11 +69,8 @@ pub fn update_dwellers(
 ) {
     let (tilemap_data, mut pathfinding_queue) = extract_ok!(q_tilemap.get_single_mut());
 
-    for (entity, mut dweller, mut transform, children) in &mut q_dwellers {
-        // Move to next move in queue
-        if let Some(next_move) = dweller.move_queue.pop() {
-            transform.translation.x = next_move.x as f32 * TILE_SIZE;
-            transform.translation.y = next_move.y as f32 * TILE_SIZE;
+    for (entity, mut dweller, transform, children) in &mut q_dwellers {
+        if !dweller.move_queue.is_empty() {
             continue;
         }
 
@@ -169,7 +168,7 @@ pub fn update_dwellers(
                 continue;
             };
 
-            if !tiledata.wall {
+            if !tiledata.is_blocking() {
                 dweller.move_queue.push(index);
             }
         }
@@ -191,5 +190,34 @@ pub fn update_pathfinding_tasks(
         commands.entity(entity_task).remove::<Path>();
 
         println!("Dweller {} got path {:?}", dweller.name, dweller.move_queue);
+    }
+}
+
+pub fn update_dwellers_movement(
+    mut q_dwellers: Query<(&mut Dweller, &mut Transform, &mut Sprite)>,
+) {
+    for (mut dweller, mut transform, mut sprite) in &mut q_dwellers {
+        // Move to next position in queue
+
+        if let Some(next_move) = dweller.move_queue.last() {
+            let target = Vec2::new(
+                next_move.x as f32 * TILE_SIZE,
+                next_move.y as f32 * TILE_SIZE,
+            );
+
+            let direction = target - transform.translation.truncate();
+
+            if direction.length() < dweller.speed {
+                transform.translation.x = target.x;
+                transform.translation.y = target.y;
+                dweller.move_queue.pop();
+            } else {
+                let dir = direction.normalize();
+                transform.translation.x += dir.x * dweller.speed;
+                transform.translation.y += dir.y * dweller.speed;
+
+                sprite.flip_x = dir.x < 0.0;
+            }
+        }
     }
 }

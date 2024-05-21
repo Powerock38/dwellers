@@ -3,25 +3,58 @@ use bevy_entitiles::prelude::*;
 
 use crate::{extract_ok, terrain::TilemapData};
 
+#[derive(PartialEq, Eq, Clone, Copy)]
+pub enum LayerKind {
+    Floor,
+    FurnitureNonBlocking,
+    FurnitureBlocking,
+    Wall,
+}
+
 #[derive(Clone, Copy)]
 pub struct TileData {
     atlas_index: i32,
-    pub wall: bool,
+    kind: LayerKind,
 }
 
 impl TileData {
+    pub const GRASS_FLOOR: Self = Self::floor(0);
+    pub const STONE_FLOOR: Self = Self::floor(1);
+    pub const DUNGEON_FLOOR: Self = Self::floor(2);
+    pub const DIRT_WALL: Self = Self::wall(4);
+    pub const STONE_WALL: Self = Self::wall(5);
+    pub const DUNGEON_WALL: Self = Self::wall(6);
+
     pub const fn floor(atlas_index: i32) -> Self {
         Self {
             atlas_index,
-            wall: false,
+            kind: LayerKind::Floor,
         }
     }
 
     pub const fn wall(atlas_index: i32) -> Self {
         Self {
             atlas_index,
-            wall: true,
+            kind: LayerKind::Wall,
         }
+    }
+
+    pub const fn furniture_non_blocking(atlas_index: i32) -> Self {
+        Self {
+            atlas_index,
+            kind: LayerKind::FurnitureNonBlocking,
+        }
+    }
+
+    pub const fn furniture_blocking(atlas_index: i32) -> Self {
+        Self {
+            atlas_index,
+            kind: LayerKind::FurnitureBlocking,
+        }
+    }
+
+    pub fn is_blocking(&self) -> bool {
+        matches!(self.kind, LayerKind::Wall | LayerKind::FurnitureBlocking)
     }
 
     pub fn layer(self) -> TileLayer {
@@ -31,16 +64,9 @@ impl TileData {
 
 impl PartialEq for TileData {
     fn eq(&self, other: &Self) -> bool {
-        self.atlas_index == other.atlas_index && self.wall == other.wall
+        self.atlas_index == other.atlas_index && self.kind == other.kind
     }
 }
-
-pub const GRASS_FLOOR: TileData = TileData::floor(0);
-pub const STONE_FLOOR: TileData = TileData::floor(1);
-pub const DUNGEON_FLOOR: TileData = TileData::floor(2);
-pub const DIRT_WALL: TileData = TileData::wall(4);
-pub const STONE_WALL: TileData = TileData::wall(5);
-pub const DUNGEON_WALL: TileData = TileData::wall(6);
 
 #[derive(Event)]
 pub struct MineTile(pub IVec2);
@@ -54,10 +80,10 @@ pub fn event_mine_tile(
 
     for MineTile(index) in ev_mine_tile.read() {
         if let Some(tile_data) = tilemap_data.0.get(*index) {
-            if tile_data.wall {
+            if tile_data.is_blocking() {
                 set_tile(
                     *index,
-                    STONE_FLOOR,
+                    TileData::STONE_FLOOR,
                     &mut commands,
                     &mut tilemap,
                     &mut tilemap_data,
@@ -81,20 +107,20 @@ pub fn event_smoothen_tile(
 
     for SmoothenTile(index) in ev_smoothen_tile.read() {
         if let Some(tile_data) = tilemap_data.0.get(*index) {
-            if tile_data == DIRT_WALL || tile_data == STONE_WALL {
+            if tile_data == TileData::DIRT_WALL || tile_data == TileData::STONE_WALL {
                 set_tile(
                     *index,
-                    DUNGEON_WALL,
+                    TileData::DUNGEON_WALL,
                     &mut commands,
                     &mut tilemap,
                     &mut tilemap_data,
                 );
 
                 println!("Smoothened wall at {index:?}");
-            } else if tile_data == STONE_FLOOR {
+            } else if tile_data == TileData::STONE_FLOOR {
                 set_tile(
                     *index,
-                    DUNGEON_FLOOR,
+                    TileData::DUNGEON_FLOOR,
                     &mut commands,
                     &mut tilemap,
                     &mut tilemap_data,

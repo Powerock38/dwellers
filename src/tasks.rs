@@ -43,7 +43,7 @@ impl Task {
             .filter_map(|pos| {
                 if let Some(pos) = pos {
                     if let Some(tile_data) = tilemap_data.0.get(pos) {
-                        if !tile_data.wall {
+                        if !tile_data.is_blocking() {
                             return Some(pos);
                         }
                     }
@@ -67,7 +67,7 @@ pub fn update_path_tilemaps(
         TileArea::new(IVec2::ZERO, UVec2::splat(TERRAIN_SIZE)),
         |index| {
             if let Some(tile_data) = tilemap_data.0.get(index) {
-                if !tile_data.wall {
+                if !tile_data.is_blocking() {
                     return Some(PathTile { cost: 1 });
                 }
             }

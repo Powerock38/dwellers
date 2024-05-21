@@ -4,7 +4,7 @@ use crate::{
     extract_ok, extract_some,
     tasks::{Task, TaskKind},
     terrain::{TilemapData, TILE_SIZE},
-    tiles::{DIRT_WALL, STONE_FLOOR, STONE_WALL},
+    tiles::TileData,
 };
 
 #[derive(Resource)]
@@ -49,13 +49,15 @@ pub fn click_terrain(
         if let Some(current_action) = current_action {
             match *current_action {
                 CurrentAction::Dig => {
-                    if tile_data.wall {
+                    if tile_data.is_blocking() {
                         commands.spawn(Task::new(index, TaskKind::Dig, tilemap_data));
                         println!("Digging task at {index:?}");
                     }
                 }
                 CurrentAction::Smoothen => {
-                    if tile_data == DIRT_WALL || tile_data == STONE_WALL || tile_data == STONE_FLOOR
+                    if tile_data == TileData::DIRT_WALL
+                        || tile_data == TileData::STONE_WALL
+                        || tile_data == TileData::STONE_FLOOR
                     {
                         commands.spawn(Task::new(index, TaskKind::Smoothen, tilemap_data));
                         println!("Smoothening task at {index:?}");
