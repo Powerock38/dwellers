@@ -3,7 +3,10 @@ use bevy::{
     prelude::*,
 };
 
-use crate::terrain::{TERRAIN_SIZE, TILE_SIZE};
+use crate::{
+    actions::CurrentAction,
+    terrain::{TERRAIN_SIZE, TILE_SIZE},
+};
 
 #[derive(Resource)]
 pub struct CameraControl {
@@ -28,15 +31,18 @@ pub fn update_camera(
     mut event_move: EventReader<MouseMotion>,
     time: Res<Time>,
     mut control: ResMut<CameraControl>,
+    current_action: Option<Res<CurrentAction>>,
 ) {
     let Ok((mut transform, mut projection)) = query.get_single_mut() else {
         return;
     };
 
     if input_mouse.pressed(MouseButton::Left) {
-        for ev in event_move.read() {
-            control.target_pos +=
-                projection.scale * ev.delta * time.delta_seconds() * 200. * Vec2::new(-1., 1.);
+        if !current_action.is_some_and(|action| action.index_start.is_some()) {
+            for ev in event_move.read() {
+                control.target_pos +=
+                    projection.scale * ev.delta * time.delta_seconds() * 200. * Vec2::new(-1., 1.);
+            }
         }
     } else {
         let mut step = 270. * time.delta_seconds();

@@ -53,7 +53,7 @@ impl TileData {
         }
     }
 
-    pub fn is_blocking(&self) -> bool {
+    pub fn is_blocking(self) -> bool {
         matches!(self.kind, LayerKind::Wall | LayerKind::FurnitureBlocking)
     }
 

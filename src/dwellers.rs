@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, sprite::Anchor};
 use bevy_entitiles::{
     algorithm::pathfinding::{PathFinder, PathFindingQueue},
     math::extension::TileIndex,
@@ -33,7 +33,7 @@ pub fn spawn_dwellers(mut commands: Commands, asset_server: Res<AssetServer>) {
             sprite: SpriteBundle {
                 texture: asset_server.load("sprites/dweller.png"),
                 sprite: Sprite {
-                    anchor: bevy::sprite::Anchor::BottomLeft,
+                    anchor: Anchor::BottomLeft,
                     ..default()
                 },
                 transform: Transform::from_xyz(0.0, 0.0, 10.0),
@@ -48,28 +48,17 @@ pub fn spawn_dwellers(mut commands: Commands, asset_server: Res<AssetServer>) {
     }
 }
 
-/*
-if task in Children
-    Schedule pathfinding to task
-else
-    Search for available tasks (no Parent component)
-    Reparent task to dweller
-if still no task
-    Wander around
-*/
-
 pub fn update_dwellers(
     mut commands: Commands,
-    mut q_dwellers: Query<(Entity, &mut Dweller, &Transform, Option<&Children>)>,
+    mut q_dwellers: Query<(Entity, &mut Dweller, &Transform)>,
     mut q_tilemap: Query<(&TilemapData, &mut PathFindingQueue)>,
-    q_tasks_available: Query<(Entity, &Task), Without<Parent>>,
-    q_tasks_dwellers: Query<&Task, With<Parent>>,
+    mut q_tasks: Query<(Entity, &mut Task)>,
     mut ev_mine_tile: EventWriter<MineTile>,
     mut ev_smoothen_tile: EventWriter<SmoothenTile>,
 ) {
     let (tilemap_data, mut pathfinding_queue) = extract_ok!(q_tilemap.get_single_mut());
 
-    for (entity, mut dweller, transform, children) in &mut q_dwellers {
+    for (entity, mut dweller, transform) in &mut q_dwellers {
         if !dweller.move_queue.is_empty() {
             continue;
         }
@@ -81,13 +70,9 @@ pub fn update_dwellers(
 
         let mut has_task = false;
 
-        // Check if dweller has a task assigned (child entity)
-        if let Some(children) = children {
-            for entity_task in children {
-                let Ok(task) = q_tasks_dwellers.get(*entity_task) else {
-                    continue;
-                };
-
+        // Check if dweller has a task assigned in all tasks
+        for (entity_task, task) in &mut q_tasks {
+            if Some(entity) == task.dweller {
                 if task
                     .pos
                     .neighbours(TilemapType::Square, false)
@@ -106,7 +91,7 @@ pub fn update_dwellers(
                         }
                     }
 
-                    commands.entity(*entity_task).despawn();
+                    commands.entity(entity_task).despawn();
                 } else {
                     // Pathfind to random non-wall adjacent tile
                     let mut rng = rand::thread_rng();
@@ -115,7 +100,7 @@ pub fn update_dwellers(
 
                     if let Some(&dest) = random_dest {
                         pathfinding_queue.schedule(
-                            *entity_task,
+                            entity_task,
                             PathFinder {
                                 origin: index,
                                 dest,
@@ -140,12 +125,16 @@ pub fn update_dwellers(
 
         // Get a new task
         if !has_task {
-            for (entity_task, task) in &q_tasks_available {
+            for (_, mut task) in &mut q_tasks {
+                if task.dweller.is_some() {
+                    continue;
+                }
+
                 if task.pos_adjacent.is_empty() {
                     continue;
                 }
 
-                commands.entity(entity_task).set_parent(entity);
+                task.dweller = Some(entity);
                 has_task = true;
 
                 println!("Dweller {} got task {task:?}", dweller.name);
@@ -177,19 +166,21 @@ pub fn update_dwellers(
 
 pub fn update_pathfinding_tasks(
     mut commands: Commands,
-    q_tasks: Query<(Entity, &Parent, &Path), With<Task>>,
-    mut q_dwellers: Query<&mut Dweller, With<Children>>,
+    q_tasks: Query<(Entity, &Task, &Path)>,
+    mut q_dwellers: Query<&mut Dweller>,
 ) {
-    for (entity_task, parent, path) in &q_tasks {
-        let Ok(mut dweller) = q_dwellers.get_mut(parent.get()) else {
-            continue;
-        };
+    for (entity_task, task, path) in &q_tasks {
+        if let Some(entity_dweller) = task.dweller {
+            let Ok(mut dweller) = q_dwellers.get_mut(entity_dweller) else {
+                continue;
+            };
 
-        dweller.move_queue = path.iter().copied().collect();
+            dweller.move_queue = path.iter().copied().collect();
 
-        commands.entity(entity_task).remove::<Path>();
+            commands.entity(entity_task).remove::<Path>();
 
-        println!("Dweller {} got path {:?}", dweller.name, dweller.move_queue);
+            println!("Dweller {} got path {:?}", dweller.name, dweller.move_queue);
+        }
     }
 }
 

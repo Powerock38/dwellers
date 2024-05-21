@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, sprite::Anchor};
 use bevy_entitiles::{
     algorithm::pathfinding::PathTilemaps,
     math::extension::TileIndex,
@@ -8,7 +8,7 @@ use bevy_entitiles::{
 
 use crate::{
     extract_ok,
-    terrain::{TilemapData, TERRAIN_SIZE},
+    terrain::{TilemapData, TERRAIN_SIZE, TILE_SIZE},
 };
 
 #[derive(Debug)]
@@ -17,11 +17,39 @@ pub enum TaskKind {
     Smoothen,
 }
 
+#[derive(Bundle)]
+pub struct TaskBundle {
+    pub task: Task,
+    pub sprite: SpriteBundle,
+}
+
+impl TaskBundle {
+    pub fn new(task: Task, texture: Handle<Image>) -> Self {
+        let x = task.pos.x as f32 * TILE_SIZE;
+        let y = task.pos.y as f32 * TILE_SIZE;
+
+        Self {
+            task,
+            sprite: SpriteBundle {
+                texture,
+                sprite: Sprite {
+                    anchor: Anchor::BottomLeft,
+                    custom_size: Some(Vec2::splat(TILE_SIZE)),
+                    ..default()
+                },
+                transform: Transform::from_xyz(x, y, 1.),
+                ..default()
+            },
+        }
+    }
+}
+
 #[derive(Component, Debug)]
 pub struct Task {
     pub kind: TaskKind,
     pub pos: IVec2,
     pub pos_adjacent: Vec<IVec2>,
+    pub dweller: Option<Entity>,
 }
 
 impl Task {
@@ -30,6 +58,7 @@ impl Task {
             kind,
             pos,
             pos_adjacent: Self::compute_pos_adjacent(pos, tilemap_data),
+            dweller: None,
         }
     }
 

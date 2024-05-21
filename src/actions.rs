@@ -2,36 +2,47 @@ use bevy::{prelude::*, window::PrimaryWindow};
 
 use crate::{
     extract_ok, extract_some,
-    tasks::{Task, TaskKind},
+    tasks::{Task, TaskBundle, TaskKind},
     terrain::{TilemapData, TILE_SIZE},
     tiles::TileData,
 };
 
 #[derive(Resource)]
-pub enum CurrentAction {
-    Dig,
-    Smoothen,
+pub struct CurrentAction {
+    pub task_kind: TaskKind,
+    pub index_start: Option<IVec2>,
+}
+
+impl CurrentAction {
+    pub fn new(task_kind: TaskKind) -> Self {
+        Self {
+            task_kind,
+            index_start: None,
+        }
+    }
 }
 
 pub fn keyboard_current_action(mut commands: Commands, keyboard_input: Res<ButtonInput<KeyCode>>) {
     if keyboard_input.just_pressed(KeyCode::Escape) {
         commands.remove_resource::<CurrentAction>();
     } else if keyboard_input.just_pressed(KeyCode::KeyX) {
-        commands.insert_resource(CurrentAction::Dig);
+        commands.insert_resource(CurrentAction::new(TaskKind::Dig));
     } else if keyboard_input.just_pressed(KeyCode::KeyZ) {
-        commands.insert_resource(CurrentAction::Smoothen);
+        commands.insert_resource(CurrentAction::new(TaskKind::Smoothen));
     }
 }
 
 pub fn click_terrain(
     mut commands: Commands,
+    asset_server: Res<AssetServer>,
     mouse_input: Res<ButtonInput<MouseButton>>,
     q_camera: Query<(&Camera, &GlobalTransform)>,
     q_windows: Query<&Window, With<PrimaryWindow>>,
-    current_action: Option<Res<CurrentAction>>,
+    current_action: Option<ResMut<CurrentAction>>,
     q_tilemap: Query<&TilemapData>,
+    q_tasks: Query<&Task>,
 ) {
-    if mouse_input.just_released(MouseButton::Left) {
+    if let Some(mut current_action) = current_action {
         let (camera, camera_transform) = extract_ok!(q_camera.get_single());
         let cursor_position = extract_some!(q_windows.single().cursor_position());
         let world_position =
@@ -44,23 +55,50 @@ pub fn click_terrain(
             (world_position.y / TILE_SIZE) as i32,
         );
 
-        let tile_data = extract_some!(tilemap_data.0.get(index));
+        if mouse_input.just_pressed(MouseButton::Left) {
+            // Start selection
+            current_action.index_start = Some(index);
+        } else if mouse_input.just_released(MouseButton::Left) {
+            // End selection
+            if let Some(index_start) = current_action.index_start {
+                let index_min = IVec2::new(index_start.x.min(index.x), index_start.y.min(index.y));
+                let index_max = IVec2::new(index_start.x.max(index.x), index_start.y.max(index.y));
 
-        if let Some(current_action) = current_action {
-            match *current_action {
-                CurrentAction::Dig => {
-                    if tile_data.is_blocking() {
-                        commands.spawn(Task::new(index, TaskKind::Dig, tilemap_data));
-                        println!("Digging task at {index:?}");
-                    }
-                }
-                CurrentAction::Smoothen => {
-                    if tile_data == TileData::DIRT_WALL
-                        || tile_data == TileData::STONE_WALL
-                        || tile_data == TileData::STONE_FLOOR
-                    {
-                        commands.spawn(Task::new(index, TaskKind::Smoothen, tilemap_data));
-                        println!("Smoothening task at {index:?}");
+                for x in index_min.x..=index_max.x {
+                    for y in index_min.y..=index_max.y {
+                        let index = IVec2::new(x, y);
+                        let tile_data = extract_some!(tilemap_data.0.get(index));
+
+                        // Check if task already exists at this position
+                        if q_tasks.iter().any(|task| task.pos == index) {
+                            continue;
+                        }
+
+                        match current_action.task_kind {
+                            TaskKind::Dig => {
+                                if tile_data.is_blocking() {
+                                    commands.spawn(TaskBundle::new(
+                                        Task::new(index, TaskKind::Dig, tilemap_data),
+                                        asset_server.load("sprites/dig.png"),
+                                    ));
+
+                                    println!("Digging task at {index:?}");
+                                }
+                            }
+                            TaskKind::Smoothen => {
+                                if tile_data == TileData::DIRT_WALL
+                                    || tile_data == TileData::STONE_WALL
+                                    || tile_data == TileData::STONE_FLOOR
+                                {
+                                    commands.spawn(TaskBundle::new(
+                                        Task::new(index, TaskKind::Smoothen, tilemap_data),
+                                        asset_server.load("sprites/smoothen.png"),
+                                    ));
+
+                                    println!("Smoothening task at {index:?}");
+                                }
+                            }
+                        }
                     }
                 }
             }
