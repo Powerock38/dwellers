@@ -1,7 +1,10 @@
 use bevy::prelude::*;
 use bevy_entitiles::prelude::*;
 
-use crate::{extract_ok, terrain::TilemapData};
+use crate::{
+    extract_ok,
+    terrain::{TilemapData, TilemapFiles, TF},
+};
 
 #[derive(PartialEq, Eq, Clone, Copy)]
 pub struct FurnitureData {
@@ -10,20 +13,22 @@ pub struct FurnitureData {
 }
 
 impl FurnitureData {
-    pub const TABLE: Self = Self::blocking(3);
-    pub const RUG: Self = Self::passable(7);
+    pub const TABLE: Self = Self::blocking(0);
+    pub const RUG: Self = Self::passable(1);
 
     pub const fn passable(atlas_index: i32) -> Self {
-        Self {
-            atlas_index,
-            blocking: false,
-        }
+        Self::new(atlas_index, false)
     }
 
     pub const fn blocking(atlas_index: i32) -> Self {
+        Self::new(atlas_index, true)
+    }
+
+    const fn new(atlas_index: i32, blocking: bool) -> Self {
+        let atlas_index = TilemapFiles::T.atlas_index(TilemapFiles::FURNITURES, atlas_index);
         Self {
             atlas_index,
-            blocking: true,
+            blocking,
         }
     }
 }
@@ -44,22 +49,21 @@ impl TileData {
     pub const GRASS_FLOOR: Self = Self::floor(0);
     pub const STONE_FLOOR: Self = Self::floor(1);
     pub const DUNGEON_FLOOR: Self = Self::floor(2);
-    pub const DIRT_WALL: Self = Self::wall(4);
-    pub const STONE_WALL: Self = Self::wall(5);
-    pub const DUNGEON_WALL: Self = Self::wall(6);
+    pub const DIRT_WALL: Self = Self::wall(0);
+    pub const STONE_WALL: Self = Self::wall(1);
+    pub const DUNGEON_WALL: Self = Self::wall(2);
 
     pub const fn floor(atlas_index: i32) -> Self {
-        Self {
-            atlas_index,
-            kind: TileKind::Floor(None),
-        }
+        Self::new(TilemapFiles::FLOORS, atlas_index, TileKind::Floor(None))
     }
 
     pub const fn wall(atlas_index: i32) -> Self {
-        Self {
-            atlas_index,
-            kind: TileKind::Wall,
-        }
+        Self::new(TilemapFiles::WALLS, atlas_index, TileKind::Wall)
+    }
+
+    const fn new(tf: TF, atlas_index: i32, kind: TileKind) -> Self {
+        let atlas_index = TilemapFiles::T.atlas_index(tf, atlas_index);
+        Self { atlas_index, kind }
     }
 
     pub fn is_blocking(&self) -> bool {

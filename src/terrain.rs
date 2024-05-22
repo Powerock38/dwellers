@@ -14,6 +14,65 @@ const TERRAIN_SIZE_USIZE: usize = TERRAIN_SIZE as usize;
 const MOUNTAIN_RADIUS: f32 = 28.;
 const DIRT_LAYER_SIZE: f32 = 6.;
 
+#[derive(Clone, Copy)]
+pub struct TilemapFile {
+    name: &'static str,
+    size: UVec2,
+    start_atlas_index: i32,
+}
+
+const N: usize = 3;
+pub type TF = (&'static str, UVec2);
+
+pub struct TilemapFiles {
+    files: [TilemapFile; N],
+}
+
+impl TilemapFiles {
+    pub const T: Self = Self::new();
+
+    pub const FLOORS: TF = ("floors", UVec2::new(2, 2));
+    pub const WALLS: TF = ("walls", UVec2::new(2, 2));
+    pub const FURNITURES: TF = ("furnitures", UVec2::new(2, 2));
+
+    pub const fn new() -> Self {
+        let tilemaps = [Self::FLOORS, Self::WALLS, Self::FURNITURES];
+
+        let mut files = [TilemapFile {
+            name: "",
+            size: UVec2::ZERO,
+            start_atlas_index: 0,
+        }; N];
+
+        let mut i = 0;
+        let mut atlas_index = 0;
+
+        while i < N {
+            files[i] = TilemapFile {
+                name: tilemaps[i].0,
+                size: tilemaps[i].1,
+                start_atlas_index: atlas_index,
+            };
+            atlas_index += (tilemaps[i].1.x * tilemaps[i].1.y) as i32;
+            i += 1;
+        }
+
+        Self { files }
+    }
+
+    pub const fn atlas_index(&self, file: TF, atlas_index: i32) -> i32 {
+        let mut i = 0;
+        while i < N {
+            // Can't compare strings directly, dirty workaround
+            if self.files[i].name.len() == file.0.len() {
+                return self.files[i].start_atlas_index + atlas_index;
+            }
+            i += 1;
+        }
+        0
+    }
+}
+
 #[derive(Component)]
 pub struct TilemapData(pub Map2D<TERRAIN_SIZE_USIZE, TileData>);
 
@@ -35,22 +94,19 @@ pub fn spawn_terrain(
         storage: TilemapStorage::new(16, entity),
         material: materials.add(StandardTilemapMaterial::default()),
         textures: textures.add(TilemapTextures::new(
-            vec![
-                TilemapTexture::new(
-                    assets_server.load("tilemaps/floors.png"),
-                    TilemapTextureDescriptor::new(
-                        UVec2::new(2, 2) * TILE_SIZE_U,
-                        UVec2::splat(TILE_SIZE_U),
-                    ),
-                ),
-                TilemapTexture::new(
-                    assets_server.load("tilemaps/walls.png"),
-                    TilemapTextureDescriptor::new(
-                        UVec2::new(2, 2) * TILE_SIZE_U,
-                        UVec2::splat(TILE_SIZE_U),
-                    ),
-                ),
-            ],
+            TilemapFiles::T
+                .files
+                .iter()
+                .map(|file| {
+                    TilemapTexture::new(
+                        assets_server.load(format!("tilemaps/{}.png", file.name)),
+                        TilemapTextureDescriptor::new(
+                            file.size * TILE_SIZE_U,
+                            UVec2::splat(TILE_SIZE_U),
+                        ),
+                    )
+                })
+                .collect(),
             FilterMode::Nearest,
         )),
         ..default()
