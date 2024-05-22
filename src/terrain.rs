@@ -61,7 +61,7 @@ pub fn spawn_terrain(
     tilemap.storage.fill_rect(
         &mut commands,
         TileArea::new(IVec2::ZERO, UVec2::splat(TERRAIN_SIZE)),
-        TileBuilder::new().with_layer(0, base_tile.layer()),
+        base_tile.tile_builder(),
     );
 
     let mut tilemap_data = TilemapData(Map2D::new(base_tile));

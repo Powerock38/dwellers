@@ -4,17 +4,40 @@ use bevy_entitiles::prelude::*;
 use crate::{extract_ok, terrain::TilemapData};
 
 #[derive(PartialEq, Eq, Clone, Copy)]
-pub enum LayerKind {
-    Floor,
-    FurnitureNonBlocking,
-    FurnitureBlocking,
+pub struct FurnitureData {
+    atlas_index: i32,
+    blocking: bool,
+}
+
+impl FurnitureData {
+    pub const TABLE: Self = Self::blocking(3);
+    pub const RUG: Self = Self::passable(7);
+
+    pub const fn passable(atlas_index: i32) -> Self {
+        Self {
+            atlas_index,
+            blocking: false,
+        }
+    }
+
+    pub const fn blocking(atlas_index: i32) -> Self {
+        Self {
+            atlas_index,
+            blocking: true,
+        }
+    }
+}
+
+#[derive(PartialEq, Eq, Clone, Copy)]
+pub enum TileKind {
+    Floor(Option<FurnitureData>),
     Wall,
 }
 
 #[derive(Clone, Copy)]
 pub struct TileData {
     atlas_index: i32,
-    kind: LayerKind,
+    kind: TileKind,
 }
 
 impl TileData {
@@ -28,53 +51,40 @@ impl TileData {
     pub const fn floor(atlas_index: i32) -> Self {
         Self {
             atlas_index,
-            kind: LayerKind::Floor,
+            kind: TileKind::Floor(None),
         }
     }
 
     pub const fn wall(atlas_index: i32) -> Self {
         Self {
             atlas_index,
-            kind: LayerKind::Wall,
+            kind: TileKind::Wall,
         }
     }
 
-    pub const fn furniture_non_blocking(atlas_index: i32) -> Self {
-        Self {
-            atlas_index,
-            kind: LayerKind::FurnitureNonBlocking,
+    pub fn is_blocking(&self) -> bool {
+        self.kind == TileKind::Wall
+    }
+
+    pub fn tile_builder(&self) -> TileBuilder {
+        match self.kind {
+            TileKind::Floor(Some(furniture_data)) => TileBuilder::new()
+                .with_layer(0, TileLayer::no_flip(self.atlas_index))
+                .with_layer(1, TileLayer::no_flip(furniture_data.atlas_index)),
+            _ => TileBuilder::new().with_layer(0, TileLayer::no_flip(self.atlas_index)),
         }
-    }
-
-    pub const fn furniture_blocking(atlas_index: i32) -> Self {
-        Self {
-            atlas_index,
-            kind: LayerKind::FurnitureBlocking,
-        }
-    }
-
-    pub fn is_blocking(self) -> bool {
-        matches!(self.kind, LayerKind::Wall | LayerKind::FurnitureBlocking)
-    }
-
-    pub fn layer(self) -> TileLayer {
-        TileLayer::no_flip(self.atlas_index)
     }
 
     pub fn set_at(
-        self,
+        &self,
         index: IVec2,
         commands: &mut Commands,
         tilemap: &mut TilemapStorage,
         tilemap_data: &mut TilemapData,
     ) {
-        tilemap.set(
-            commands,
-            index,
-            TileBuilder::new().with_layer(0, self.layer()),
-        );
+        tilemap.set(commands, index, self.tile_builder());
 
-        tilemap_data.0.set(index, self);
+        tilemap_data.0.set(index, *self);
     }
 }
 
