@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use actions::{click_terrain, keyboard_current_action};
 use bevy::{prelude::*, time::common_conditions::on_timer};
-use bevy_entitiles::{algorithm::pathfinding::pathfinding_scheduler, EntiTilesPlugin};
+use bevy_entitiles::EntiTilesPlugin;
 use camera::{update_camera, CameraControl};
 use dwellers::{
     spawn_dwellers, update_dwellers, update_dwellers_movement, update_pathfinding_tasks,
@@ -38,14 +38,15 @@ fn main() {
                 update_camera,
                 update_ui,
                 keyboard_current_action,
-                click_terrain,
+                click_terrain.after(bevy_entitiles::algorithm::pathfinding::path_assigner),
                 (
                     update_dwellers,
                     update_pathfinding_tasks.after(update_dwellers),
                 )
                     .run_if(on_timer(Duration::from_millis(200))),
                 update_dwellers_movement,
-                update_path_tilemaps.before(pathfinding_scheduler),
+                update_path_tilemaps
+                    .before(bevy_entitiles::algorithm::pathfinding::pathfinding_scheduler),
                 event_mine_tile,
                 event_smoothen_tile,
             ),

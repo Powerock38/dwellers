@@ -17,12 +17,6 @@ pub enum TaskKind {
     Smoothen,
 }
 
-impl std::fmt::Display for TaskKind {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{self:?}")
-    }
-}
-
 #[derive(Bundle)]
 pub struct TaskBundle {
     pub task: Task,

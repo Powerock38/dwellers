@@ -1,9 +1,7 @@
 use bevy::{prelude::*, sprite::Anchor};
 use bevy_entitiles::{
     algorithm::pathfinding::{PathFinder, PathFindingQueue},
-    math::extension::TileIndex,
     prelude::Path,
-    tilemap::map::TilemapType,
 };
 use rand::{seq::IteratorRandom, Rng};
 
@@ -73,13 +71,7 @@ pub fn update_dwellers(
         // Check if dweller has a task assigned in all tasks
         for (entity_task, task) in &mut q_tasks {
             if Some(entity) == task.dweller {
-                if task.pos == index
-                    || task
-                        .pos
-                        .neighbours(TilemapType::Square, false)
-                        .iter()
-                        .any(|pos| pos.map_or(false, |pos| pos == index))
-                {
+                if task.pos_adjacent.iter().any(|pos| *pos == index) {
                     // Reached task location
                     match task.kind {
                         TaskKind::Dig => {
