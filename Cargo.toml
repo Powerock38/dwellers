@@ -6,10 +6,8 @@ edition = "2021"
 [dependencies]
 bevy = "0.13.2"
 bevy-inspector-egui = "0.24.0"
-bevy_entitiles = { version = "0.9.0", features = [
-  "algorithm",
-  "multi-threaded",
-] }
+bevy_entitiles = { version = "0.9.0", features = ["multi-threaded"] }
+pathfinding = "4.9.1"
 rand = "0.8.5"
 
 [features]

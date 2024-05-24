@@ -150,7 +150,7 @@ pub fn click_terrain(
                                         let task =
                                             Task::new(index, TaskKind::Smoothen, tilemap_data);
 
-                                        if !task.pos_adjacent.is_empty() {
+                                        if !task.reachable_positions.is_empty() {
                                             commands.spawn(TaskBundle::new(
                                                 task,
                                                 asset_server.load("sprites/smoothen.png"),

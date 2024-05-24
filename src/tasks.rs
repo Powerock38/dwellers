@@ -1,14 +1,8 @@
 use bevy::{prelude::*, sprite::Anchor};
-use bevy_entitiles::{
-    algorithm::pathfinding::PathTilemaps,
-    math::extension::TileIndex,
-    prelude::*,
-    tilemap::algorithm::path::{PathTile, PathTilemap},
-};
 
 use crate::{
     extract_ok,
-    terrain::{TilemapData, TERRAIN_SIZE, TILE_SIZE},
+    terrain::{TilemapData, TILE_SIZE},
 };
 
 #[derive(PartialEq, Clone, Copy, Debug)]
@@ -48,7 +42,7 @@ impl TaskBundle {
 pub struct Task {
     pub kind: TaskKind,
     pub pos: IVec2,
-    pub pos_adjacent: Vec<IVec2>,
+    pub reachable_positions: Vec<IVec2>,
     pub dweller: Option<Entity>,
 }
 
@@ -57,65 +51,35 @@ impl Task {
         Self {
             kind,
             pos,
-            pos_adjacent: Self::compute_pos_adjacent(pos, tilemap_data),
+            reachable_positions: Self::compute_reachable_positions(pos, tilemap_data),
             dweller: None,
         }
     }
 
-    pub fn recompute_pos_adjacent(&mut self, tilemap_data: &TilemapData) {
-        self.pos_adjacent = Self::compute_pos_adjacent(self.pos, tilemap_data);
+    pub fn recompute_reachable_positions(&mut self, tilemap_data: &TilemapData) {
+        self.reachable_positions = Self::compute_reachable_positions(self.pos, tilemap_data);
     }
 
-    fn compute_pos_adjacent(pos: IVec2, tilemap_data: &TilemapData) -> Vec<IVec2> {
+    fn compute_reachable_positions(pos: IVec2, tilemap_data: &TilemapData) -> Vec<IVec2> {
         if let Some(tile_data) = tilemap_data.0.get(pos) {
             if !tile_data.is_blocking() {
                 return vec![pos];
             }
         }
 
-        pos.neighbours(TilemapType::Square, false)
-            .into_iter()
-            .filter_map(|pos| {
-                if let Some(pos) = pos {
-                    if let Some(tile_data) = tilemap_data.0.get(pos) {
-                        if !tile_data.is_blocking() {
-                            return Some(pos);
-                        }
-                    }
-                }
-                None
-            })
-            .collect()
+        tilemap_data.non_blocking_neighbours(pos)
     }
 }
 
-pub fn update_path_tilemaps(
-    q_tilemap: Query<(Entity, &TilemapData), Changed<TilemapData>>,
+pub fn update_unreachable_tasks(
+    q_tilemap: Query<&TilemapData, Changed<TilemapData>>,
     mut q_tasks: Query<&mut Task>,
-    mut path_tilemaps: ResMut<PathTilemaps>,
 ) {
-    let (entity, tilemap_data) = extract_ok!(q_tilemap.get_single());
+    let tilemap_data = extract_ok!(q_tilemap.get_single());
 
-    // Update pathfinding tilemap
-    let mut path_tilemap = PathTilemap::new();
-    path_tilemap.fill_path_rect_custom(
-        TileArea::new(IVec2::ZERO, UVec2::splat(TERRAIN_SIZE)),
-        |index| {
-            if let Some(tile_data) = tilemap_data.0.get(index) {
-                if !tile_data.is_blocking() {
-                    return Some(PathTile { cost: 1 });
-                }
-            }
-
-            Some(PathTile { cost: u32::MAX / 2 })
-        },
-    );
-    path_tilemaps.insert(entity, path_tilemap);
-
-    // Update unreachable Tasks
     for mut task in &mut q_tasks {
-        if task.pos_adjacent.is_empty() {
-            task.recompute_pos_adjacent(tilemap_data);
+        if task.reachable_positions.is_empty() {
+            task.recompute_reachable_positions(tilemap_data);
         }
     }
 }

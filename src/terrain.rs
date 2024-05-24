@@ -1,7 +1,6 @@
 use bevy::{prelude::*, render::render_resource::FilterMode};
 use bevy_entitiles::{
-    algorithm::pathfinding::PathFindingQueue, prelude::*,
-    render::material::StandardTilemapMaterial, tilemap::map::TilemapTextures,
+    prelude::*, render::material::StandardTilemapMaterial, tilemap::map::TilemapTextures,
 };
 use rand::Rng;
 
@@ -9,8 +8,12 @@ use crate::{tiles::TileData, utils::Map2D};
 
 pub const TILE_SIZE_U: u32 = 16;
 pub const TILE_SIZE: f32 = TILE_SIZE_U as f32;
+
 pub const TERRAIN_SIZE: u32 = 64;
 const TERRAIN_SIZE_USIZE: usize = TERRAIN_SIZE as usize;
+
+const CHUNK_SIZE: u32 = 16;
+
 const MOUNTAIN_RADIUS: f32 = 28.;
 const DIRT_LAYER_SIZE: f32 = 6.;
 
@@ -74,7 +77,25 @@ impl TilemapFiles {
 }
 
 #[derive(Component)]
-pub struct TilemapData(pub Map2D<TERRAIN_SIZE_USIZE, TileData>);
+pub struct TilemapData(pub Map2D<TileData>);
+
+impl TilemapData {
+    pub fn non_blocking_neighbours(&self, pos: IVec2) -> Vec<IVec2> {
+        [IVec2::X, IVec2::Y, IVec2::NEG_X, IVec2::NEG_Y]
+            .into_iter()
+            .filter_map(|p| {
+                let index = pos + p;
+                if let Some(tile) = self.0.get(index) {
+                    if !tile.is_blocking() {
+                        return Some(index);
+                    }
+                }
+
+                None
+            })
+            .collect()
+    }
+}
 
 pub fn spawn_terrain(
     mut commands: Commands,
@@ -82,7 +103,7 @@ pub fn spawn_terrain(
     mut materials: ResMut<Assets<StandardTilemapMaterial>>,
     mut textures: ResMut<Assets<TilemapTextures>>,
 ) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn((Camera2dBundle::default(), CameraChunkUpdater::new(1.3, 2.2)));
 
     let entity = commands.spawn_empty().id();
 
@@ -91,7 +112,7 @@ pub fn spawn_terrain(
         tile_render_size: TileRenderSize(Vec2::splat(TILE_SIZE)),
         slot_size: TilemapSlotSize(Vec2::splat(TILE_SIZE)),
         ty: TilemapType::Square,
-        storage: TilemapStorage::new(16, entity),
+        storage: TilemapStorage::new(CHUNK_SIZE, entity),
         material: materials.add(StandardTilemapMaterial::default()),
         textures: textures.add(TilemapTextures::new(
             TilemapFiles::T
@@ -120,7 +141,7 @@ pub fn spawn_terrain(
         base_tile.tile_builder(),
     );
 
-    let mut tilemap_data = TilemapData(Map2D::new(base_tile));
+    let mut tilemap_data = TilemapData(Map2D::new(base_tile, TERRAIN_SIZE_USIZE));
 
     for x in 0..TERRAIN_SIZE {
         for y in 0..TERRAIN_SIZE {
@@ -150,9 +171,42 @@ pub fn spawn_terrain(
         }
     }
 
-    let pathfinding_queue = PathFindingQueue::new_with_schedules(std::iter::empty());
-
-    commands
-        .entity(entity)
-        .insert((tilemap, tilemap_data, pathfinding_queue));
+    commands.entity(entity).insert((tilemap, tilemap_data));
 }
+
+/*
+pub fn load_unload_chunks(
+    mut commands: Commands,
+    mut ev: EventReader<CameraChunkUpdation>,
+    tilemap: Query<Entity, With<TilemapStorage>>,
+    mut load_cache: ResMut<ChunkLoadCache>,
+    mut save_cache: ResMut<ChunkSaveCache>,
+) {
+    let tilemap = tilemap.single();
+    let mut to_load = Vec::new();
+    let mut to_unload = Vec::new();
+
+    ev.read().for_each(|e| match e {
+        CameraChunkUpdation::Entered(_, chunk) => to_load.push(*chunk),
+        CameraChunkUpdation::Left(_, chunk) => to_unload.push((*chunk, true)),
+    });
+
+    if !to_load.is_empty() {
+        load_cache.schedule_many(
+            &mut commands,
+            tilemap,
+            TilemapLayer::COLOR | TilemapLayer::PATH,
+            to_load.into_iter(),
+        );
+    }
+
+    if !to_unload.is_empty() {
+        save_cache.schedule_many(
+            &mut commands,
+            tilemap,
+            TilemapLayer::COLOR | TilemapLayer::PATH,
+            to_unload.into_iter(),
+        );
+    }
+}
+ */

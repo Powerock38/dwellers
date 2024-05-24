@@ -20,14 +20,20 @@ macro_rules! extract_some {
     };
 }
 
-pub struct Map2D<const N: usize, T: Copy> {
-    data: [[T; N]; N],
+pub fn manhattan_distance(a: IVec2, b: IVec2) -> i32 {
+    (a.x - b.x).abs() + (a.y - b.y).abs()
 }
 
-impl<const N: usize, T: Copy> Map2D<N, T> {
-    pub fn new(fill_with: T) -> Self {
+pub struct Map2D<T: Copy> {
+    data: Vec<Vec<T>>,
+    size: usize,
+}
+
+impl<T: Copy> Map2D<T> {
+    pub fn new(fill_with: T, n: usize) -> Self {
         Self {
-            data: [[fill_with; N]; N],
+            data: vec![vec![fill_with; n]; n],
+            size: n,
         }
     }
 
@@ -39,7 +45,7 @@ impl<const N: usize, T: Copy> Map2D<N, T> {
         let x = index.x as usize;
         let y = index.y as usize;
 
-        if x >= N || y >= N {
+        if x >= self.size || y >= self.size {
             return None;
         }
 
@@ -54,7 +60,7 @@ impl<const N: usize, T: Copy> Map2D<N, T> {
         let x = index.x as usize;
         let y = index.y as usize;
 
-        if x < N && y < N {
+        if x < self.size && y < self.size {
             self.data[x][y] = value;
         }
     }

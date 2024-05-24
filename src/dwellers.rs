@@ -1,15 +1,13 @@
 use bevy::{prelude::*, sprite::Anchor};
-use bevy_entitiles::{
-    algorithm::pathfinding::{PathFinder, PathFindingQueue},
-    prelude::Path,
-};
-use rand::{seq::IteratorRandom, Rng};
+use pathfinding::prelude::astar;
+use rand::Rng;
 
 use crate::{
     extract_ok,
     tasks::{Task, TaskKind},
     terrain::{TilemapData, TILE_SIZE},
     tiles::{MineTile, SmoothenTile},
+    utils::manhattan_distance,
 };
 
 #[derive(Component)]
@@ -49,12 +47,12 @@ pub fn spawn_dwellers(mut commands: Commands, asset_server: Res<AssetServer>) {
 pub fn update_dwellers(
     mut commands: Commands,
     mut q_dwellers: Query<(Entity, &mut Dweller, &Transform)>,
-    mut q_tilemap: Query<(&TilemapData, &mut PathFindingQueue)>,
+    mut q_tilemap: Query<&TilemapData>,
     mut q_tasks: Query<(Entity, &mut Task)>,
     mut ev_mine_tile: EventWriter<MineTile>,
     mut ev_smoothen_tile: EventWriter<SmoothenTile>,
 ) {
-    let (tilemap_data, mut pathfinding_queue) = extract_ok!(q_tilemap.get_single_mut());
+    let tilemap_data = extract_ok!(q_tilemap.get_single_mut());
 
     for (entity, mut dweller, transform) in &mut q_dwellers {
         if !dweller.move_queue.is_empty() {
@@ -71,7 +69,7 @@ pub fn update_dwellers(
         // Check if dweller has a task assigned in all tasks
         for (entity_task, task) in &mut q_tasks {
             if Some(entity) == task.dweller {
-                if task.pos_adjacent.iter().any(|pos| *pos == index) {
+                if task.reachable_positions.iter().any(|pos| *pos == index) {
                     // Reached task location
                     match task.kind {
                         TaskKind::Dig => {
@@ -86,23 +84,34 @@ pub fn update_dwellers(
 
                     commands.entity(entity_task).despawn();
                 } else {
-                    // Pathfind to random non-wall adjacent tile
-                    let mut rng = rand::thread_rng();
+                    // Pathfind to task
+                    let best_dest = task
+                        .reachable_positions
+                        .iter()
+                        .min_by_key(|&&pos| manhattan_distance(pos, index));
 
-                    let random_dest = task.pos_adjacent.iter().choose(&mut rng);
-
-                    if let Some(&dest) = random_dest {
-                        pathfinding_queue.schedule(
-                            entity_task,
-                            PathFinder {
-                                origin: index,
-                                dest,
-                                allow_diagonal: false,
-                                max_steps: None,
+                    if let Some(dest) = best_dest {
+                        let path = astar(
+                            dest,
+                            |p| {
+                                tilemap_data
+                                    .non_blocking_neighbours(*p)
+                                    .into_iter()
+                                    .map(|p| (p, 1))
                             },
+                            |p| manhattan_distance(*p, index),
+                            |p| *p == index,
                         );
 
-                        println!("Dweller {} pathfinding to {:?}", dweller.name, task.pos);
+                        if let Some(path) = path {
+                            println!("Dweller {} pathfinding along {:?}", dweller.name, path.0);
+                            dweller.move_queue = path.0;
+                        } else {
+                            println!(
+                                "SHOULD NEVER HAPPEN: Dweller {} selected unreachable {task:?}",
+                                dweller.name
+                            );
+                        }
                     } else {
                         println!(
                             "SHOULD NEVER HAPPEN: Dweller {} selected unreachable {task:?}",
@@ -118,12 +127,14 @@ pub fn update_dwellers(
 
         // Get a new task
         if !has_task {
+            //TODO: new system, for each task : find closest dweller
+
             for (_, mut task) in &mut q_tasks {
                 if task.dweller.is_some() {
                     continue;
                 }
 
-                if task.pos_adjacent.is_empty() {
+                if task.reachable_positions.is_empty() {
                     continue;
                 }
 
@@ -153,26 +164,6 @@ pub fn update_dwellers(
             if !tiledata.is_blocking() {
                 dweller.move_queue.push(index);
             }
-        }
-    }
-}
-
-pub fn update_pathfinding_tasks(
-    mut commands: Commands,
-    q_tasks: Query<(Entity, &Task, &Path)>,
-    mut q_dwellers: Query<&mut Dweller>,
-) {
-    for (entity_task, task, path) in &q_tasks {
-        if let Some(entity_dweller) = task.dweller {
-            let Ok(mut dweller) = q_dwellers.get_mut(entity_dweller) else {
-                continue;
-            };
-
-            dweller.move_queue = path.iter().copied().collect();
-
-            commands.entity(entity_task).remove::<Path>();
-
-            println!("Dweller {} got path {:?}", dweller.name, dweller.move_queue);
         }
     }
 }
