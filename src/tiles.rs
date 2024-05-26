@@ -49,9 +49,12 @@ impl TileData {
     pub const GRASS_FLOOR: Self = Self::floor(0);
     pub const STONE_FLOOR: Self = Self::floor(1);
     pub const DUNGEON_FLOOR: Self = Self::floor(2);
+    pub const BRIDGE_FLOOR: Self = Self::floor(3);
     pub const DIRT_WALL: Self = Self::wall(0);
     pub const STONE_WALL: Self = Self::wall(1);
     pub const DUNGEON_WALL: Self = Self::wall(2);
+    pub const TREE: Self = Self::wall(3);
+    pub const WATER: Self = Self::wall(4);
 
     pub const fn floor(atlas_index: i32) -> Self {
         Self::new(TilemapFiles::FLOORS, atlas_index, TileKind::Floor(None))
@@ -98,62 +101,95 @@ impl PartialEq for TileData {
     }
 }
 
-#[derive(Event)]
-pub struct MineTile(pub IVec2);
-
-pub fn event_mine_tile(
-    mut commands: Commands,
-    mut ev_mine_tile: EventReader<MineTile>,
-    mut q_tilemap: Query<(&mut TilemapStorage, &mut TilemapData)>,
-) {
-    let (mut tilemap, mut tilemap_data) = extract_ok!(q_tilemap.get_single_mut());
-
-    for MineTile(index) in ev_mine_tile.read() {
-        if let Some(tile_data) = tilemap_data.0.get(*index) {
-            if tile_data.is_blocking() {
-                TileData::STONE_FLOOR.set_at(
-                    *index,
-                    &mut commands,
-                    &mut tilemap,
-                    &mut tilemap_data,
-                );
-
-                println!("Mined tile at {index:?}");
-            }
-        }
-    }
+pub enum TileEvent {
+    Dig,
+    Smoothen,
+    Chop,
+    Bridge,
 }
 
 #[derive(Event)]
-pub struct SmoothenTile(pub IVec2);
+pub struct SetTileEvent {
+    index: IVec2,
+    event: TileEvent,
+}
 
-pub fn event_smoothen_tile(
+impl SetTileEvent {
+    pub fn new(index: IVec2, event: TileEvent) -> Self {
+        Self { index, event }
+    }
+}
+
+pub fn event_set_tile(
     mut commands: Commands,
-    mut ev_smoothen_tile: EventReader<SmoothenTile>,
+    mut events: EventReader<SetTileEvent>,
     mut q_tilemap: Query<(&mut TilemapStorage, &mut TilemapData)>,
 ) {
     let (mut tilemap, mut tilemap_data) = extract_ok!(q_tilemap.get_single_mut());
 
-    for SmoothenTile(index) in ev_smoothen_tile.read() {
-        if let Some(tile_data) = tilemap_data.0.get(*index) {
-            if tile_data == TileData::DIRT_WALL || tile_data == TileData::STONE_WALL {
-                TileData::DUNGEON_WALL.set_at(
-                    *index,
-                    &mut commands,
-                    &mut tilemap,
-                    &mut tilemap_data,
-                );
+    for event in events.read() {
+        if let Some(tile_data) = tilemap_data.0.get(event.index) {
+            match event.event {
+                TileEvent::Dig => {
+                    if tile_data.is_blocking() {
+                        TileData::STONE_FLOOR.set_at(
+                            event.index,
+                            &mut commands,
+                            &mut tilemap,
+                            &mut tilemap_data,
+                        );
 
-                println!("Smoothened wall at {index:?}");
-            } else if tile_data == TileData::STONE_FLOOR {
-                TileData::DUNGEON_FLOOR.set_at(
-                    *index,
-                    &mut commands,
-                    &mut tilemap,
-                    &mut tilemap_data,
-                );
+                        println!("Dug tile at {:?}", event.index);
+                    }
+                }
 
-                println!("Smoothened floor at {index:?}");
+                TileEvent::Smoothen => {
+                    if tile_data == TileData::DIRT_WALL || tile_data == TileData::STONE_WALL {
+                        TileData::DUNGEON_WALL.set_at(
+                            event.index,
+                            &mut commands,
+                            &mut tilemap,
+                            &mut tilemap_data,
+                        );
+
+                        println!("Smoothened wall at {:?}", event.index);
+                    } else if tile_data == TileData::STONE_FLOOR {
+                        TileData::DUNGEON_FLOOR.set_at(
+                            event.index,
+                            &mut commands,
+                            &mut tilemap,
+                            &mut tilemap_data,
+                        );
+
+                        println!("Smoothened floor at {:?}", event.index);
+                    }
+                }
+
+                TileEvent::Chop => {
+                    if tile_data == TileData::TREE {
+                        TileData::GRASS_FLOOR.set_at(
+                            event.index,
+                            &mut commands,
+                            &mut tilemap,
+                            &mut tilemap_data,
+                        );
+
+                        println!("Chopped tile at {:?}", event.index);
+                    }
+                }
+
+                TileEvent::Bridge => {
+                    if tile_data == TileData::WATER {
+                        TileData::BRIDGE_FLOOR.set_at(
+                            event.index,
+                            &mut commands,
+                            &mut tilemap,
+                            &mut tilemap_data,
+                        );
+
+                        println!("Bridged tile at {:?}", event.index);
+                    }
+                }
             }
         }
     }

@@ -105,6 +105,8 @@ pub fn spawn_ui(mut commands: Commands) {
             .with_children(|c| {
                 build_button(c, ActionKind::Task(TaskKind::Dig));
                 build_button(c, ActionKind::Task(TaskKind::Smoothen));
+                build_button(c, ActionKind::Task(TaskKind::Chop));
+                build_button(c, ActionKind::Task(TaskKind::Bridge));
 
                 build_button(c, ActionKind::Cancel);
             });

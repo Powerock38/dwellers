@@ -6,7 +6,7 @@ use crate::{
     extract_ok,
     tasks::{Task, TaskKind},
     terrain::{TilemapData, TILE_SIZE},
-    tiles::{MineTile, SmoothenTile},
+    tiles::{SetTileEvent, TileEvent},
     utils::manhattan_distance,
 };
 
@@ -51,8 +51,7 @@ pub fn update_dwellers(
     mut q_dwellers: Query<(Entity, &mut Dweller, &Transform)>,
     mut q_tilemap: Query<&TilemapData>,
     mut q_tasks: Query<(Entity, &mut Task)>,
-    mut ev_mine_tile: EventWriter<MineTile>,
-    mut ev_smoothen_tile: EventWriter<SmoothenTile>,
+    mut ev_set_tile: EventWriter<SetTileEvent>,
 ) {
     let tilemap_data = extract_ok!(q_tilemap.get_single_mut());
 
@@ -69,18 +68,25 @@ pub fn update_dwellers(
         let mut has_task = false;
 
         // Check if dweller has a task assigned in all tasks
-        for (entity_task, task) in &mut q_tasks {
+        for (entity_task, mut task) in &mut q_tasks {
             if Some(entity) == task.dweller {
                 if task.reachable_positions.iter().any(|pos| *pos == index) {
                     // Reached task location
                     match task.kind {
                         TaskKind::Dig => {
-                            ev_mine_tile.send(MineTile(task.pos));
-                            println!("Dweller {} mining at {:?}", dweller.name, task.pos);
+                            ev_set_tile.send(SetTileEvent::new(task.pos, TileEvent::Dig));
                         }
+
                         TaskKind::Smoothen => {
-                            ev_smoothen_tile.send(SmoothenTile(task.pos));
-                            println!("Dweller {} smoothening at {:?}", dweller.name, task.pos);
+                            ev_set_tile.send(SetTileEvent::new(task.pos, TileEvent::Smoothen));
+                        }
+
+                        TaskKind::Chop => {
+                            ev_set_tile.send(SetTileEvent::new(task.pos, TileEvent::Chop));
+                        }
+
+                        TaskKind::Bridge => {
+                            ev_set_tile.send(SetTileEvent::new(task.pos, TileEvent::Bridge));
                         }
                     }
 
@@ -113,6 +119,10 @@ pub fn update_dwellers(
                                 "SHOULD NEVER HAPPEN: Dweller {} selected unreachable {task:?}",
                                 dweller.name
                             );
+
+                            println!("Pathfinding failed for {} to {task:?}", dweller.name);
+
+                            task.dweller = None;
                         }
                     } else {
                         println!(

@@ -7,6 +7,7 @@ edition = "2021"
 bevy = "0.13.2"
 bevy-inspector-egui = "0.24.0"
 bevy_entitiles = { version = "0.9.0", features = ["multi-threaded"] }
+noise = "0.9.0"
 pathfinding = "4.9.1"
 rand = "0.8.5"
 

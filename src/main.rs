@@ -7,7 +7,7 @@ use camera::{update_camera, CameraControl};
 use dwellers::{spawn_dwellers, update_dwellers, update_dwellers_movement};
 use tasks::update_unreachable_tasks;
 use terrain::spawn_terrain;
-use tiles::{event_mine_tile, event_smoothen_tile, MineTile, SmoothenTile};
+use tiles::{event_set_tile, SetTileEvent};
 use ui::{spawn_ui, update_ui};
 
 mod actions;
@@ -37,8 +37,7 @@ fn main() {
             chunks_per_frame: 1,
         })
         */
-        .add_event::<MineTile>()
-        .add_event::<SmoothenTile>()
+        .add_event::<SetTileEvent>()
         .add_systems(Startup, (spawn_terrain, spawn_dwellers, spawn_ui))
         .add_systems(
             Update,
@@ -50,8 +49,7 @@ fn main() {
                 update_dwellers.run_if(on_timer(Duration::from_millis(200))),
                 update_dwellers_movement,
                 update_unreachable_tasks,
-                event_mine_tile,
-                event_smoothen_tile,
+                event_set_tile,
             ),
         )
         .run();

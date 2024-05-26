@@ -133,7 +133,9 @@ pub fn click_terrain(
 
                             match task_kind {
                                 TaskKind::Dig => {
-                                    if tile_data.is_blocking() {
+                                    if tile_data == TileData::DIRT_WALL
+                                        || tile_data == TileData::STONE_WALL
+                                    {
                                         commands.spawn(TaskBundle::new(
                                             Task::new(index, TaskKind::Dig, tilemap_data),
                                             asset_server.load("sprites/dig.png"),
@@ -142,6 +144,7 @@ pub fn click_terrain(
                                         println!("Digging task at {index:?}");
                                     }
                                 }
+
                                 TaskKind::Smoothen => {
                                     if tile_data == TileData::DIRT_WALL
                                         || tile_data == TileData::STONE_WALL
@@ -158,6 +161,28 @@ pub fn click_terrain(
 
                                             println!("Smoothening task at {index:?}");
                                         }
+                                    }
+                                }
+
+                                TaskKind::Chop => {
+                                    if tile_data == TileData::TREE {
+                                        commands.spawn(TaskBundle::new(
+                                            Task::new(index, TaskKind::Chop, tilemap_data),
+                                            asset_server.load("sprites/chop.png"),
+                                        ));
+
+                                        println!("Chopping task at {index:?}");
+                                    }
+                                }
+
+                                TaskKind::Bridge => {
+                                    if tile_data == TileData::WATER {
+                                        commands.spawn(TaskBundle::new(
+                                            Task::new(index, TaskKind::Bridge, tilemap_data),
+                                            asset_server.load("sprites/bridge.png"),
+                                        ));
+
+                                        println!("Building bridge task at {index:?}");
                                     }
                                 }
                             }

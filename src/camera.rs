@@ -77,9 +77,9 @@ pub fn update_camera(
     }
 
     for ev in event_wheel.read() {
-        control.target_scale -= ev.y * 0.02;
-        control.target_scale = control.target_scale.max(0.01);
+        control.target_scale -= ev.y * 0.05;
     }
+    control.target_scale = control.target_scale.max(0.01);
 
     if (projection.scale - control.target_scale).abs() > 0.01 {
         projection.scale = projection.scale

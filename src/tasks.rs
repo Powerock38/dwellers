@@ -9,6 +9,8 @@ use crate::{
 pub enum TaskKind {
     Dig,
     Smoothen,
+    Chop,
+    Bridge,
 }
 
 #[derive(Bundle)]

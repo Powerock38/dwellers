@@ -2,20 +2,21 @@ use bevy::{prelude::*, render::render_resource::FilterMode};
 use bevy_entitiles::{
     prelude::*, render::material::StandardTilemapMaterial, tilemap::map::TilemapTextures,
 };
-use rand::Rng;
+use noise::{NoiseFn, Perlin, RidgedMulti};
 
 use crate::{tiles::TileData, utils::Map2D};
 
 pub const TILE_SIZE_U: u32 = 16;
 pub const TILE_SIZE: f32 = TILE_SIZE_U as f32;
 
-pub const TERRAIN_SIZE: u32 = 64;
+pub const TERRAIN_SIZE: u32 = 256;
 const TERRAIN_SIZE_USIZE: usize = TERRAIN_SIZE as usize;
 
 const CHUNK_SIZE: u32 = 16;
 
-const MOUNTAIN_RADIUS: f32 = 28.;
-const DIRT_LAYER_SIZE: f32 = 6.;
+// World Generation
+const TREE_NOISE_SCALE: f64 = 10.0;
+const MOUNTAIN_NOISE_SCALE: f64 = 5.0;
 
 #[derive(Clone, Copy)]
 pub struct TilemapFile {
@@ -35,7 +36,7 @@ impl TilemapFiles {
     pub const T: Self = Self::new();
 
     pub const FLOORS: TF = ("floors", UVec2::new(2, 2));
-    pub const WALLS: TF = ("walls", UVec2::new(2, 2));
+    pub const WALLS: TF = ("walls", UVec2::new(4, 4));
     pub const FURNITURES: TF = ("furnitures", UVec2::new(2, 2));
 
     pub const fn new() -> Self {
@@ -103,7 +104,9 @@ pub fn spawn_terrain(
     mut materials: ResMut<Assets<StandardTilemapMaterial>>,
     mut textures: ResMut<Assets<TilemapTextures>>,
 ) {
-    commands.spawn((Camera2dBundle::default(), CameraChunkUpdater::new(1.3, 2.2)));
+    commands.spawn((
+        Camera2dBundle::default(), /*CameraChunkUpdater::new(1.3, 2.2) */
+    ));
 
     let entity = commands.spawn_empty().id();
 
@@ -143,25 +146,53 @@ pub fn spawn_terrain(
 
     let mut tilemap_data = TilemapData(Map2D::new(base_tile, TERRAIN_SIZE_USIZE));
 
+    let seed = rand::random();
+
     for x in 0..TERRAIN_SIZE {
         for y in 0..TERRAIN_SIZE {
-            let dx = x as i32 - TERRAIN_SIZE as i32 / 2;
-            let dy = y as i32 - TERRAIN_SIZE as i32 / 2;
-            let distance = (dx * dx + dy * dy) as f32;
+            let index = IVec2::new(x as i32, y as i32);
+            let u = x as f64 / TERRAIN_SIZE as f64;
+            let v = y as f64 / TERRAIN_SIZE as f64;
 
-            if distance < MOUNTAIN_RADIUS.powi(2) {
-                let mut rng = rand::thread_rng();
-                let dirt_layer_size = rng.gen_range(DIRT_LAYER_SIZE * 0.5..DIRT_LAYER_SIZE);
+            let noise = RidgedMulti::<Perlin>::new(seed);
 
-                let tile = if distance < (MOUNTAIN_RADIUS - dirt_layer_size).powi(2) {
+            // Mountains
+            let mountain_noise_value =
+                noise.get([u * MOUNTAIN_NOISE_SCALE, v * MOUNTAIN_NOISE_SCALE]);
+            if mountain_noise_value < -0.1 {
+                let tile = if mountain_noise_value < -0.3 {
                     TileData::STONE_WALL
                 } else {
                     TileData::DIRT_WALL
                 };
 
-                let index = IVec2::new(x as i32, y as i32);
-
                 tile.set_at(
+                    index,
+                    &mut commands,
+                    &mut tilemap.storage,
+                    &mut tilemap_data,
+                );
+
+                continue;
+            }
+
+            // Rivers
+            if mountain_noise_value > 0.5 {
+                TileData::WATER.set_at(
+                    index,
+                    &mut commands,
+                    &mut tilemap.storage,
+                    &mut tilemap_data,
+                );
+
+                continue;
+            }
+
+            // Trees
+            let tree_noise_value = noise.get([u * TREE_NOISE_SCALE, v * TREE_NOISE_SCALE]);
+            if tree_noise_value > 0.0 {
+                // 0.5 {
+                TileData::TREE.set_at(
                     index,
                     &mut commands,
                     &mut tilemap.storage,
