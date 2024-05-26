@@ -10,11 +10,15 @@ use crate::{
     utils::manhattan_distance,
 };
 
+const SPEED: f32 = 80.0;
+const Z_INDEX: f32 = 10.0;
+
 #[derive(Component)]
 pub struct Dweller {
     name: String,
     speed: f32,
     move_queue: Vec<IVec2>, // next move is at the end
+    pub task: Option<Entity>,
 }
 
 #[derive(Bundle)]
@@ -32,13 +36,14 @@ pub fn spawn_dwellers(mut commands: Commands, asset_server: Res<AssetServer>) {
                     anchor: Anchor::BottomLeft,
                     ..default()
                 },
-                transform: Transform::from_xyz(0.0, 0.0, 10.0),
+                transform: Transform::from_xyz(0.0, 0.0, Z_INDEX),
                 ..default()
             },
             dweller: Dweller {
                 name: name.to_string(),
-                speed: 1.0,
+                speed: SPEED,
                 move_queue: vec![],
+                task: None,
             },
         });
     }
@@ -46,15 +51,15 @@ pub fn spawn_dwellers(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 pub fn update_dwellers(
     mut commands: Commands,
-    mut q_dwellers: Query<(Entity, &mut Dweller, &Transform)>,
+    mut q_dwellers: Query<(&mut Dweller, &Transform)>,
     mut q_tilemap: Query<&TilemapData>,
-    mut q_tasks: Query<(Entity, &mut Task)>,
+    q_tasks: Query<&Task>,
     mut ev_mine_tile: EventWriter<MineTile>,
     mut ev_smoothen_tile: EventWriter<SmoothenTile>,
 ) {
     let tilemap_data = extract_ok!(q_tilemap.get_single_mut());
 
-    for (entity, mut dweller, transform) in &mut q_dwellers {
+    for (mut dweller, transform) in &mut q_dwellers {
         if !dweller.move_queue.is_empty() {
             continue;
         }
@@ -67,8 +72,8 @@ pub fn update_dwellers(
         let mut has_task = false;
 
         // Check if dweller has a task assigned in all tasks
-        for (entity_task, task) in &mut q_tasks {
-            if Some(entity) == task.dweller {
+        if let Some(entity_task) = dweller.task {
+            if let Ok(task) = q_tasks.get(entity_task) {
                 if task.reachable_positions.iter().any(|pos| *pos == index) {
                     // Reached task location
                     match task.kind {
@@ -111,39 +116,21 @@ pub fn update_dwellers(
                                 "SHOULD NEVER HAPPEN: Dweller {} selected unreachable {task:?}",
                                 dweller.name
                             );
+                            dweller.task = None;
                         }
                     } else {
                         println!(
                             "SHOULD NEVER HAPPEN: Dweller {} selected unreachable {task:?}",
                             dweller.name
                         );
+                        dweller.task = None;
                     }
                 }
 
                 has_task = true;
-                break;
-            }
-        }
-
-        // Get a new task
-        if !has_task {
-            //TODO: new system, for each task : find closest dweller
-
-            for (_, mut task) in &mut q_tasks {
-                if task.dweller.is_some() {
-                    continue;
-                }
-
-                if task.reachable_positions.is_empty() {
-                    continue;
-                }
-
-                task.dweller = Some(entity);
-                has_task = true;
-
-                println!("Dweller {} got task {task:?}", dweller.name);
-
-                break;
+            } else {
+                // Task was despawned
+                dweller.task = None;
             }
         }
 
@@ -169,6 +156,7 @@ pub fn update_dwellers(
 }
 
 pub fn update_dwellers_movement(
+    time: Res<Time>,
     mut q_dwellers: Query<(&mut Dweller, &mut Transform, &mut Sprite)>,
 ) {
     for (mut dweller, mut transform, mut sprite) in &mut q_dwellers {
@@ -182,14 +170,14 @@ pub fn update_dwellers_movement(
 
             let direction = target - transform.translation.truncate();
 
-            if direction.length() < dweller.speed {
+            if direction.length() < dweller.speed * time.delta_seconds() {
                 transform.translation.x = target.x;
                 transform.translation.y = target.y;
                 dweller.move_queue.pop();
             } else {
                 let dir = direction.normalize();
-                transform.translation.x += dir.x * dweller.speed;
-                transform.translation.y += dir.y * dweller.speed;
+                transform.translation.x += dir.x * dweller.speed * time.delta_seconds();
+                transform.translation.y += dir.y * dweller.speed * time.delta_seconds();
 
                 sprite.flip_x = dir.x < 0.0;
             }
