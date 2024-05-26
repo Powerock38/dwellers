@@ -1,7 +1,6 @@
 use bevy::{prelude::*, sprite::Anchor};
 
 use crate::{
-    dwellers::Dweller,
     extract_ok,
     terrain::{TilemapData, TILE_SIZE},
 };
@@ -44,6 +43,7 @@ pub struct Task {
     pub kind: TaskKind,
     pub pos: IVec2,
     pub reachable_positions: Vec<IVec2>,
+    pub dweller: Option<Entity>,
 }
 
 impl Task {
@@ -52,6 +52,7 @@ impl Task {
             kind,
             pos,
             reachable_positions: Self::compute_reachable_positions(pos, tilemap_data),
+            dweller: None,
         }
     }
 
@@ -67,37 +68,6 @@ impl Task {
         }
 
         tilemap_data.non_blocking_neighbours(pos)
-    }
-}
-
-pub fn update_tasks_assignements(
-    mut q_tasks: Query<(Entity, &mut Task)>,
-    mut q_dwellers: Query<(&mut Dweller, &Transform)>,
-) {
-    for (entity_task, task) in &mut q_tasks {
-        if task.reachable_positions.is_empty() {
-            continue;
-        }
-
-        let dweller = q_dwellers
-            .iter_mut()
-            .filter(|(dweller, _)| dweller.task.is_none())
-            .min_by_key(|(_, transform)| {
-                let pos = IVec2::new(
-                    (transform.translation.x / TILE_SIZE) as i32,
-                    (transform.translation.y / TILE_SIZE) as i32,
-                );
-
-                task.reachable_positions
-                    .iter()
-                    .map(|reachable_pos| (pos - *reachable_pos).length_squared())
-                    .min()
-                    .unwrap()
-            });
-
-        if let Some((mut dweller, _)) = dweller {
-            dweller.task = Some(entity_task);
-        }
     }
 }
 

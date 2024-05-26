@@ -18,7 +18,6 @@ pub struct Dweller {
     name: String,
     speed: f32,
     move_queue: Vec<IVec2>, // next move is at the end
-    pub task: Option<Entity>,
 }
 
 #[derive(Bundle)]
@@ -43,23 +42,21 @@ pub fn spawn_dwellers(mut commands: Commands, asset_server: Res<AssetServer>) {
                 name: name.to_string(),
                 speed: SPEED,
                 move_queue: vec![],
-                task: None,
             },
         });
     }
 }
-
 pub fn update_dwellers(
     mut commands: Commands,
-    mut q_dwellers: Query<(&mut Dweller, &Transform)>,
+    mut q_dwellers: Query<(Entity, &mut Dweller, &Transform)>,
     mut q_tilemap: Query<&TilemapData>,
-    q_tasks: Query<&Task>,
+    mut q_tasks: Query<(Entity, &mut Task)>,
     mut ev_mine_tile: EventWriter<MineTile>,
     mut ev_smoothen_tile: EventWriter<SmoothenTile>,
 ) {
     let tilemap_data = extract_ok!(q_tilemap.get_single_mut());
 
-    for (mut dweller, transform) in &mut q_dwellers {
+    for (entity, mut dweller, transform) in &mut q_dwellers {
         if !dweller.move_queue.is_empty() {
             continue;
         }
@@ -72,8 +69,8 @@ pub fn update_dwellers(
         let mut has_task = false;
 
         // Check if dweller has a task assigned in all tasks
-        if let Some(entity_task) = dweller.task {
-            if let Ok(task) = q_tasks.get(entity_task) {
+        for (entity_task, task) in &mut q_tasks {
+            if Some(entity) == task.dweller {
                 if task.reachable_positions.iter().any(|pos| *pos == index) {
                     // Reached task location
                     match task.kind {
@@ -116,21 +113,49 @@ pub fn update_dwellers(
                                 "SHOULD NEVER HAPPEN: Dweller {} selected unreachable {task:?}",
                                 dweller.name
                             );
-                            dweller.task = None;
                         }
                     } else {
                         println!(
                             "SHOULD NEVER HAPPEN: Dweller {} selected unreachable {task:?}",
                             dweller.name
                         );
-                        dweller.task = None;
                     }
                 }
 
                 has_task = true;
-            } else {
-                // Task was despawned
-                dweller.task = None;
+                break;
+            }
+        }
+
+        // Get a new task
+        if !has_task {
+            let task = q_tasks
+                .iter_mut()
+                .filter_map(|(_, task)| {
+                    if task.dweller.is_none() && !task.reachable_positions.is_empty() {
+                        Some(task)
+                    } else {
+                        None
+                    }
+                })
+                .min_by_key(|task| {
+                    let pos = IVec2::new(
+                        (transform.translation.x / TILE_SIZE) as i32,
+                        (transform.translation.y / TILE_SIZE) as i32,
+                    );
+
+                    task.reachable_positions
+                        .iter()
+                        .map(|reachable_pos| (pos - *reachable_pos).length_squared())
+                        .min()
+                        .unwrap()
+                });
+
+            if let Some(mut task) = task {
+                task.dweller = Some(entity);
+                has_task = true;
+
+                println!("Dweller {} got task {task:?}", dweller.name);
             }
         }
 
