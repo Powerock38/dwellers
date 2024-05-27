@@ -37,10 +37,10 @@ impl TilemapFiles {
 
     pub const FLOORS: TF = ("floors", UVec2::new(2, 2));
     pub const WALLS: TF = ("walls", UVec2::new(4, 4));
-    pub const FURNITURES: TF = ("furnitures", UVec2::new(2, 2));
+    pub const OBJECTS: TF = ("objects", UVec2::new(2, 2));
 
     pub const fn new() -> Self {
-        let tilemaps = [Self::FLOORS, Self::WALLS, Self::FURNITURES];
+        let tilemaps = [Self::FLOORS, Self::WALLS, Self::OBJECTS];
 
         let mut files = [TilemapFile {
             name: "",
@@ -205,21 +205,35 @@ pub fn spawn_terrain(
     commands.entity(entity).insert((tilemap, tilemap_data));
 }
 
-pub fn find_from_center(is_valid: impl Fn(IVec2) -> bool) -> Option<IVec2> {
-    let center_x = TERRAIN_SIZE as i32 / 2;
-    let center_y = TERRAIN_SIZE as i32 / 2;
+pub fn find_from_center(index: IVec2, is_valid: impl Fn(IVec2) -> bool) -> Option<IVec2> {
     for radius in 0..=(TERRAIN_SIZE as i32 / 2) {
-        let x_min = (center_x - radius).max(1);
-        let x_max = (center_x + radius).max(TERRAIN_SIZE as i32 - 2);
-        for x in x_min..=x_max {
-            let y_min = (center_y - radius).max(1);
-            let y_max = (center_y + radius).max(TERRAIN_SIZE as i32 - 2);
-            for y in y_min..=y_max {
-                let index = IVec2::new(x, y);
+        // Top and Bottom edges of the square
+        for x in (index.x - radius).max(1)..=(index.x + radius).min(TERRAIN_SIZE as i32 - 2) {
+            // Top edge
+            let top_y = (index.y - radius).max(1);
+            if is_valid(IVec2::new(x, top_y)) {
+                return Some(IVec2::new(x, top_y));
+            }
+            // Bottom edge
+            let bottom_y = (index.y + radius).min(TERRAIN_SIZE as i32 - 2);
+            if is_valid(IVec2::new(x, bottom_y)) {
+                return Some(IVec2::new(x, bottom_y));
+            }
+        }
 
-                if is_valid(index) {
-                    return Some(index);
-                }
+        // Left and Right edges of the square (excluding corners already checked)
+        for y in
+            ((index.y - radius + 1).max(1))..=((index.y + radius - 1).min(TERRAIN_SIZE as i32 - 2))
+        {
+            // Left edge
+            let left_x = (index.x - radius).max(1);
+            if is_valid(IVec2::new(left_x, y)) {
+                return Some(IVec2::new(left_x, y));
+            }
+            // Right edge
+            let right_x = (index.x + radius).min(TERRAIN_SIZE as i32 - 2);
+            if is_valid(IVec2::new(right_x, y)) {
+                return Some(IVec2::new(right_x, y));
             }
         }
     }

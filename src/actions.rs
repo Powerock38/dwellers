@@ -4,7 +4,7 @@ use crate::{
     extract_ok, extract_some,
     tasks::{Task, TaskBundle, TaskKind},
     terrain::{TilemapData, TILE_SIZE},
-    tiles::TileData,
+    tiles::{ObjectData, TileData},
 };
 
 #[derive(PartialEq, Clone, Copy, Debug)]
@@ -177,14 +177,20 @@ pub fn click_terrain(
 
                                 TaskKind::Bridge => {
                                     if tile_data == TileData::WATER {
+                                        let mut task =
+                                            Task::new(index, TaskKind::Bridge, tilemap_data);
+                                        task.needs(ObjectData::WOOD);
+
                                         commands.spawn(TaskBundle::new(
-                                            Task::new(index, TaskKind::Bridge, tilemap_data),
+                                            task,
                                             asset_server.load("sprites/bridge.png"),
                                         ));
 
                                         println!("Building bridge task at {index:?}");
                                     }
                                 }
+
+                                _ => {}
                             }
                         }
                     }

@@ -3,6 +3,7 @@ use bevy::{prelude::*, sprite::Anchor};
 use crate::{
     extract_ok,
     terrain::{TilemapData, TILE_SIZE},
+    tiles::ObjectData,
 };
 
 #[derive(PartialEq, Clone, Copy, Debug)]
@@ -11,6 +12,7 @@ pub enum TaskKind {
     Smoothen,
     Chop,
     Bridge,
+    Pickup,
 }
 
 #[derive(Bundle)]
@@ -46,6 +48,8 @@ pub struct Task {
     pub pos: IVec2,
     pub reachable_positions: Vec<IVec2>,
     pub dweller: Option<Entity>,
+    pub needs_object: Option<ObjectData>,
+    pub priority: i32,
 }
 
 impl Task {
@@ -55,7 +59,17 @@ impl Task {
             pos,
             reachable_positions: Self::compute_reachable_positions(pos, tilemap_data),
             dweller: None,
+            priority: 0,
+            needs_object: None,
         }
+    }
+
+    pub fn needs(&mut self, object_data: ObjectData) {
+        self.needs_object = Some(object_data);
+    }
+
+    pub fn priority(&mut self, priority: i32) {
+        self.priority = priority;
     }
 
     pub fn recompute_reachable_positions(&mut self, tilemap_data: &TilemapData) {

@@ -2,19 +2,21 @@ use bevy::prelude::*;
 use bevy_entitiles::prelude::*;
 
 use crate::{
+    dwellers::Dweller,
     extract_ok,
     terrain::{TilemapData, TilemapFiles, TF},
 };
 
-#[derive(PartialEq, Eq, Clone, Copy)]
-pub struct FurnitureData {
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
+pub struct ObjectData {
     atlas_index: i32,
     blocking: bool,
 }
 
-impl FurnitureData {
-    pub const TABLE: Self = Self::blocking(0);
-    pub const RUG: Self = Self::passable(1);
+impl ObjectData {
+    pub const WOOD: Self = Self::blocking(0);
+    pub const TABLE: Self = Self::blocking(1);
+    pub const RUG: Self = Self::passable(2);
 
     pub const fn passable(atlas_index: i32) -> Self {
         Self::new(atlas_index, false)
@@ -25,7 +27,7 @@ impl FurnitureData {
     }
 
     const fn new(atlas_index: i32, blocking: bool) -> Self {
-        let atlas_index = TilemapFiles::T.atlas_index(TilemapFiles::FURNITURES, atlas_index);
+        let atlas_index = TilemapFiles::T.atlas_index(TilemapFiles::OBJECTS, atlas_index);
         Self {
             atlas_index,
             blocking,
@@ -35,7 +37,7 @@ impl FurnitureData {
 
 #[derive(PartialEq, Eq, Clone, Copy)]
 pub enum TileKind {
-    Floor(Option<FurnitureData>),
+    Floor(Option<ObjectData>),
     Wall,
 }
 
@@ -69,15 +71,22 @@ impl TileData {
         Self { atlas_index, kind }
     }
 
+    pub fn with(&self, object_data: ObjectData) -> Self {
+        Self {
+            atlas_index: self.atlas_index,
+            kind: TileKind::Floor(Some(object_data)),
+        }
+    }
+
     pub fn is_blocking(&self) -> bool {
         self.kind == TileKind::Wall
     }
 
     pub fn tile_builder(&self) -> TileBuilder {
         match self.kind {
-            TileKind::Floor(Some(furniture_data)) => TileBuilder::new()
+            TileKind::Floor(Some(object_data)) => TileBuilder::new()
                 .with_layer(0, TileLayer::no_flip(self.atlas_index))
-                .with_layer(1, TileLayer::no_flip(furniture_data.atlas_index)),
+                .with_layer(1, TileLayer::no_flip(object_data.atlas_index)),
             _ => TileBuilder::new().with_layer(0, TileLayer::no_flip(self.atlas_index)),
         }
     }
@@ -97,7 +106,9 @@ impl TileData {
 
 impl PartialEq for TileData {
     fn eq(&self, other: &Self) -> bool {
-        self.atlas_index == other.atlas_index && self.kind == other.kind
+        use std::mem::discriminant;
+        self.atlas_index == other.atlas_index
+            && discriminant(&self.kind) == discriminant(&other.kind)
     }
 }
 
@@ -106,6 +117,7 @@ pub enum TileEvent {
     Smoothen,
     Chop,
     Bridge,
+    Pickup(Entity),
 }
 
 #[derive(Event)]
@@ -124,6 +136,7 @@ pub fn event_set_tile(
     mut commands: Commands,
     mut events: EventReader<SetTileEvent>,
     mut q_tilemap: Query<(&mut TilemapStorage, &mut TilemapData)>,
+    mut q_dwellers: Query<&mut Dweller>,
 ) {
     let (mut tilemap, mut tilemap_data) = extract_ok!(q_tilemap.get_single_mut());
 
@@ -167,7 +180,7 @@ pub fn event_set_tile(
 
                 TileEvent::Chop => {
                     if tile_data == TileData::TREE {
-                        TileData::GRASS_FLOOR.set_at(
+                        TileData::GRASS_FLOOR.with(ObjectData::WOOD).set_at(
                             event.index,
                             &mut commands,
                             &mut tilemap,
@@ -188,6 +201,26 @@ pub fn event_set_tile(
                         );
 
                         println!("Bridged tile at {:?}", event.index);
+                    }
+                }
+
+                TileEvent::Pickup(entity) => {
+                    if let TileKind::Floor(Some(object_data)) = tile_data.kind {
+                        if let Ok(mut dweller) = q_dwellers.get_mut(entity) {
+                            let mut new_tile_data = tile_data.clone();
+                            new_tile_data.kind = TileKind::Floor(None);
+
+                            new_tile_data.set_at(
+                                event.index,
+                                &mut commands,
+                                &mut tilemap,
+                                &mut tilemap_data,
+                            );
+
+                            dweller.object = Some(object_data);
+
+                            println!("Picked up object at {:?}", event.index);
+                        }
                     }
                 }
             }

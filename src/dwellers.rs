@@ -5,8 +5,8 @@ use rand::Rng;
 use crate::{
     extract_ok,
     tasks::{Task, TaskKind},
-    terrain::{find_from_center, TilemapData, TILE_SIZE},
-    tiles::{SetTileEvent, TileData, TileEvent},
+    terrain::{find_from_center, TilemapData, TERRAIN_SIZE, TILE_SIZE},
+    tiles::{ObjectData, SetTileEvent, TileData, TileEvent},
     utils::manhattan_distance,
 };
 
@@ -18,6 +18,7 @@ pub struct Dweller {
     name: String,
     speed: f32,
     move_queue: Vec<IVec2>, // next move is at the end
+    pub object: Option<ObjectData>,
 }
 
 #[derive(Bundle)]
@@ -33,7 +34,7 @@ pub fn spawn_dwellers(
 ) {
     let tilemap_data = extract_ok!(q_tilemap.get_single());
 
-    let Some(spawn_pos) = find_from_center(|index| {
+    let Some(spawn_pos) = find_from_center(IVec2::splat(TERRAIN_SIZE as i32 / 2), |index| {
         for dx in -1..=1 {
             for dy in -1..=1 {
                 if tilemap_data.0.get(index + IVec2::new(dx, dy)) != Some(TileData::GRASS_FLOOR) {
@@ -68,6 +69,7 @@ pub fn spawn_dwellers(
                 name: name.to_string(),
                 speed: SPEED,
                 move_queue: vec![],
+                object: None,
             },
         });
     }
@@ -91,104 +93,115 @@ pub fn update_dwellers(
             (transform.translation.y / TILE_SIZE) as i32,
         );
 
-        let mut has_task = false;
-
         // Check if dweller has a task assigned in all tasks
-        for (entity_task, task) in &q_tasks {
-            if Some(entity) == task.dweller {
-                if task.reachable_positions.iter().any(|pos| *pos == index) {
-                    // Reached task location
-                    match task.kind {
-                        TaskKind::Dig => {
-                            ev_set_tile.send(SetTileEvent::new(task.pos, TileEvent::Dig));
-                        }
+        let task = q_tasks
+            .iter()
+            .filter(|(_, task)| task.dweller == Some(entity))
+            .max_by_key(|(_, task)| task.priority);
 
-                        TaskKind::Smoothen => {
-                            ev_set_tile.send(SetTileEvent::new(task.pos, TileEvent::Smoothen));
-                        }
-
-                        TaskKind::Chop => {
-                            ev_set_tile.send(SetTileEvent::new(task.pos, TileEvent::Chop));
-                        }
-
-                        TaskKind::Bridge => {
-                            ev_set_tile.send(SetTileEvent::new(task.pos, TileEvent::Bridge));
-                        }
+        if let Some((entity_task, task)) = task {
+            if task.reachable_positions.iter().any(|pos| *pos == index) {
+                // Reached task location
+                match task.kind {
+                    TaskKind::Dig => {
+                        ev_set_tile.send(SetTileEvent::new(task.pos, TileEvent::Dig));
                     }
 
-                    commands.entity(entity_task).despawn();
+                    TaskKind::Smoothen => {
+                        ev_set_tile.send(SetTileEvent::new(task.pos, TileEvent::Smoothen));
+                    }
+
+                    TaskKind::Chop => {
+                        ev_set_tile.send(SetTileEvent::new(task.pos, TileEvent::Chop));
+                    }
+
+                    TaskKind::Bridge => {
+                        ev_set_tile.send(SetTileEvent::new(task.pos, TileEvent::Bridge));
+                    }
+
+                    TaskKind::Pickup => {
+                        if dweller.object.is_none() {
+                            ev_set_tile
+                                .send(SetTileEvent::new(task.pos, TileEvent::Pickup(entity)));
+                        }
+                    }
                 }
 
-                has_task = true;
-                break;
+                commands.entity(entity_task).despawn();
             }
+
+            return;
         }
 
         // Get a new task
-        if !has_task {
-            let task_path = q_tasks
-                .iter_mut()
-                .filter_map(|(_, task)| {
-                    if task.dweller.is_none() && !task.reachable_positions.is_empty() {
-                        // Try pathfinding to task
-
-                        let path = task
-                            .reachable_positions
-                            .iter()
-                            .filter_map(|pos| {
-                                let path = astar(
-                                    pos,
-                                    |p| {
-                                        tilemap_data
-                                            .non_blocking_neighbours(*p)
-                                            .into_iter()
-                                            .map(|p| (p, 1))
-                                    },
-                                    |p| manhattan_distance(*p, index),
-                                    |p| *p == index,
-                                );
-
-                                path.map(|path| (path.0))
-                            })
-                            .min_by_key(Vec::len);
-
-                        if let Some(path) = path {
-                            println!("Dweller can {} pathfind to {:?}", dweller.name, task);
-                            return Some((task, path));
+        let task_path = q_tasks
+            .iter_mut()
+            .filter_map(|(_, task)| {
+                if task.dweller.is_none() && !task.reachable_positions.is_empty() {
+                    if let Some(object_data) = task.needs_object {
+                        if dweller.object != Some(object_data) {
+                            // TODO
+                            // Search closest pathfindable object_data (find_from_center)
+                            // "rebrand" task as Pickup @ object_data with higher priority
+                            // add original task to queue
+                            // PROBLEM: dweller needs to accept og task before they're sure it's the task to choose
                         }
                     }
 
-                    None
-                })
-                .min_by_key(|(_, path)| path.len());
+                    // Try pathfinding to task
 
-            if let Some((mut task, path)) = task_path {
-                println!("Dweller {} got task {task:?}", dweller.name);
+                    let path = task
+                        .reachable_positions
+                        .iter()
+                        .filter_map(|pos| {
+                            astar(
+                                pos,
+                                |p| {
+                                    tilemap_data
+                                        .non_blocking_neighbours(*p)
+                                        .into_iter()
+                                        .map(|p| (p, 1))
+                                },
+                                |p| manhattan_distance(*p, index),
+                                |p| *p == index,
+                            )
+                        })
+                        .min_by_key(|path| path.1);
 
-                task.dweller = Some(entity);
-                dweller.move_queue = path;
+                    if let Some(path) = path {
+                        println!("Dweller can {} pathfind to {:?}", dweller.name, task);
+                        return Some((task, path));
+                    }
+                }
 
-                has_task = true;
-            }
+                None
+            })
+            .min_by_key(|(_, path)| path.1);
+
+        if let Some((mut task, (path, _))) = task_path {
+            println!("Dweller {} got task {task:?}", dweller.name);
+
+            task.dweller = Some(entity);
+            dweller.move_queue = path;
+
+            return;
         }
 
         // Wander around
-        if !has_task {
-            let mut rng = rand::thread_rng();
+        let mut rng = rand::thread_rng();
 
-            if rng.gen_bool(0.5) {
-                index.x += rng.gen_range(-1..=1);
-            } else {
-                index.y += rng.gen_range(-1..=1);
-            }
+        if rng.gen_bool(0.5) {
+            index.x += rng.gen_range(-1..=1);
+        } else {
+            index.y += rng.gen_range(-1..=1);
+        }
 
-            let Some(tiledata) = tilemap_data.0.get(index) else {
-                continue;
-            };
+        let Some(tiledata) = tilemap_data.0.get(index) else {
+            continue;
+        };
 
-            if !tiledata.is_blocking() {
-                dweller.move_queue.push(index);
-            }
+        if !tiledata.is_blocking() {
+            dweller.move_queue.push(index);
         }
     }
 }
