@@ -205,6 +205,28 @@ pub fn spawn_terrain(
     commands.entity(entity).insert((tilemap, tilemap_data));
 }
 
+pub fn find_from_center(is_valid: impl Fn(IVec2) -> bool) -> Option<IVec2> {
+    let center_x = TERRAIN_SIZE as i32 / 2;
+    let center_y = TERRAIN_SIZE as i32 / 2;
+    for radius in 0..=(TERRAIN_SIZE as i32 / 2) {
+        let x_min = (center_x - radius).max(1);
+        let x_max = (center_x + radius).max(TERRAIN_SIZE as i32 - 2);
+        for x in x_min..=x_max {
+            let y_min = (center_y - radius).max(1);
+            let y_max = (center_y + radius).max(TERRAIN_SIZE as i32 - 2);
+            for y in y_min..=y_max {
+                let index = IVec2::new(x, y);
+
+                if is_valid(index) {
+                    return Some(index);
+                }
+            }
+        }
+    }
+
+    None
+}
+
 /*
 pub fn load_unload_chunks(
     mut commands: Commands,

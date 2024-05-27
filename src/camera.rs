@@ -5,6 +5,7 @@ use bevy::{
 
 use crate::{
     actions::CurrentAction,
+    dwellers::Dweller,
     terrain::{TERRAIN_SIZE, TILE_SIZE},
 };
 
@@ -86,4 +87,23 @@ pub fn update_camera(
             + ((control.target_scale - projection.scale) * 20. * time.delta_seconds());
     }
     event_move.clear();
+}
+
+pub fn focus_any_dweller(
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    q_dwellers: Query<&Transform, With<Dweller>>,
+    q_new_dweller: Query<&Transform, Added<Dweller>>,
+    mut control: ResMut<CameraControl>,
+) {
+    let mut transform = q_new_dweller.iter().next();
+    if keyboard_input.just_pressed(KeyCode::Space) || transform.is_some() {
+        if transform.is_none() {
+            transform = q_dwellers.iter().next();
+        }
+
+        if let Some(transform) = transform {
+            println!("Focusing on dweller {:?}", transform.translation.truncate());
+            control.target_pos = transform.translation.truncate();
+        }
+    }
 }
