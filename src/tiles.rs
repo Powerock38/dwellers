@@ -1,13 +1,9 @@
 use bevy::prelude::*;
 use bevy_entitiles::prelude::*;
 
-use crate::{
-    dwellers::Dweller,
-    extract_ok,
-    terrain::{TilemapData, TilemapFiles, TF},
-};
+use crate::terrain::{TilemapData, TilemapFiles, TF};
 
-#[derive(PartialEq, Eq, Clone, Copy, Debug)]
+#[derive(PartialEq, Clone, Copy, Debug)]
 pub struct ObjectData {
     atlas_index: i32,
     blocking: bool,
@@ -35,7 +31,7 @@ impl ObjectData {
     }
 }
 
-#[derive(PartialEq, Eq, Clone, Copy)]
+#[derive(PartialEq, Clone, Copy)]
 pub enum TileKind {
     Floor(Option<ObjectData>),
     Wall,
@@ -44,7 +40,7 @@ pub enum TileKind {
 #[derive(Clone, Copy)]
 pub struct TileData {
     atlas_index: i32,
-    kind: TileKind,
+    pub kind: TileKind,
 }
 
 impl TileData {
@@ -109,121 +105,5 @@ impl PartialEq for TileData {
         use std::mem::discriminant;
         self.atlas_index == other.atlas_index
             && discriminant(&self.kind) == discriminant(&other.kind)
-    }
-}
-
-pub enum TileEvent {
-    Dig,
-    Smoothen,
-    Chop,
-    Bridge,
-    Pickup(Entity),
-}
-
-#[derive(Event)]
-pub struct SetTileEvent {
-    index: IVec2,
-    event: TileEvent,
-}
-
-impl SetTileEvent {
-    pub fn new(index: IVec2, event: TileEvent) -> Self {
-        Self { index, event }
-    }
-}
-
-pub fn event_set_tile(
-    mut commands: Commands,
-    mut events: EventReader<SetTileEvent>,
-    mut q_tilemap: Query<(&mut TilemapStorage, &mut TilemapData)>,
-    mut q_dwellers: Query<&mut Dweller>,
-) {
-    let (mut tilemap, mut tilemap_data) = extract_ok!(q_tilemap.get_single_mut());
-
-    for event in events.read() {
-        if let Some(tile_data) = tilemap_data.0.get(event.index) {
-            match event.event {
-                TileEvent::Dig => {
-                    if tile_data.is_blocking() {
-                        TileData::STONE_FLOOR.set_at(
-                            event.index,
-                            &mut commands,
-                            &mut tilemap,
-                            &mut tilemap_data,
-                        );
-
-                        println!("Dug tile at {:?}", event.index);
-                    }
-                }
-
-                TileEvent::Smoothen => {
-                    if tile_data == TileData::DIRT_WALL || tile_data == TileData::STONE_WALL {
-                        TileData::DUNGEON_WALL.set_at(
-                            event.index,
-                            &mut commands,
-                            &mut tilemap,
-                            &mut tilemap_data,
-                        );
-
-                        println!("Smoothened wall at {:?}", event.index);
-                    } else if tile_data == TileData::STONE_FLOOR {
-                        TileData::DUNGEON_FLOOR.set_at(
-                            event.index,
-                            &mut commands,
-                            &mut tilemap,
-                            &mut tilemap_data,
-                        );
-
-                        println!("Smoothened floor at {:?}", event.index);
-                    }
-                }
-
-                TileEvent::Chop => {
-                    if tile_data == TileData::TREE {
-                        TileData::GRASS_FLOOR.with(ObjectData::WOOD).set_at(
-                            event.index,
-                            &mut commands,
-                            &mut tilemap,
-                            &mut tilemap_data,
-                        );
-
-                        println!("Chopped tile at {:?}", event.index);
-                    }
-                }
-
-                TileEvent::Bridge => {
-                    if tile_data == TileData::WATER {
-                        TileData::BRIDGE_FLOOR.set_at(
-                            event.index,
-                            &mut commands,
-                            &mut tilemap,
-                            &mut tilemap_data,
-                        );
-
-                        println!("Bridged tile at {:?}", event.index);
-                    }
-                }
-
-                TileEvent::Pickup(entity) => {
-                    if let TileKind::Floor(Some(object_data)) = tile_data.kind {
-                        if let Ok(mut dweller) = q_dwellers.get_mut(entity) {
-                            let mut new_tile_data = tile_data.clone();
-                            new_tile_data.kind = TileKind::Floor(None);
-
-                            new_tile_data.set_at(
-                                event.index,
-                                &mut commands,
-                                &mut tilemap,
-                                &mut tilemap_data,
-                            );
-
-                            dweller.object = Some(object_data);
-
-                            println!("Picked up object at {:?}", event.index);
-                        }
-                    }
-                }
-            }
-        }
     }
 }

@@ -4,9 +4,9 @@ use rand::Rng;
 
 use crate::{
     extract_ok,
-    tasks::{Task, TaskKind},
+    tasks::{Task, TaskCompletionEvent, TaskNeeds},
     terrain::{find_from_center, TilemapData, TERRAIN_SIZE, TILE_SIZE},
-    tiles::{ObjectData, SetTileEvent, TileData, TileEvent},
+    tiles::{ObjectData, TileData},
     utils::manhattan_distance,
 };
 
@@ -15,7 +15,7 @@ const Z_INDEX: f32 = 10.0;
 
 #[derive(Component)]
 pub struct Dweller {
-    name: String,
+    pub name: String,
     speed: f32,
     move_queue: Vec<IVec2>, // next move is at the end
     pub object: Option<ObjectData>,
@@ -75,11 +75,10 @@ pub fn spawn_dwellers(
     }
 }
 pub fn update_dwellers(
-    mut commands: Commands,
     mut q_dwellers: Query<(Entity, &mut Dweller, &Transform)>,
     mut q_tilemap: Query<&TilemapData>,
     mut q_tasks: Query<(Entity, &mut Task)>,
-    mut ev_set_tile: EventWriter<SetTileEvent>,
+    mut ev_task_completion: EventWriter<TaskCompletionEvent>,
 ) {
     let tilemap_data = extract_ok!(q_tilemap.get_single_mut());
 
@@ -102,49 +101,29 @@ pub fn update_dwellers(
         if let Some((entity_task, task)) = task {
             if task.reachable_positions.iter().any(|pos| *pos == index) {
                 // Reached task location
-                match task.kind {
-                    TaskKind::Dig => {
-                        ev_set_tile.send(SetTileEvent::new(task.pos, TileEvent::Dig));
-                    }
-
-                    TaskKind::Smoothen => {
-                        ev_set_tile.send(SetTileEvent::new(task.pos, TileEvent::Smoothen));
-                    }
-
-                    TaskKind::Chop => {
-                        ev_set_tile.send(SetTileEvent::new(task.pos, TileEvent::Chop));
-                    }
-
-                    TaskKind::Bridge => {
-                        ev_set_tile.send(SetTileEvent::new(task.pos, TileEvent::Bridge));
-                    }
-
-                    TaskKind::Pickup => {
-                        if dweller.object.is_none() {
-                            ev_set_tile
-                                .send(SetTileEvent::new(task.pos, TileEvent::Pickup(entity)));
-                        }
-                    }
-                }
-
-                commands.entity(entity_task).despawn();
+                ev_task_completion.send(TaskCompletionEvent { task: entity_task });
             }
 
             return;
         }
 
         // Get a new task
+        // FIXME: dwellers first in the loop can "steal" a task far away from them from a dweller that is closer
         let task_path = q_tasks
             .iter_mut()
             .filter_map(|(_, task)| {
                 if task.dweller.is_none() && !task.reachable_positions.is_empty() {
-                    if let Some(object_data) = task.needs_object {
-                        if dweller.object != Some(object_data) {
-                            // TODO
-                            // Search closest pathfindable object_data (find_from_center)
-                            // "rebrand" task as Pickup @ object_data with higher priority
-                            // add original task to queue
-                            // PROBLEM: dweller needs to accept og task before they're sure it's the task to choose
+                    match task.needs {
+                        TaskNeeds::Nothing => {}
+                        TaskNeeds::EmptyHands => {
+                            if dweller.object.is_some() {
+                                return None;
+                            }
+                        }
+                        TaskNeeds::Object(object_data) => {
+                            if dweller.object != Some(object_data) {
+                                return None;
+                            }
                         }
                     }
 
@@ -169,7 +148,7 @@ pub fn update_dwellers(
                         .min_by_key(|path| path.1);
 
                     if let Some(path) = path {
-                        println!("Dweller can {} pathfind to {:?}", dweller.name, task);
+                        println!("Dweller {} can pathfind to {:?}", dweller.name, task);
                         return Some((task, path));
                     }
                 }

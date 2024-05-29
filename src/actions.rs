@@ -2,7 +2,7 @@ use bevy::{prelude::*, window::PrimaryWindow};
 
 use crate::{
     extract_ok, extract_some,
-    tasks::{Task, TaskBundle, TaskKind},
+    tasks::{Task, TaskBundle, TaskKind, TaskNeeds},
     terrain::{TilemapData, TILE_SIZE},
     tiles::{ObjectData, TileData},
 };
@@ -34,18 +34,6 @@ impl CurrentAction {
             kind,
             index_start: None,
         }
-    }
-}
-
-pub fn keyboard_current_action(mut commands: Commands, keyboard_input: Res<ButtonInput<KeyCode>>) {
-    if keyboard_input.just_pressed(KeyCode::Escape) {
-        commands.remove_resource::<CurrentAction>();
-    } else if keyboard_input.just_pressed(KeyCode::KeyX) {
-        commands.insert_resource(CurrentAction::new(ActionKind::Task(TaskKind::Dig)));
-    } else if keyboard_input.just_pressed(KeyCode::KeyZ) {
-        commands.insert_resource(CurrentAction::new(ActionKind::Task(TaskKind::Smoothen)));
-    } else if keyboard_input.just_pressed(KeyCode::KeyC) {
-        commands.insert_resource(CurrentAction::new(ActionKind::Cancel));
     }
 }
 
@@ -137,7 +125,12 @@ pub fn click_terrain(
                                         || tile_data == TileData::STONE_WALL
                                     {
                                         commands.spawn(TaskBundle::new(
-                                            Task::new(index, TaskKind::Dig, tilemap_data),
+                                            Task::new(
+                                                index,
+                                                TaskKind::Dig,
+                                                TaskNeeds::Nothing,
+                                                tilemap_data,
+                                            ),
                                             asset_server.load("sprites/dig.png"),
                                         ));
 
@@ -150,8 +143,12 @@ pub fn click_terrain(
                                         || tile_data == TileData::STONE_WALL
                                         || tile_data == TileData::STONE_FLOOR
                                     {
-                                        let task =
-                                            Task::new(index, TaskKind::Smoothen, tilemap_data);
+                                        let task = Task::new(
+                                            index,
+                                            TaskKind::Smoothen,
+                                            TaskNeeds::Nothing,
+                                            tilemap_data,
+                                        );
 
                                         if !task.reachable_positions.is_empty() {
                                             commands.spawn(TaskBundle::new(
@@ -167,7 +164,12 @@ pub fn click_terrain(
                                 TaskKind::Chop => {
                                     if tile_data == TileData::TREE {
                                         commands.spawn(TaskBundle::new(
-                                            Task::new(index, TaskKind::Chop, tilemap_data),
+                                            Task::new(
+                                                index,
+                                                TaskKind::Chop,
+                                                TaskNeeds::Nothing,
+                                                tilemap_data,
+                                            ),
                                             asset_server.load("sprites/chop.png"),
                                         ));
 
@@ -177,12 +179,13 @@ pub fn click_terrain(
 
                                 TaskKind::Bridge => {
                                     if tile_data == TileData::WATER {
-                                        let mut task =
-                                            Task::new(index, TaskKind::Bridge, tilemap_data);
-                                        task.needs(ObjectData::WOOD);
-
                                         commands.spawn(TaskBundle::new(
-                                            task,
+                                            Task::new(
+                                                index,
+                                                TaskKind::Bridge,
+                                                TaskNeeds::Object(ObjectData::WOOD),
+                                                tilemap_data,
+                                            ),
                                             asset_server.load("sprites/bridge.png"),
                                         ));
 
