@@ -97,6 +97,35 @@ impl TileData {
         tilemap.set(commands, index, self.tile_builder());
 
         tilemap_data.0.set(index, *self);
+
+        Self::update_light_level(index, commands, tilemap, tilemap_data);
+        for (neighbour_index, _) in tilemap_data.neighbours(index) {
+            Self::update_light_level(neighbour_index, commands, tilemap, tilemap_data);
+        }
+    }
+
+    pub fn update_light_level(
+        index: IVec2,
+        commands: &mut Commands,
+        tilemap: &mut TilemapStorage,
+        tilemap_data: &mut TilemapData,
+    ) {
+        let tint = if tilemap_data.neighbours(index).iter().all(|(_, tile)| {
+            tile == &Self::STONE_WALL || tile == &Self::DIRT_WALL || tile == &Self::DUNGEON_WALL
+        }) {
+            Color::BLACK
+        } else {
+            Color::WHITE
+        };
+
+        tilemap.update(
+            commands,
+            index,
+            TileUpdater {
+                tint: Some(tint),
+                ..default()
+            },
+        );
     }
 }
 

@@ -88,7 +88,7 @@ impl Task {
             }
         }
 
-        tilemap_data.non_blocking_neighbours(pos)
+        tilemap_data.non_blocking_neighbours_pos(pos)
     }
 }
 

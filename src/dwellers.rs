@@ -104,7 +104,7 @@ pub fn update_dwellers(
                 ev_task_completion.send(TaskCompletionEvent { task: entity_task });
             }
 
-            return;
+            continue;
         }
 
         // Get a new task
@@ -137,7 +137,7 @@ pub fn update_dwellers(
                                 pos,
                                 |p| {
                                     tilemap_data
-                                        .non_blocking_neighbours(*p)
+                                        .non_blocking_neighbours_pos(*p)
                                         .into_iter()
                                         .map(|p| (p, 1))
                                 },
@@ -163,7 +163,7 @@ pub fn update_dwellers(
             task.dweller = Some(entity);
             dweller.move_queue = path;
 
-            return;
+            continue;
         }
 
         // Wander around

@@ -22,6 +22,12 @@ impl std::fmt::Display for ActionKind {
     }
 }
 
+pub fn keyboard_current_action(mut commands: Commands, keyboard_input: Res<ButtonInput<KeyCode>>) {
+    if keyboard_input.just_pressed(KeyCode::Escape) {
+        commands.remove_resource::<CurrentAction>();
+    }
+}
+
 #[derive(Resource, Debug)]
 pub struct CurrentAction {
     pub kind: ActionKind,
@@ -123,6 +129,7 @@ pub fn click_terrain(
                                 TaskKind::Dig => {
                                     if tile_data == TileData::DIRT_WALL
                                         || tile_data == TileData::STONE_WALL
+                                        || tile_data == TileData::DUNGEON_WALL
                                     {
                                         commands.spawn(TaskBundle::new(
                                             Task::new(

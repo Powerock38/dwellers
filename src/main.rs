@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use actions::click_terrain;
+use actions::{click_terrain, keyboard_current_action};
 use bevy::{prelude::*, time::common_conditions::on_timer};
 use bevy_entitiles::EntiTilesPlugin;
 use camera::{focus_any_dweller, update_camera, CameraControl};
@@ -52,6 +52,7 @@ fn main() {
                 update_dwellers_movement,
                 update_unreachable_tasks,
                 event_task_completion,
+                keyboard_current_action,
             ),
         )
         .run();

@@ -81,15 +81,27 @@ impl TilemapFiles {
 pub struct TilemapData(pub Map2D<TileData>);
 
 impl TilemapData {
-    pub fn non_blocking_neighbours(&self, pos: IVec2) -> Vec<IVec2> {
+    pub fn neighbours(&self, pos: IVec2) -> Vec<(IVec2, TileData)> {
         [IVec2::X, IVec2::Y, IVec2::NEG_X, IVec2::NEG_Y]
             .into_iter()
             .filter_map(|p| {
                 let index = pos + p;
+
                 if let Some(tile) = self.0.get(index) {
-                    if !tile.is_blocking() {
-                        return Some(index);
-                    }
+                    return Some((index, tile));
+                }
+
+                None
+            })
+            .collect()
+    }
+
+    pub fn non_blocking_neighbours_pos(&self, pos: IVec2) -> Vec<IVec2> {
+        self.neighbours(pos)
+            .into_iter()
+            .filter_map(|(index, tile)| {
+                if !tile.is_blocking() {
+                    return Some(index);
                 }
 
                 None
