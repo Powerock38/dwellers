@@ -4,7 +4,7 @@ use crate::{
     extract_ok, extract_some,
     tasks::{Task, TaskBundle, TaskKind, TaskNeeds},
     terrain::{TilemapData, TILE_SIZE},
-    tiles::{ObjectData, TileData},
+    tiles::{ObjectData, TileData, TileKind},
 };
 
 #[derive(PartialEq, Clone, Copy, Debug)]
@@ -17,6 +17,7 @@ impl std::fmt::Display for ActionKind {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             Self::Cancel => write!(f, "{self:?}"),
+            Self::Task(TaskKind::BuildObject { .. }) => write!(f, "Build Object"),
             Self::Task(task_kind) => write!(f, "{task_kind:?}"),
         }
     }
@@ -134,7 +135,7 @@ pub fn click_terrain(
                                         commands.spawn(TaskBundle::new(
                                             Task::new(
                                                 index,
-                                                TaskKind::Dig,
+                                                task_kind,
                                                 TaskNeeds::Nothing,
                                                 tilemap_data,
                                             ),
@@ -152,7 +153,7 @@ pub fn click_terrain(
                                     {
                                         let task = Task::new(
                                             index,
-                                            TaskKind::Smoothen,
+                                            task_kind,
                                             TaskNeeds::Nothing,
                                             tilemap_data,
                                         );
@@ -173,7 +174,7 @@ pub fn click_terrain(
                                         commands.spawn(TaskBundle::new(
                                             Task::new(
                                                 index,
-                                                TaskKind::Chop,
+                                                task_kind,
                                                 TaskNeeds::Nothing,
                                                 tilemap_data,
                                             ),
@@ -189,7 +190,7 @@ pub fn click_terrain(
                                         commands.spawn(TaskBundle::new(
                                             Task::new(
                                                 index,
-                                                TaskKind::Bridge,
+                                                task_kind,
                                                 TaskNeeds::Object(ObjectData::WOOD),
                                                 tilemap_data,
                                             ),
@@ -197,6 +198,22 @@ pub fn click_terrain(
                                         ));
 
                                         println!("Building bridge task at {index:?}");
+                                    }
+                                }
+
+                                TaskKind::BuildObject { cost, .. } => {
+                                    if tile_data.kind == TileKind::Floor(None) {
+                                        commands.spawn(TaskBundle::new(
+                                            Task::new(
+                                                index,
+                                                task_kind,
+                                                TaskNeeds::Object(cost),
+                                                tilemap_data,
+                                            ),
+                                            asset_server.load("sprites/build.png"),
+                                        ));
+
+                                        println!("Building object task at {index:?}");
                                     }
                                 }
 

@@ -15,6 +15,10 @@ pub enum TaskKind {
     Chop,
     Bridge,
     Pickup,
+    BuildObject {
+        object: ObjectData,
+        cost: ObjectData,
+    },
 }
 
 #[derive(Bundle)]
@@ -120,7 +124,7 @@ pub fn event_task_completion(
 ) {
     let (mut tilemap, mut tilemap_data) = extract_ok!(q_tilemap.get_single_mut());
 
-    let mut update_tasks = false;
+    let mut update_tasks_pos = false;
 
     for event in events.read() {
         let Ok((entity, task)) = q_tasks.get(event.task) else {
@@ -148,7 +152,7 @@ pub fn event_task_completion(
                     );
 
                     println!("Dug tile at {:?}", task.pos);
-                    update_tasks = true;
+                    update_tasks_pos = true;
                     success = true;
                 }
             }
@@ -197,7 +201,7 @@ pub fn event_task_completion(
                     ));
 
                     println!("Chopped tile at {:?}", task.pos);
-                    update_tasks = true;
+                    update_tasks_pos = true;
                     success = true;
                 }
             }
@@ -212,7 +216,7 @@ pub fn event_task_completion(
                     );
 
                     println!("Bridged tile at {:?}", task.pos);
-                    update_tasks = true;
+                    update_tasks_pos = true;
                     success = true;
                 }
             }
@@ -237,6 +241,21 @@ pub fn event_task_completion(
                     }
                 }
             }
+
+            TaskKind::BuildObject { object, .. } => {
+                if tile_data.kind == TileKind::Floor(None) {
+                    tile_data.with(object).set_at(
+                        task.pos,
+                        &mut commands,
+                        &mut tilemap,
+                        &mut tilemap_data,
+                    );
+
+                    println!("Built {:?} at {:?}", object, task.pos);
+                    update_tasks_pos = true;
+                    success = true;
+                }
+            }
         }
 
         if success {
@@ -259,7 +278,7 @@ pub fn event_task_completion(
         }
     }
 
-    if update_tasks {
+    if update_tasks_pos {
         for (_, mut o_task) in &mut q_tasks {
             o_task.recompute_reachable_positions(&tilemap_data);
         }

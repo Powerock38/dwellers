@@ -3,6 +3,7 @@ use bevy::prelude::*;
 use crate::{
     actions::{ActionKind, CurrentAction},
     tasks::TaskKind,
+    tiles::ObjectData,
 };
 
 const NORMAL_BUTTON: Color = Color::rgb(0.15, 0.15, 0.15);
@@ -107,6 +108,13 @@ pub fn spawn_ui(mut commands: Commands) {
                 build_button(c, ActionKind::Task(TaskKind::Smoothen));
                 build_button(c, ActionKind::Task(TaskKind::Chop));
                 build_button(c, ActionKind::Task(TaskKind::Bridge));
+                build_button(
+                    c,
+                    ActionKind::Task(TaskKind::BuildObject {
+                        object: ObjectData::TABLE,
+                        cost: ObjectData::WOOD,
+                    }),
+                );
 
                 build_button(c, ActionKind::Cancel);
             });

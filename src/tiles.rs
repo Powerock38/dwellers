@@ -10,9 +10,9 @@ pub struct ObjectData {
 }
 
 impl ObjectData {
-    pub const WOOD: Self = Self::blocking(0);
-    pub const TABLE: Self = Self::blocking(1);
-    pub const RUG: Self = Self::passable(2);
+    pub const WOOD: Self = Self::passable(0);
+    pub const RUG: Self = Self::passable(1);
+    pub const TABLE: Self = Self::blocking(2);
 
     pub const fn passable(atlas_index: i32) -> Self {
         Self::new(atlas_index, false)
@@ -75,7 +75,11 @@ impl TileData {
     }
 
     pub fn is_blocking(&self) -> bool {
-        self.kind == TileKind::Wall
+        match self.kind {
+            TileKind::Wall => true,
+            TileKind::Floor(Some(object_data)) => object_data.blocking,
+            _ => false,
+        }
     }
 
     pub fn tile_builder(&self) -> TileBuilder {
