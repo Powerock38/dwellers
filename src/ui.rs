@@ -115,6 +115,7 @@ pub fn spawn_ui(mut commands: Commands) {
                         cost: ObjectData::WOOD,
                     }),
                 );
+                build_button(c, ActionKind::Task(TaskKind::Hunt));
 
                 build_button(c, ActionKind::Cancel);
             });

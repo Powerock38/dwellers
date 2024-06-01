@@ -1,7 +1,8 @@
-use bevy::{prelude::*, window::PrimaryWindow};
+use bevy::{prelude::*, sprite::Anchor, window::PrimaryWindow};
 
 use crate::{
     extract_ok, extract_some,
+    mobs::Mob,
     tasks::{Task, TaskBundle, TaskKind, TaskNeeds},
     terrain::{TilemapData, TILE_SIZE},
     tiles::{ObjectData, TileData, TileKind},
@@ -54,6 +55,7 @@ pub fn click_terrain(
     current_action: Option<ResMut<CurrentAction>>,
     q_tilemap: Query<&TilemapData>,
     q_tasks: Query<(Entity, &Task)>,
+    q_mobs: Query<(Entity, &Transform), With<Mob>>,
 ) {
     if let Some(mut current_action) = current_action {
         if mouse_input.just_pressed(MouseButton::Right) {
@@ -201,6 +203,8 @@ pub fn click_terrain(
                                     }
                                 }
 
+                                TaskKind::Pickup => {}
+
                                 TaskKind::BuildObject { cost, .. } => {
                                     if tile_data.kind == TileKind::Floor(None) {
                                         commands.spawn(TaskBundle::new(
@@ -217,7 +221,39 @@ pub fn click_terrain(
                                     }
                                 }
 
-                                _ => {}
+                                TaskKind::Hunt => {
+                                    if let Some((entity_mob, _)) =
+                                        q_mobs.iter().find(|(_, mob_transform)| {
+                                            mob_transform.translation.distance(
+                                                Vec3::new(index.x as f32, index.y as f32, 0.)
+                                                    * TILE_SIZE,
+                                            ) < TILE_SIZE
+                                        })
+                                    {
+                                        commands.entity(entity_mob).with_children(|c| {
+                                            c.spawn(TaskBundle {
+                                                task: Task::new(
+                                                    index,
+                                                    task_kind,
+                                                    TaskNeeds::Nothing,
+                                                    tilemap_data,
+                                                ),
+                                                sprite: SpriteBundle {
+                                                    texture: asset_server.load("sprites/hunt.png"),
+                                                    sprite: Sprite {
+                                                        anchor: Anchor::BottomLeft,
+                                                        custom_size: Some(Vec2::splat(TILE_SIZE)),
+                                                        ..default()
+                                                    },
+                                                    transform: Transform::from_xyz(0., 0., 1.),
+                                                    ..default()
+                                                },
+                                            });
+                                        });
+
+                                        println!("Hunting task at {index:?}");
+                                    }
+                                }
                             }
                         }
                     }

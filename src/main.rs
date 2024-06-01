@@ -5,6 +5,7 @@ use bevy::{prelude::*, time::common_conditions::on_timer};
 use bevy_entitiles::EntiTilesPlugin;
 use camera::{focus_any_dweller, update_camera, CameraControl};
 use dwellers::{spawn_dwellers, update_dwellers, update_dwellers_movement};
+use mobs::{spawn_mobs, update_mobs, update_mobs_movement};
 use tasks::{event_task_completion, update_unreachable_tasks, TaskCompletionEvent};
 use terrain::spawn_terrain;
 use ui::{spawn_ui, update_ui};
@@ -12,6 +13,7 @@ use ui::{spawn_ui, update_ui};
 mod actions;
 mod camera;
 mod dwellers;
+mod mobs;
 mod tasks;
 mod terrain;
 mod tiles;
@@ -39,7 +41,11 @@ fn main() {
         .add_event::<TaskCompletionEvent>()
         .add_systems(
             Startup,
-            (spawn_terrain, spawn_dwellers.after(spawn_terrain), spawn_ui),
+            (
+                spawn_terrain,
+                (spawn_dwellers, spawn_mobs).after(spawn_terrain),
+                spawn_ui,
+            ),
         )
         .add_systems(
             Update,
@@ -48,8 +54,9 @@ fn main() {
                 update_ui,
                 focus_any_dweller,
                 click_terrain,
-                update_dwellers.run_if(on_timer(Duration::from_millis(200))),
+                (update_dwellers, update_mobs).run_if(on_timer(Duration::from_millis(200))),
                 update_dwellers_movement,
+                update_mobs_movement,
                 update_unreachable_tasks,
                 event_task_completion,
                 keyboard_current_action,

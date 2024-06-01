@@ -4,6 +4,7 @@ use bevy_entitiles::tilemap::map::TilemapStorage;
 use crate::{
     dwellers::Dweller,
     extract_ok,
+    mobs::Mob,
     terrain::{TilemapData, TILE_SIZE},
     tiles::{ObjectData, TileData, TileKind},
 };
@@ -19,6 +20,7 @@ pub enum TaskKind {
         object: ObjectData,
         cost: ObjectData,
     },
+    Hunt,
 }
 
 #[derive(Bundle)]
@@ -119,6 +121,7 @@ pub fn event_task_completion(
     asset_server: Res<AssetServer>,
     mut events: EventReader<TaskCompletionEvent>,
     mut q_tilemap: Query<(&mut TilemapStorage, &mut TilemapData)>,
+    q_mobs: Query<(Entity, &Mob, &Transform)>,
     mut q_dwellers: Query<&mut Dweller>,
     mut q_tasks: Query<(Entity, &mut Task)>,
 ) {
@@ -183,7 +186,7 @@ pub fn event_task_completion(
 
             TaskKind::Chop => {
                 if tile_data == TileData::TREE {
-                    TileData::GRASS_FLOOR.with(ObjectData::WOOD).set_at(
+                    tile_data.with(ObjectData::WOOD).set_at(
                         task.pos,
                         &mut commands,
                         &mut tilemap,
@@ -256,6 +259,42 @@ pub fn event_task_completion(
                     success = true;
                 }
             }
+
+            TaskKind::Hunt => {
+                if let Some((entity_mob, mob, mob_transform)) =
+                    q_mobs.iter().find(|(_, _, mob_transform)| {
+                        mob_transform.translation.distance(
+                            Vec3::new(task.pos.x as f32, task.pos.y as f32, 0.) * TILE_SIZE,
+                        ) < TILE_SIZE
+                    })
+                {
+                    if tile_data.kind == TileKind::Floor(None) {
+                        tile_data.with(mob.loot).set_at(
+                            task.pos,
+                            &mut commands,
+                            &mut tilemap,
+                            &mut tilemap_data,
+                        );
+
+                        commands.spawn(TaskBundle::new(
+                            Task::new(
+                                task.pos,
+                                TaskKind::Pickup,
+                                TaskNeeds::EmptyHands,
+                                &tilemap_data,
+                            ),
+                            asset_server.load("sprites/pickup.png"),
+                        ));
+                    }
+
+                    commands.entity(entity_mob).despawn();
+
+                    println!("Hunted mob at {:?}", mob_transform.translation);
+                    success = true;
+                } else {
+                    //TODO: update task position (need to save Mob entity id in task?)
+                }
+            }
         }
 
         if success {
@@ -271,10 +310,7 @@ pub fn event_task_completion(
 
             commands.entity(entity).despawn();
         } else {
-            println!(
-                "SHOULD NEVER HAPPEN: Dweller {} failed task {:?}",
-                dweller.name, task
-            );
+            println!("Dweller {} failed task {:?}", dweller.name, task);
         }
     }
 
