@@ -4,7 +4,7 @@ use rand::prelude::*;
 use crate::{
     extract_ok,
     terrain::{find_from_center, TilemapData, TERRAIN_SIZE, TILE_SIZE},
-    tiles::{ObjectData, TileData},
+    tiles::ObjectData,
 };
 
 const Z_INDEX: f32 = 11.0;
@@ -59,7 +59,11 @@ pub fn spawn_mobs(
     let Some(spawn_pos) = find_from_center(IVec2::splat(TERRAIN_SIZE as i32 / 2), |index| {
         for dx in -1..=1 {
             for dy in -1..=1 {
-                if tilemap_data.0.get(index + IVec2::new(dx, dy)) != Some(TileData::GRASS_FLOOR) {
+                let Some(tile_data) = tilemap_data.0.get(index + IVec2::new(dx, dy)) else {
+                    return false;
+                };
+
+                if tile_data.is_blocking() {
                     return false;
                 }
             }

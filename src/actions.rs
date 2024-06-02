@@ -5,7 +5,7 @@ use crate::{
     mobs::Mob,
     tasks::{Task, TaskBundle, TaskKind, TaskNeeds},
     terrain::{TilemapData, TILE_SIZE},
-    tiles::{ObjectData, TileData, TileKind},
+    tiles::ObjectData,
 };
 
 #[derive(PartialEq, Clone, Copy, Debug)]
@@ -59,7 +59,11 @@ pub fn click_terrain(
 ) {
     if let Some(mut current_action) = current_action {
         if mouse_input.just_pressed(MouseButton::Right) {
-            current_action.index_start = None;
+            if current_action.index_start.is_some() {
+                current_action.index_start = None;
+            } else {
+                commands.remove_resource::<CurrentAction>();
+            }
             return;
         }
 
@@ -128,97 +132,85 @@ pub fn click_terrain(
                                 continue;
                             }
 
+                            if !task_kind.can_be_completed(tile_data) {
+                                continue;
+                            }
+
                             match task_kind {
                                 TaskKind::Dig => {
-                                    if tile_data == TileData::DIRT_WALL
-                                        || tile_data == TileData::STONE_WALL
-                                        || tile_data == TileData::DUNGEON_WALL
-                                    {
-                                        commands.spawn(TaskBundle::new(
-                                            Task::new(
-                                                index,
-                                                task_kind,
-                                                TaskNeeds::Nothing,
-                                                tilemap_data,
-                                            ),
-                                            asset_server.load("sprites/dig.png"),
-                                        ));
-
-                                        println!("Digging task at {index:?}");
-                                    }
-                                }
-
-                                TaskKind::Smoothen => {
-                                    if tile_data == TileData::DIRT_WALL
-                                        || tile_data == TileData::STONE_WALL
-                                        || tile_data == TileData::STONE_FLOOR
-                                    {
-                                        let task = Task::new(
+                                    commands.spawn(TaskBundle::new(
+                                        Task::new(
                                             index,
                                             task_kind,
                                             TaskNeeds::Nothing,
                                             tilemap_data,
-                                        );
+                                        ),
+                                        asset_server.load("sprites/dig.png"),
+                                    ));
 
-                                        if !task.reachable_positions.is_empty() {
-                                            commands.spawn(TaskBundle::new(
-                                                task,
-                                                asset_server.load("sprites/smoothen.png"),
-                                            ));
+                                    println!("Digging task at {index:?}");
+                                }
 
-                                            println!("Smoothening task at {index:?}");
-                                        }
+                                TaskKind::Smoothen => {
+                                    let task = Task::new(
+                                        index,
+                                        task_kind,
+                                        TaskNeeds::Nothing,
+                                        tilemap_data,
+                                    );
+
+                                    if !task.reachable_positions.is_empty() {
+                                        commands.spawn(TaskBundle::new(
+                                            task,
+                                            asset_server.load("sprites/smoothen.png"),
+                                        ));
+
+                                        println!("Smoothening task at {index:?}");
                                     }
                                 }
 
                                 TaskKind::Chop => {
-                                    if tile_data == TileData::TREE {
-                                        commands.spawn(TaskBundle::new(
-                                            Task::new(
-                                                index,
-                                                task_kind,
-                                                TaskNeeds::Nothing,
-                                                tilemap_data,
-                                            ),
-                                            asset_server.load("sprites/chop.png"),
-                                        ));
+                                    commands.spawn(TaskBundle::new(
+                                        Task::new(
+                                            index,
+                                            task_kind,
+                                            TaskNeeds::Nothing,
+                                            tilemap_data,
+                                        ),
+                                        asset_server.load("sprites/chop.png"),
+                                    ));
 
-                                        println!("Chopping task at {index:?}");
-                                    }
+                                    println!("Chopping task at {index:?}");
                                 }
 
                                 TaskKind::Bridge => {
-                                    if tile_data == TileData::WATER {
-                                        commands.spawn(TaskBundle::new(
-                                            Task::new(
-                                                index,
-                                                task_kind,
-                                                TaskNeeds::Object(ObjectData::WOOD),
-                                                tilemap_data,
-                                            ),
-                                            asset_server.load("sprites/bridge.png"),
-                                        ));
+                                    commands.spawn(TaskBundle::new(
+                                        Task::new(
+                                            index,
+                                            task_kind,
+                                            TaskNeeds::Object(ObjectData::WOOD),
+                                            tilemap_data,
+                                        ),
+                                        asset_server.load("sprites/bridge.png"),
+                                    ));
 
-                                        println!("Building bridge task at {index:?}");
-                                    }
+                                    println!("Building bridge task at {index:?}");
                                 }
 
                                 TaskKind::Pickup => {}
 
                                 TaskKind::BuildObject { cost, .. } => {
-                                    if tile_data.kind == TileKind::Floor(None) {
-                                        commands.spawn(TaskBundle::new(
-                                            Task::new(
-                                                index,
-                                                task_kind,
-                                                TaskNeeds::Object(cost),
-                                                tilemap_data,
-                                            ),
-                                            asset_server.load("sprites/build.png"),
-                                        ));
+                                    commands.spawn(TaskBundle::new(
+                                        Task::new(
+                                            index,
+                                            task_kind,
+                                            TaskNeeds::Object(cost),
+                                            tilemap_data,
+                                        ),
+                                        asset_server.load("sprites/build.png"),
+                                    ));
 
-                                        println!("Building object task at {index:?}");
-                                    }
+                                    println!("Building object task at {index:?}");
                                 }
 
                                 TaskKind::Hunt => {

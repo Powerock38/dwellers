@@ -4,7 +4,10 @@ use bevy_entitiles::{
 };
 use noise::{NoiseFn, Perlin, RidgedMulti};
 
-use crate::{tiles::TileData, utils::Map2D};
+use crate::{
+    tiles::{ObjectData, TileData},
+    utils::Map2D,
+};
 
 pub const TILE_SIZE_U: u32 = 16;
 pub const TILE_SIZE: f32 = TILE_SIZE_U as f32;
@@ -204,7 +207,7 @@ pub fn spawn_terrain(
             let tree_noise_value = noise.get([u * TREE_NOISE_SCALE, v * TREE_NOISE_SCALE]);
             if tree_noise_value > 0.0 {
                 // 0.5 {
-                TileData::TREE.set_at(
+                TileData::GRASS_FLOOR.with(ObjectData::TREE).set_at(
                     index,
                     &mut commands,
                     &mut tilemap.storage,

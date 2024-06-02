@@ -12,7 +12,8 @@ pub struct ObjectData {
 impl ObjectData {
     pub const WOOD: Self = Self::passable(0);
     pub const RUG: Self = Self::passable(1);
-    pub const TABLE: Self = Self::blocking(2);
+    pub const TREE: Self = Self::blocking(2);
+    pub const TABLE: Self = Self::blocking(3);
 
     pub const fn passable(atlas_index: i32) -> Self {
         Self::new(atlas_index, false)
@@ -51,8 +52,7 @@ impl TileData {
     pub const DIRT_WALL: Self = Self::wall(0);
     pub const STONE_WALL: Self = Self::wall(1);
     pub const DUNGEON_WALL: Self = Self::wall(2);
-    pub const TREE: Self = Self::wall(3);
-    pub const WATER: Self = Self::wall(4);
+    pub const WATER: Self = Self::wall(3);
 
     pub const fn floor(atlas_index: i32) -> Self {
         Self::new(TilemapFiles::FLOORS, atlas_index, TileKind::Floor(None))
