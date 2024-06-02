@@ -89,6 +89,7 @@ pub fn spawn_ui(mut commands: Commands) {
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::FlexEnd,
+                row_gap: Val::Px(10.0),
                 ..default()
             },
             ..default()
@@ -104,18 +105,36 @@ pub fn spawn_ui(mut commands: Commands) {
                 ..default()
             })
             .with_children(|c| {
+                for (name, object, cost) in [
+                    ("table", ObjectData::TABLE, ObjectData::WOOD),
+                    ("stool", ObjectData::STOOL, ObjectData::WOOD),
+                    ("bed", ObjectData::BED, ObjectData::WOOD),
+                    ("door", ObjectData::DOOR, ObjectData::WOOD),
+                ] {
+                    build_button_text(
+                        c,
+                        ActionKind::Task(TaskKind::BuildObject { object, cost }),
+                        format!("Build {name}"),
+                    );
+                }
+            });
+
+            c.spawn(NodeBundle {
+                style: Style {
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    column_gap: Val::Px(10.0),
+                    ..default()
+                },
+                ..default()
+            })
+            .with_children(|c| {
                 build_button(c, ActionKind::Task(TaskKind::Dig));
                 build_button(c, ActionKind::Task(TaskKind::Smoothen));
                 build_button(c, ActionKind::Task(TaskKind::Chop));
                 build_button(c, ActionKind::Task(TaskKind::Bridge));
-                build_button(
-                    c,
-                    ActionKind::Task(TaskKind::BuildObject {
-                        object: ObjectData::TABLE,
-                        cost: ObjectData::WOOD,
-                    }),
-                );
                 build_button(c, ActionKind::Task(TaskKind::Hunt));
+                build_button(c, ActionKind::Task(TaskKind::Pickup));
 
                 build_button(c, ActionKind::Cancel);
             });
@@ -123,6 +142,10 @@ pub fn spawn_ui(mut commands: Commands) {
 }
 
 fn build_button(c: &mut ChildBuilder, kind: ActionKind) {
+    build_button_text(c, kind, kind.to_string());
+}
+
+fn build_button_text(c: &mut ChildBuilder, kind: ActionKind, text: String) {
     c.spawn((
         ActionButton(kind),
         ButtonBundle {
@@ -139,7 +162,7 @@ fn build_button(c: &mut ChildBuilder, kind: ActionKind) {
     ))
     .with_children(|c| {
         c.spawn(TextBundle::from_section(
-            kind.to_string(),
+            text,
             TextStyle {
                 font_size: 20.0,
                 color: Color::rgb(0.9, 0.9, 0.9),

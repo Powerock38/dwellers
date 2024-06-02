@@ -14,6 +14,9 @@ impl ObjectData {
     pub const RUG: Self = Self::passable(1);
     pub const TREE: Self = Self::blocking(2);
     pub const TABLE: Self = Self::blocking(3);
+    pub const STOOL: Self = Self::blocking(4);
+    pub const BED: Self = Self::blocking(5);
+    pub const DOOR: Self = Self::passable(6);
 
     pub const fn passable(atlas_index: i32) -> Self {
         Self::new(atlas_index, false)
@@ -49,6 +52,7 @@ impl TileData {
     pub const STONE_FLOOR: Self = Self::floor(1);
     pub const DUNGEON_FLOOR: Self = Self::floor(2);
     pub const BRIDGE_FLOOR: Self = Self::floor(3);
+
     pub const DIRT_WALL: Self = Self::wall(0);
     pub const STONE_WALL: Self = Self::wall(1);
     pub const DUNGEON_WALL: Self = Self::wall(2);

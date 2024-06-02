@@ -1,13 +1,11 @@
 use bevy::{prelude::*, sprite::Anchor};
-use pathfinding::prelude::astar;
 use rand::Rng;
 
 use crate::{
     extract_ok,
-    tasks::{Task, TaskCompletionEvent, TaskNeeds},
+    tasks::{Task, TaskCompletionEvent, TaskKind, TaskNeeds},
     terrain::{find_from_center, TilemapData, TERRAIN_SIZE, TILE_SIZE},
     tiles::ObjectData,
-    utils::manhattan_distance,
 };
 
 const SPEED: f32 = 80.0;
@@ -98,14 +96,25 @@ pub fn update_dwellers(
 
         // Check if dweller has a task assigned in all tasks
         let task = q_tasks
-            .iter()
+            .iter_mut()
             .filter(|(_, task)| task.dweller == Some(entity))
             .max_by_key(|(_, task)| task.priority);
 
-        if let Some((entity_task, task)) = task {
+        if let Some((entity_task, mut task)) = task {
             if task.reachable_positions.iter().any(|pos| *pos == index) {
                 // Reached task location
                 ev_task_completion.send(TaskCompletionEvent { task: entity_task });
+            } else {
+                // Task moved, try to pathfind again
+                let path = task.pathfind(index, tilemap_data);
+
+                if let Some(path) = path {
+                    println!("Dweller {} can re-pathfind to {:?}", dweller.name, task);
+                    dweller.move_queue = path.0;
+                } else {
+                    println!("Dweller {} give up {:?}", dweller.name, task);
+                    task.dweller = None;
+                }
             }
 
             continue;
@@ -124,32 +133,26 @@ pub fn update_dwellers(
                                 return None;
                             }
                         }
-                        TaskNeeds::Object(object_data) => {
-                            if dweller.object != Some(object_data) {
-                                return None;
+                        TaskNeeds::Object(object_data) => match dweller.object {
+                            None => return None,
+                            Some(dweller_object) => {
+                                if dweller_object != object_data
+                                    && !matches!(
+                                        task.kind,
+                                        TaskKind::BuildObject {
+                                            object: build_object,
+                                            ..
+                                        } if build_object == dweller_object
+                                    )
+                                {
+                                    return None;
+                                }
                             }
-                        }
+                        },
                     }
 
                     // Try pathfinding to task
-
-                    let path = task
-                        .reachable_positions
-                        .iter()
-                        .filter_map(|pos| {
-                            astar(
-                                pos,
-                                |p| {
-                                    tilemap_data
-                                        .non_blocking_neighbours_pos(*p)
-                                        .into_iter()
-                                        .map(|p| (p, 1))
-                                },
-                                |p| manhattan_distance(*p, index),
-                                |p| *p == index,
-                            )
-                        })
-                        .min_by_key(|path| path.1);
+                    let path = task.pathfind(index, tilemap_data);
 
                     if let Some(path) = path {
                         println!("Dweller {} can pathfind to {:?}", dweller.name, task);

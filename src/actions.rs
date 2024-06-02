@@ -197,7 +197,19 @@ pub fn click_terrain(
                                     println!("Building bridge task at {index:?}");
                                 }
 
-                                TaskKind::Pickup => {}
+                                TaskKind::Pickup => {
+                                    commands.spawn(TaskBundle::new(
+                                        Task::new(
+                                            index,
+                                            task_kind,
+                                            TaskNeeds::EmptyHands,
+                                            tilemap_data,
+                                        ),
+                                        asset_server.load("sprites/pickup.png"),
+                                    ));
+
+                                    println!("Picking up task at {index:?}");
+                                }
 
                                 TaskKind::BuildObject { cost, .. } => {
                                     commands.spawn(TaskBundle::new(

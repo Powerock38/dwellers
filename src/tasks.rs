@@ -1,5 +1,6 @@
 use bevy::{prelude::*, sprite::Anchor};
 use bevy_entitiles::tilemap::map::TilemapStorage;
+use pathfinding::directed::astar::astar;
 
 use crate::{
     dwellers::Dweller,
@@ -7,6 +8,7 @@ use crate::{
     mobs::Mob,
     terrain::{TilemapData, TILE_SIZE},
     tiles::{ObjectData, TileData, TileKind},
+    utils::manhattan_distance,
 };
 
 #[derive(PartialEq, Clone, Copy, Debug)]
@@ -39,7 +41,10 @@ impl TaskKind {
             TaskKind::Chop => tile_data.kind == TileKind::Floor(Some(ObjectData::TREE)),
             TaskKind::Bridge => tile_data == TileData::WATER,
             TaskKind::BuildObject { .. } => tile_data.kind == TileKind::Floor(None),
-            TaskKind::Pickup | TaskKind::Hunt => true,
+            TaskKind::Pickup => {
+                matches!(tile_data.kind, TileKind::Floor(Some(object)) if object != ObjectData::TREE)
+            }
+            TaskKind::Hunt => true,
         }
     }
 }
@@ -117,6 +122,29 @@ impl Task {
 
         tilemap_data.non_blocking_neighbours_pos(pos)
     }
+
+    pub fn pathfind(
+        &self,
+        dweller_pos: IVec2,
+        tilemap_data: &TilemapData,
+    ) -> Option<(Vec<IVec2>, i32)> {
+        self.reachable_positions
+            .iter()
+            .filter_map(|pos| {
+                astar(
+                    pos,
+                    |p| {
+                        tilemap_data
+                            .non_blocking_neighbours_pos(*p)
+                            .into_iter()
+                            .map(|p| (p, 1))
+                    },
+                    |p| manhattan_distance(*p, dweller_pos),
+                    |p| *p == dweller_pos,
+                )
+            })
+            .min_by_key(|path| path.1)
+    }
 }
 
 pub fn update_unreachable_tasks(
@@ -151,7 +179,7 @@ pub fn event_task_completion(
     let mut update_tasks_pos = false;
 
     for event in events.read() {
-        let Ok((entity, task, task_parent)) = q_tasks.get(event.task) else {
+        let Ok((entity, mut task, task_parent)) = q_tasks.get_mut(event.task) else {
             continue;
         };
 
@@ -266,19 +294,19 @@ pub fn event_task_completion(
                 TaskKind::Hunt => {
                     if let Some(task_parent) = task_parent.map(Parent::get) {
                         if let Ok((entity_mob, mob, mob_transform)) = q_mobs.get(task_parent) {
+                            let mob_pos = (mob_transform.translation / TILE_SIZE)
+                                .truncate()
+                                .as_ivec2();
+
                             if dweller_transform
                                 .translation
                                 .distance(mob_transform.translation)
-                                < TILE_SIZE * 2.
+                                < TILE_SIZE
                             {
-                                let loot_pos = (mob_transform.translation / TILE_SIZE)
-                                    .truncate()
-                                    .as_ivec2();
-
-                                if let Some(loot_tile_data) = tilemap_data.0.get(loot_pos) {
+                                if let Some(loot_tile_data) = tilemap_data.0.get(mob_pos) {
                                     if loot_tile_data.kind == TileKind::Floor(None) {
                                         loot_tile_data.with(mob.loot).set_at(
-                                            loot_pos,
+                                            mob_pos,
                                             &mut commands,
                                             &mut tilemap,
                                             &mut tilemap_data,
@@ -286,7 +314,7 @@ pub fn event_task_completion(
 
                                         commands.spawn(TaskBundle::new(
                                             Task::new(
-                                                loot_pos,
+                                                mob_pos,
                                                 TaskKind::Pickup,
                                                 TaskNeeds::EmptyHands,
                                                 &tilemap_data,
@@ -301,7 +329,8 @@ pub fn event_task_completion(
                                 println!("Hunted mob at {:?}", mob_transform.translation);
                                 success = true;
                             } else {
-                                //TODO: update task position (need to save Mob entity id in task?)
+                                task.pos = mob_pos;
+                                task.recompute_reachable_positions(&tilemap_data);
                             }
                         }
                     }
@@ -312,7 +341,15 @@ pub fn event_task_completion(
         if success {
             if let TaskNeeds::Object(object_data) = task.needs {
                 if let Some(dweller_object) = dweller.object {
-                    if dweller_object == object_data {
+                    if dweller_object == object_data
+                        || matches!(
+                            task.kind,
+                            TaskKind::BuildObject {
+                                object: build_object,
+                                ..
+                            } if build_object == dweller_object
+                        )
+                    {
                         dweller.object = None;
                     }
                 } else {
