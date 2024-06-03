@@ -27,6 +27,7 @@ fn main() {
             EntiTilesPlugin,
             // bevy_inspector_egui::quick::WorldInspectorPlugin::default(),
         ))
+        .insert_resource(ClearColor(Color::BLACK))
         .init_resource::<CameraControl>()
         /*
         .insert_resource(ChunkSaveConfig {

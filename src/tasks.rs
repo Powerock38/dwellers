@@ -211,10 +211,10 @@ pub fn event_task_completion(
                 }
 
                 TaskKind::Smoothen => {
-                    let tile = if tile_data.kind == TileKind::Wall {
-                        TileData::DUNGEON_WALL
-                    } else {
-                        TileData::DUNGEON_FLOOR
+                    let tile = match tile_data.kind {
+                        TileKind::Wall => TileData::DUNGEON_WALL,
+                        TileKind::Floor(None) => TileData::DUNGEON_FLOOR,
+                        TileKind::Floor(Some(object)) => TileData::DUNGEON_FLOOR.with(object),
                     };
 
                     tile.set_at(task.pos, &mut commands, &mut tilemap, &mut tilemap_data);
