@@ -5,7 +5,7 @@ use crate::{
     mobs::Mob,
     tasks::{Task, TaskBundle, TaskKind, TaskNeeds},
     terrain::{TilemapData, TILE_SIZE},
-    tiles::ObjectData,
+    tiles::{ObjectData, TileKind},
 };
 
 #[derive(PartialEq, Clone, Copy, Debug)]
@@ -257,6 +257,28 @@ pub fn click_terrain(
 
                                         println!("Hunting task at {index:?}");
                                     }
+                                }
+
+                                TaskKind::Stockpile => {
+                                    let mut task = Task::new(
+                                        index,
+                                        task_kind,
+                                        if tile_data.kind == TileKind::Floor(None) {
+                                            TaskNeeds::AnyObject
+                                        } else {
+                                            TaskNeeds::Impossible
+                                        },
+                                        tilemap_data,
+                                    );
+
+                                    task.priority(-1);
+
+                                    commands.spawn(TaskBundle::new(
+                                        task,
+                                        asset_server.load("sprites/stockpile.png"),
+                                    ));
+
+                                    println!("Stockpiling task at {index:?}");
                                 }
                             }
                         }

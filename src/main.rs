@@ -6,7 +6,7 @@ use bevy_entitiles::EntiTilesPlugin;
 use camera::{focus_any_dweller, update_camera, CameraControl};
 use dwellers::{spawn_dwellers, update_dwellers, update_dwellers_movement};
 use mobs::{spawn_mobs, update_mobs, update_mobs_movement};
-use tasks::{event_task_completion, update_unreachable_tasks, TaskCompletionEvent};
+use tasks::{event_task_completion, update_pickups, update_unreachable_tasks, TaskCompletionEvent};
 use terrain::spawn_terrain;
 use ui::{spawn_ui, update_ui};
 
@@ -59,6 +59,7 @@ fn main() {
                 update_dwellers_movement,
                 update_mobs_movement,
                 update_unreachable_tasks,
+                update_pickups,
                 event_task_completion,
                 keyboard_current_action,
             ),

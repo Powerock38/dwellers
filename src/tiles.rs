@@ -7,30 +7,41 @@ use crate::terrain::{TilemapData, TilemapFiles, TF};
 pub struct ObjectData {
     atlas_index: i32,
     blocking: bool,
+    carriable: bool,
 }
 
 impl ObjectData {
     pub const WOOD: Self = Self::passable(0);
     pub const RUG: Self = Self::passable(1);
-    pub const TREE: Self = Self::blocking(2);
+    pub const TREE: Self = Self::blocking_non_carriable(2);
     pub const TABLE: Self = Self::blocking(3);
     pub const STOOL: Self = Self::blocking(4);
     pub const BED: Self = Self::blocking(5);
     pub const DOOR: Self = Self::passable(6);
 
     pub const fn passable(atlas_index: i32) -> Self {
-        Self::new(atlas_index, false)
+        Self::new(atlas_index, false, true)
     }
 
     pub const fn blocking(atlas_index: i32) -> Self {
-        Self::new(atlas_index, true)
+        Self::new(atlas_index, true, true)
     }
 
-    const fn new(atlas_index: i32, blocking: bool) -> Self {
+    pub const fn blocking_non_carriable(atlas_index: i32) -> Self {
+        Self::new(atlas_index, true, false)
+    }
+
+    #[inline]
+    pub fn carriable(self) -> bool {
+        self.carriable
+    }
+
+    const fn new(atlas_index: i32, blocking: bool, carriable: bool) -> Self {
         let atlas_index = TilemapFiles::T.atlas_index(TilemapFiles::OBJECTS, atlas_index);
         Self {
             atlas_index,
             blocking,
+            carriable,
         }
     }
 }

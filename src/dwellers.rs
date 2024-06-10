@@ -97,8 +97,7 @@ pub fn update_dwellers(
         // Check if dweller has a task assigned in all tasks
         let task = q_tasks
             .iter_mut()
-            .filter(|(_, task)| task.dweller == Some(entity))
-            .max_by_key(|(_, task)| task.priority);
+            .find(|(_, task)| task.dweller == Some(entity));
 
         if let Some((entity_task, mut task)) = task {
             if task.reachable_positions.iter().any(|pos| *pos == index) {
@@ -122,7 +121,9 @@ pub fn update_dwellers(
 
         // Get a new task
         // FIXME: dwellers first in the loop can "steal" a task far away from them from a dweller that is closer
-        let task_path = q_tasks
+        let mut tasks = q_tasks.iter_mut().collect::<Vec<_>>();
+        tasks.sort_by_key(|(_, task)| -task.priority); //FIXME: doesnt work
+        let task_path = tasks
             .iter_mut()
             .filter_map(|(_, task)| {
                 if task.dweller.is_none() && !task.reachable_positions.is_empty() {
@@ -149,6 +150,12 @@ pub fn update_dwellers(
                                 }
                             }
                         },
+                        TaskNeeds::AnyObject => {
+                            dweller.object?;
+                        }
+                        TaskNeeds::Impossible => {
+                            return None;
+                        }
                     }
 
                     // Try pathfinding to task
@@ -162,9 +169,10 @@ pub fn update_dwellers(
 
                 None
             })
+            //TODO max by priority
             .min_by_key(|(_, path)| path.1);
 
-        if let Some((mut task, (path, _))) = task_path {
+        if let Some((task, (path, _))) = task_path {
             println!("Dweller {} got task {task:?}", dweller.name);
 
             task.dweller = Some(entity);

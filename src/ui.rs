@@ -135,6 +135,7 @@ pub fn spawn_ui(mut commands: Commands) {
                 build_button(c, ActionKind::Task(TaskKind::Bridge));
                 build_button(c, ActionKind::Task(TaskKind::Hunt));
                 build_button(c, ActionKind::Task(TaskKind::Pickup));
+                build_button(c, ActionKind::Task(TaskKind::Stockpile));
 
                 build_button(c, ActionKind::Cancel);
             });

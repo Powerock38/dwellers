@@ -6,7 +6,7 @@ use crate::{
     dwellers::Dweller,
     extract_ok,
     mobs::Mob,
-    terrain::{TilemapData, TILE_SIZE},
+    terrain::{find_from_center, TilemapData, TILE_SIZE},
     tiles::{ObjectData, TileData, TileKind},
     utils::manhattan_distance,
 };
@@ -23,6 +23,7 @@ pub enum TaskKind {
         cost: ObjectData,
     },
     Hunt,
+    Stockpile,
 }
 
 impl TaskKind {
@@ -42,9 +43,10 @@ impl TaskKind {
             TaskKind::Bridge => tile_data == TileData::WATER,
             TaskKind::BuildObject { .. } => tile_data.kind == TileKind::Floor(None),
             TaskKind::Pickup => {
-                matches!(tile_data.kind, TileKind::Floor(Some(object)) if object != ObjectData::TREE)
+                matches!(tile_data.kind, TileKind::Floor(Some(object)) if object.carriable())
             }
             TaskKind::Hunt => true,
+            TaskKind::Stockpile => matches!(tile_data.kind, TileKind::Floor(_)),
         }
     }
 }
@@ -81,6 +83,8 @@ pub enum TaskNeeds {
     Nothing,
     EmptyHands,
     Object(ObjectData),
+    AnyObject,
+    Impossible,
 }
 
 #[derive(Component, Debug)]
@@ -335,29 +339,81 @@ pub fn event_task_completion(
                         }
                     }
                 }
+
+                TaskKind::Stockpile => {
+                    if tile_data.kind == TileKind::Floor(None) {
+                        if let Some(object) = dweller.object {
+                            tile_data.with(object).set_at(
+                                task.pos,
+                                &mut commands,
+                                &mut tilemap,
+                                &mut tilemap_data,
+                            );
+
+                            println!("Stockpiled object at {:?}", task.pos);
+                            update_tasks_pos = true;
+                            success = true;
+                        }
+                    }
+                }
             }
         }
 
         if success {
-            if let TaskNeeds::Object(object_data) = task.needs {
-                if let Some(dweller_object) = dweller.object {
-                    if dweller_object == object_data
-                        || matches!(
-                            task.kind,
-                            TaskKind::BuildObject {
-                                object: build_object,
-                                ..
-                            } if build_object == dweller_object
-                        )
-                    {
-                        dweller.object = None;
+            match task.needs {
+                TaskNeeds::Object(object_data) => {
+                    if let Some(dweller_object) = dweller.object {
+                        if dweller_object == object_data
+                            || matches!(
+                                task.kind,
+                                TaskKind::BuildObject {
+                                    object: build_object,
+                                    ..
+                                } if build_object == dweller_object
+                            )
+                        {
+                            dweller.object = None;
+                        }
+                    } else {
+                        println!("SHOULD NEVER HAPPEN: Dweller {} completed task {:?} without needed object {:?}", dweller.name, task, object_data);
                     }
-                } else {
-                    println!("SHOULD NEVER HAPPEN: Dweller {} completed task {:?} without needed object {:?}", dweller.name, task, object_data);
                 }
+
+                TaskNeeds::AnyObject => {
+                    if let Some(dweller_object) = dweller.object {
+                        if dweller_object != ObjectData::TREE {
+                            dweller.object = None;
+                        }
+                    } else {
+                        println!("SHOULD NEVER HAPPEN: Dweller {} completed task {:?} without any object", dweller.name, task);
+                    }
+                }
+
+                TaskNeeds::Impossible => {
+                    println!(
+                        "SHOULD NEVER HAPPEN: Dweller {} completed impossible task {:?}",
+                        dweller.name, task
+                    );
+                }
+
+                TaskNeeds::EmptyHands => {
+                    if dweller.object.is_some() {
+                        println!(
+                            "SHOULD NEVER HAPPEN: Dweller {} completed task {:?} with object (needed empty hands)",
+                            dweller.name, task
+                        );
+                    }
+                }
+
+                TaskNeeds::Nothing => {}
             }
 
-            commands.entity(entity).despawn();
+            if matches!(task.kind, TaskKind::Stockpile) {
+                task.dweller = None;
+                task.needs = TaskNeeds::Impossible;
+            } else {
+                commands.entity(entity).despawn();
+            }
         } else {
             println!("Dweller {} failed task {:?}", dweller.name, task);
         }
@@ -366,6 +422,57 @@ pub fn event_task_completion(
     if update_tasks_pos {
         for (_, mut o_task, _) in &mut q_tasks {
             o_task.recompute_reachable_positions(&tilemap_data);
+        }
+    }
+}
+
+pub fn update_pickups(
+    mut commands: Commands,
+    q_tilemap: Query<&TilemapData>,
+    asset_server: Res<AssetServer>,
+    q_new_tasks: Query<&Task, Added<Task>>,
+    q_tasks: Query<&Task>,
+    q_dwellers: Query<&Dweller>,
+) {
+    let tilemap_data = extract_ok!(q_tilemap.get_single());
+
+    for task in &q_new_tasks {
+        if matches!(task.needs, TaskNeeds::AnyObject | TaskNeeds::Object(_)) {
+            let specific_object = match task.needs {
+                TaskNeeds::Object(object) => Some(object),
+                TaskNeeds::AnyObject => None,
+                _ => continue, // unreachable
+            };
+
+            // check if it needs a new Pickup task: check for already existing Pickup tasks, and Dwellers with the required object
+            if q_tasks.iter().any(|t| t.kind == TaskKind::Pickup)
+                || q_dwellers.iter().any(|dweller| {
+                    dweller.object.is_some()
+                        && (specific_object.is_none() || specific_object == dweller.object)
+                })
+            {
+                continue;
+            }
+
+            // Find object: search around task.pos
+            let index = find_from_center(task.pos, |index| {
+                if let Some(tile_data) = tilemap_data.0.get(index) {
+                    if let TileKind::Floor(Some(object)) = tile_data.kind {
+                        if specific_object.is_none() || specific_object == Some(object) {
+                            return TaskKind::Pickup.can_be_completed(tile_data);
+                        }
+                    }
+                }
+
+                false
+            });
+
+            if let Some(index) = index {
+                commands.spawn(TaskBundle::new(
+                    Task::new(index, TaskKind::Pickup, TaskNeeds::EmptyHands, tilemap_data),
+                    asset_server.load("sprites/pickup.png"),
+                ));
+            }
         }
     }
 }
