@@ -121,9 +121,7 @@ pub fn update_dwellers(
 
         // Get a new task
         // FIXME: dwellers first in the loop can "steal" a task far away from them from a dweller that is closer
-        let mut tasks = q_tasks.iter_mut().collect::<Vec<_>>();
-        tasks.sort_by_key(|(_, task)| -task.priority); //FIXME: doesnt work
-        let task_path = tasks
+        let task_path = q_tasks
             .iter_mut()
             .filter_map(|(_, task)| {
                 if task.dweller.is_none() && !task.reachable_positions.is_empty() {
@@ -169,10 +167,14 @@ pub fn update_dwellers(
 
                 None
             })
-            //TODO max by priority
-            .min_by_key(|(_, path)| path.1);
+            .max_by(|(task1, (_, path1)), (task2, (_, path2))| {
+                task1
+                    .priority
+                    .cmp(&task2.priority)
+                    .then_with(|| path2.cmp(path1))
+            });
 
-        if let Some((task, (path, _))) = task_path {
+        if let Some((mut task, (path, _))) = task_path {
             println!("Dweller {} got task {task:?}", dweller.name);
 
             task.dweller = Some(entity);

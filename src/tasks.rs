@@ -181,6 +181,7 @@ pub fn event_task_completion(
     let (mut tilemap, mut tilemap_data) = extract_ok!(q_tilemap.get_single_mut());
 
     let mut update_tasks_pos = false;
+    let mut update_stockpiles = false;
 
     for event in events.read() {
         let Ok((entity, mut task, task_parent)) = q_tasks.get_mut(event.task) else {
@@ -278,6 +279,7 @@ pub fn event_task_completion(
                         dweller.object = Some(object_data);
 
                         println!("Picked up object at {:?}", task.pos);
+                        update_stockpiles = true;
                         success = true;
                     }
                 }
@@ -420,8 +422,21 @@ pub fn event_task_completion(
     }
 
     if update_tasks_pos {
-        for (_, mut o_task, _) in &mut q_tasks {
-            o_task.recompute_reachable_positions(&tilemap_data);
+        for (_, mut task, _) in &mut q_tasks {
+            task.recompute_reachable_positions(&tilemap_data);
+        }
+    }
+
+    if update_stockpiles {
+        for (_, mut task, _) in &mut q_tasks {
+            if matches!(task.kind, TaskKind::Stockpile)
+                && tilemap_data
+                    .0
+                    .get(task.pos)
+                    .map_or(false, |tile_data| tile_data.kind == TileKind::Floor(None))
+            {
+                task.needs = TaskNeeds::AnyObject;
+            }
         }
     }
 }
