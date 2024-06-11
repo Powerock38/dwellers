@@ -2,8 +2,8 @@ use bevy::prelude::*;
 
 use crate::{
     actions::{ActionKind, CurrentAction},
-    tasks::TaskKind,
-    tiles::ObjectData,
+    tasks::{BuildResult, TaskKind},
+    tiles::{ObjectData, TileData},
 };
 
 const NORMAL_BUTTON: Color = Color::rgb(0.15, 0.15, 0.15);
@@ -105,15 +105,36 @@ pub fn spawn_ui(mut commands: Commands) {
                 ..default()
             })
             .with_children(|c| {
-                for (name, object, cost) in [
-                    ("table", ObjectData::TABLE, ObjectData::WOOD),
-                    ("stool", ObjectData::STOOL, ObjectData::WOOD),
-                    ("bed", ObjectData::BED, ObjectData::WOOD),
-                    ("door", ObjectData::DOOR, ObjectData::WOOD),
+                for (name, result, cost) in [
+                    (
+                        "wall",
+                        BuildResult::Tile(TileData::DUNGEON_WALL),
+                        ObjectData::ROCK,
+                    ),
+                    (
+                        "table",
+                        BuildResult::Object(ObjectData::TABLE),
+                        ObjectData::WOOD,
+                    ),
+                    (
+                        "stool",
+                        BuildResult::Object(ObjectData::STOOL),
+                        ObjectData::WOOD,
+                    ),
+                    (
+                        "bed",
+                        BuildResult::Object(ObjectData::BED),
+                        ObjectData::WOOD,
+                    ),
+                    (
+                        "door",
+                        BuildResult::Object(ObjectData::DOOR),
+                        ObjectData::WOOD,
+                    ),
                 ] {
                     build_button_text(
                         c,
-                        ActionKind::Task(TaskKind::BuildObject { object, cost }),
+                        ActionKind::Task(TaskKind::Build { result, cost }),
                         format!("Build {name}"),
                     );
                 }

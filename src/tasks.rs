@@ -19,12 +19,12 @@ pub enum TaskKind {
     Chop,
     Bridge,
     Pickup,
-    BuildObject {
-        object: ObjectData,
-        cost: ObjectData,
-    },
     Hunt,
     Stockpile,
+    Build {
+        result: BuildResult,
+        cost: ObjectData,
+    },
 }
 
 impl TaskKind {
@@ -42,7 +42,7 @@ impl TaskKind {
             }
             TaskKind::Chop => tile_data.kind == TileKind::Floor(Some(ObjectData::TREE)),
             TaskKind::Bridge => tile_data == TileData::WATER,
-            TaskKind::BuildObject { .. } => tile_data.kind == TileKind::Floor(None),
+            TaskKind::Build { .. } => tile_data.kind == TileKind::Floor(None),
             TaskKind::Pickup => {
                 matches!(tile_data.kind, TileKind::Floor(Some(object)) if object.carriable())
             }
@@ -50,6 +50,12 @@ impl TaskKind {
             TaskKind::Stockpile => matches!(tile_data.kind, TileKind::Floor(_)),
         }
     }
+}
+
+#[derive(PartialEq, Clone, Copy, Debug)]
+pub enum BuildResult {
+    Object(ObjectData),
+    Tile(TileData),
 }
 
 #[derive(Bundle)]
@@ -298,15 +304,22 @@ pub fn event_task_completion(
                     }
                 }
 
-                TaskKind::BuildObject { object, .. } => {
-                    tile_data.with(object).set_at(
-                        task.pos,
-                        &mut commands,
-                        &mut tilemap,
-                        &mut tilemap_data,
-                    );
+                TaskKind::Build { result, .. } => {
+                    match result {
+                        BuildResult::Object(object) => {
+                            tile_data.with(object).set_at(
+                                task.pos,
+                                &mut commands,
+                                &mut tilemap,
+                                &mut tilemap_data,
+                            );
+                        }
+                        BuildResult::Tile(tile) => {
+                            tile.set_at(task.pos, &mut commands, &mut tilemap, &mut tilemap_data);
+                        }
+                    }
 
-                    println!("Built {:?} at {:?}", object, task.pos);
+                    println!("Built {:?} at {:?}", result, task.pos);
                     update_tasks_pos = true;
                     success = true;
                 }
@@ -382,8 +395,8 @@ pub fn event_task_completion(
                         if dweller_object == object_data
                             || matches!(
                                 task.kind,
-                                TaskKind::BuildObject {
-                                    object: build_object,
+                                TaskKind::Build {
+                                    result: BuildResult::Object(build_object),
                                     ..
                                 } if build_object == dweller_object
                             )

@@ -3,7 +3,7 @@ use rand::Rng;
 
 use crate::{
     extract_ok,
-    tasks::{Task, TaskCompletionEvent, TaskKind, TaskNeeds},
+    tasks::{BuildResult, Task, TaskCompletionEvent, TaskKind, TaskNeeds},
     terrain::{find_from_center, TilemapData, TERRAIN_SIZE, TILE_SIZE},
     tiles::ObjectData,
 };
@@ -138,8 +138,8 @@ pub fn update_dwellers(
                                 if dweller_object != object_data
                                     && !matches!(
                                         task.kind,
-                                        TaskKind::BuildObject {
-                                            object: build_object,
+                                        TaskKind::Build {
+                                            result: BuildResult::Object(build_object),
                                             ..
                                         } if build_object == dweller_object
                                     )

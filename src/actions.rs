@@ -18,7 +18,7 @@ impl std::fmt::Display for ActionKind {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             Self::Cancel => write!(f, "{self:?}"),
-            Self::Task(TaskKind::BuildObject { .. }) => write!(f, "Build Object"),
+            Self::Task(TaskKind::Build { .. }) => write!(f, "Build Object"),
             Self::Task(task_kind) => write!(f, "{task_kind:?}"),
         }
     }
@@ -236,7 +236,7 @@ pub fn click_terrain(
                                     println!("Picking up task at {index:?}");
                                 }
 
-                                TaskKind::BuildObject { cost, .. } => {
+                                TaskKind::Build { cost, .. } => {
                                     commands.spawn(TaskBundle::new(
                                         Task::new(
                                             index,

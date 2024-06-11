@@ -47,13 +47,13 @@ impl ObjectData {
     }
 }
 
-#[derive(PartialEq, Clone, Copy)]
+#[derive(PartialEq, Clone, Copy, Debug)]
 pub enum TileKind {
     Floor(Option<ObjectData>),
     Wall,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct TileData {
     atlas_index: i32,
     pub kind: TileKind,
