@@ -106,33 +106,58 @@ pub fn click_terrain(
                 for y in index_min.y..=index_max.y {
                     let index = IVec2::new(x, y);
 
+                    // Make sure there is a tile at this position
+                    let Some(tile_data) = tilemap_data.0.get(index) else {
+                        continue;
+                    };
+
                     match current_action.kind {
                         ActionKind::Cancel => {
-                            let entity_task = q_tasks.iter().find_map(|(entity, task)| {
-                                if task.pos == index {
-                                    Some(entity)
-                                } else {
-                                    None
-                                }
-                            });
-
-                            if let Some(entity_task) = entity_task {
+                            if let Some((entity_task, task)) =
+                                q_tasks.iter().find(|(_, task)| task.pos == index)
+                            {
                                 commands.entity(entity_task).despawn();
-                                println!("Cancelling task at {index:?}");
+
+                                // if we are cancelling a stockpile task, mark item for pickup (if not already marked)
+                                if task.kind == TaskKind::Stockpile
+                                    && matches!(tile_data.kind, TileKind::Floor(Some(_)))
+                                    && !q_tasks.iter().any(|(_, task)| {
+                                        task.kind == TaskKind::Pickup && task.pos == index
+                                    })
+                                {
+                                    commands.spawn(TaskBundle::new(
+                                        Task::new(
+                                            index,
+                                            TaskKind::Pickup,
+                                            TaskNeeds::EmptyHands,
+                                            tilemap_data,
+                                        ),
+                                        asset_server.load("sprites/pickup.png"),
+                                    ));
+
+                                    println!("Removing stockpile at {index:?}");
+                                } else {
+                                    println!("Cancelling task at {index:?}");
+                                }
                             }
                         }
                         ActionKind::Task(task_kind) => {
-                            // Make sure there is a tile at this position
-                            let Some(tile_data) = tilemap_data.0.get(index) else {
-                                continue;
-                            };
-
-                            // Abort if a task already exists at this position
-                            if q_tasks.iter().any(|(_, task)| task.pos == index) {
+                            if !task_kind.can_be_completed(tile_data) {
                                 continue;
                             }
 
-                            if !task_kind.can_be_completed(tile_data) {
+                            // Abort if an incompatible task already exists at this position
+                            if q_tasks.iter().filter(|(_, t)| t.pos == index).any(
+                                |(entity_other_task, other_task)| match (task_kind, other_task.kind)
+                                {
+                                    (TaskKind::Stockpile, TaskKind::Pickup) => {
+                                        commands.entity(entity_other_task).despawn();
+                                        // Stockpile task will be correctly marked TaskNeeds::Impossible below
+                                        false
+                                    }
+                                    _ => true,
+                                },
+                            ) {
                                 continue;
                             }
 

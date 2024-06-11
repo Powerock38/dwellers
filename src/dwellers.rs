@@ -160,7 +160,7 @@ pub fn update_dwellers(
                     let path = task.pathfind(index, tilemap_data);
 
                     if let Some(path) = path {
-                        println!("Dweller {} can pathfind to {:?}", dweller.name, task);
+                        // println!("Dweller {} can pathfind to {:?}", dweller.name, task);
                         return Some((task, path));
                     }
                 }

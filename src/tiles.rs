@@ -18,6 +18,7 @@ impl ObjectData {
     pub const STOOL: Self = Self::blocking(4);
     pub const BED: Self = Self::blocking(5);
     pub const DOOR: Self = Self::passable(6);
+    pub const ROCK: Self = Self::passable(7);
 
     pub const fn passable(atlas_index: i32) -> Self {
         Self::new(atlas_index, false, true)
