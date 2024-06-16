@@ -1,4 +1,7 @@
-use bevy::prelude::*;
+use bevy::{
+    ecs::{entity::MapEntities, reflect::ReflectMapEntities},
+    prelude::*,
+};
 use bevy_entitiles::tilemap::map::TilemapStorage;
 use pathfinding::directed::astar::astar;
 use rand::Rng;
@@ -107,7 +110,7 @@ pub enum TaskNeeds {
 }
 
 #[derive(Component, Reflect, Default, Debug)]
-#[reflect(Component)]
+#[reflect(Component, MapEntities)]
 pub struct Task {
     pub kind: TaskKind,
     pub pos: IVec2,
@@ -115,6 +118,14 @@ pub struct Task {
     pub dweller: Option<Entity>,
     pub needs: TaskNeeds,
     pub priority: i32,
+}
+
+impl MapEntities for Task {
+    fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
+        if let Some(entity) = self.dweller {
+            self.dweller = Some(entity_mapper.map_entity(entity));
+        }
+    }
 }
 
 impl Task {
