@@ -51,11 +51,9 @@ pub fn spawn_load_save_ui(
                                 entry.ok().and_then(|entry| {
                                     if let Some(extension) = entry.path().extension() {
                                         if extension == "bin" {
-                                            return entry
-                                                .file_name()
-                                                .into_string()
-                                                .ok()
-                                                .map(|file_name| file_name.replacen(".bin", "", 1));
+                                            return entry.file_name().into_string().ok().map(
+                                                |file_name| file_name.replacen(".bin", "", 1),
+                                            );
                                         }
                                     }
 
@@ -108,6 +106,7 @@ pub fn update_save_load_buttons(
         ),
         (Changed<Interaction>, With<Button>),
     >,
+    q_windows: Query<Entity, With<UiWindow>>,
 ) {
     for (load_button, interaction, mut color, mut border_color) in &mut interaction_query {
         match *interaction {
@@ -116,6 +115,10 @@ pub fn update_save_load_buttons(
                 border_color.0 = Color::RED;
 
                 commands.insert_resource(LoadGame(load_button.0.clone()));
+
+                if let Some(window) = q_windows.iter().next() {
+                    commands.entity(window).despawn_recursive();
+                }
             }
             Interaction::Hovered => {
                 *color = HOVERED_BUTTON.into();

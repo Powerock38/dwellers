@@ -44,11 +44,9 @@ pub fn spawn_dwellers(mut commands: Commands, q_tilemap: Query<&TilemapData>) {
         }
         true
     }) else {
-        println!("No valid spawn position found for dwellers");
+        error!("No valid spawn position found for dwellers");
         return;
     };
-
-    println!("Dwellers spawn position: {spawn_pos:?}");
 
     for name in ["Alice", "Bob", "Charlie", "Dave", "Eve"] {
         commands.spawn(DwellerBundle {
@@ -99,10 +97,10 @@ pub fn update_dwellers(
                 let path = task.pathfind(index, tilemap_data);
 
                 if let Some(path) = path {
-                    println!("Dweller {} can re-pathfind to {:?}", dweller.name, task);
+                    info!("Dweller {} can re-pathfind to {:?}", dweller.name, task);
                     dweller.move_queue = path.0;
                 } else {
-                    println!("Dweller {} give up {:?}", dweller.name, task);
+                    info!("Dweller {} give up {:?}", dweller.name, task);
                     task.dweller = None;
                 }
             }
@@ -151,7 +149,6 @@ pub fn update_dwellers(
                     let path = task.pathfind(index, tilemap_data);
 
                     if let Some(path) = path {
-                        // println!("Dweller {} can pathfind to {:?}", dweller.name, task);
                         return Some((task, path));
                     }
                 }
@@ -166,7 +163,7 @@ pub fn update_dwellers(
             });
 
         if let Some((mut task, (path, _))) = task_path {
-            println!("Dweller {} got task {task:?}", dweller.name);
+            debug!("Dweller {} got task {task:?}", dweller.name);
 
             task.dweller = Some(entity);
             dweller.move_queue = path;

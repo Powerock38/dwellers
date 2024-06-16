@@ -60,7 +60,7 @@ pub fn spawn_mobs(mut commands: Commands, q_tilemap: Query<&TilemapData>) {
         }
         true
     }) else {
-        println!("No valid spawn position found for mobs");
+        error!("No valid spawn position found for mobs");
         return;
     };
 

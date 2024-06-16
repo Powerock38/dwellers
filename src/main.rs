@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use bevy::{prelude::*, time::common_conditions::on_timer};
+use bevy::{log::LogPlugin, prelude::*, time::common_conditions::on_timer};
 use bevy_entitiles::EntiTilesPlugin;
 
 use crate::{
@@ -22,7 +22,12 @@ mod utils;
 fn main() {
     App::new()
         .add_plugins((
-            DefaultPlugins.set(ImagePlugin::default_nearest()),
+            DefaultPlugins
+                .set(ImagePlugin::default_nearest())
+                .set(LogPlugin {
+                    filter: "wgpu=error,naga=warn,dungeons=info".into(),
+                    ..default()
+                }),
             EntiTilesPlugin,
             // bevy_inspector_egui::quick::WorldInspectorPlugin::default(),
             SaveLoadPlugin,

@@ -250,7 +250,7 @@ pub fn event_task_completion(
 
                     tile.set_at(task.pos, &mut commands, &mut tilemap, &mut tilemap_data);
 
-                    println!("Dug tile at {:?}", task.pos);
+                    debug!("Dug tile at {:?}", task.pos);
                     update_tasks_pos = true;
                     success = true;
                 }
@@ -264,7 +264,7 @@ pub fn event_task_completion(
 
                     tile.set_at(task.pos, &mut commands, &mut tilemap, &mut tilemap_data);
 
-                    println!("Smoothened tile at {:?}", task.pos);
+                    debug!("Smoothened tile at {:?}", task.pos);
                     success = true;
                 }
 
@@ -283,7 +283,7 @@ pub fn event_task_completion(
                         &tilemap_data,
                     )));
 
-                    println!("Chopped tile at {:?}", task.pos);
+                    debug!("Chopped tile at {:?}", task.pos);
                     update_tasks_pos = true;
                     success = true;
                 }
@@ -296,7 +296,7 @@ pub fn event_task_completion(
                         &mut tilemap_data,
                     );
 
-                    println!("Bridged tile at {:?}", task.pos);
+                    debug!("Bridged tile at {:?}", task.pos);
                     update_tasks_pos = true;
                     success = true;
                 }
@@ -315,7 +315,7 @@ pub fn event_task_completion(
 
                         dweller.object = Some(object_data);
 
-                        println!("Picked up object at {:?}", task.pos);
+                        debug!("Picked up object at {:?}", task.pos);
                         update_stockpiles = true;
                         success = true;
                     }
@@ -336,7 +336,7 @@ pub fn event_task_completion(
                         }
                     }
 
-                    println!("Built {:?} at {:?}", result, task.pos);
+                    debug!("Built {:?} at {:?}", result, task.pos);
                     update_tasks_pos = true;
                     success = true;
                 }
@@ -373,7 +373,7 @@ pub fn event_task_completion(
 
                                 commands.entity(entity_mob).despawn_recursive();
 
-                                println!("Hunted mob at {:?}", mob_transform.translation);
+                                debug!("Hunted mob at {:?}", mob_transform.translation);
                                 success = true;
                             } else {
                                 task.pos = mob_pos;
@@ -393,7 +393,7 @@ pub fn event_task_completion(
                                 &mut tilemap_data,
                             );
 
-                            println!("Stockpiled object at {:?}", task.pos);
+                            debug!("Stockpiled object at {:?}", task.pos);
                             update_tasks_pos = true;
                             success = true;
                         }
@@ -418,7 +418,7 @@ pub fn event_task_completion(
                             dweller.object = None;
                         }
                     } else {
-                        println!("SHOULD NEVER HAPPEN: Dweller {} completed task {:?} without needed object {:?}", dweller.name, task, object_data);
+                        error!("SHOULD NEVER HAPPEN: Dweller {} completed task {:?} without needed object {:?}", dweller.name, task, object_data);
                     }
                 }
 
@@ -426,12 +426,12 @@ pub fn event_task_completion(
                     if dweller.object.is_some() {
                         dweller.object = None;
                     } else {
-                        println!("SHOULD NEVER HAPPEN: Dweller {} completed task {:?} without any object", dweller.name, task);
+                        error!("SHOULD NEVER HAPPEN: Dweller {} completed task {:?} without any object", dweller.name, task);
                     }
                 }
 
                 TaskNeeds::Impossible => {
-                    println!(
+                    error!(
                         "SHOULD NEVER HAPPEN: Dweller {} completed impossible task {:?}",
                         dweller.name, task
                     );
@@ -447,7 +447,7 @@ pub fn event_task_completion(
                 commands.entity(entity).despawn();
             }
         } else {
-            println!("Dweller {} failed task {:?}", dweller.name, task);
+            info!("Dweller {} failed task {:?}", dweller.name, task);
         }
     }
 
@@ -501,7 +501,7 @@ pub fn update_pickups(
                             return true;
                         }
 
-                        println!("SHOULD NEVER HAPPEN: Pickup task at {:?} has no object", t.pos);
+                        error!("SHOULD NEVER HAPPEN: Pickup task at {:?} has no object", t.pos);
                         false
                     })
             }) || // or Dwellers with the required object

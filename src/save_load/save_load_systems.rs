@@ -50,7 +50,7 @@ pub fn save_world(
     if let Some(save_game) = save_game {
         if save_game.is_added() {
             commands.remove_resource::<SaveGame>();
-            println!("Saving scene: {}", save_game.0);
+            info!("Saving scene: {}", save_game.0);
 
             let tilemap_data = q_tilemap_data.single();
 
@@ -97,7 +97,7 @@ pub fn save_world(
                         .detach();
                 }
                 Err(e) => {
-                    eprintln!("Error while serializing the scene: {e:?}");
+                    error!("Error while serializing the scene: {e:?}");
                 }
             }
         }
@@ -118,7 +118,7 @@ pub fn load_world(
     if let Some(load_game) = load_game {
         if load_game.is_added() {
             commands.remove_resource::<LoadGame>();
-            println!("Loading scene: {}", load_game.0);
+            info!("Loading scene: {}", load_game.0);
 
             // Despawn current scene
             if let Some(tilemap_data) = q_tilemap_data.iter().next() {
@@ -175,7 +175,7 @@ pub fn load_world(
                 }
                 commands.entity(entity).insert((tilemap, tilemap_data));
             } else {
-                println!("Error while decoding terrain from file");
+                error!("Error while decoding terrain from file");
             }
         }
     }

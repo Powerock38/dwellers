@@ -132,9 +132,9 @@ pub fn click_terrain(
                                         tilemap_data,
                                     )));
 
-                                    println!("Removing stockpile at {index:?}");
+                                    debug!("Removing stockpile at {index:?}");
                                 } else {
-                                    println!("Cancelling task at {index:?}");
+                                    debug!("Cancelling task at {index:?}");
                                 }
                             }
                         }
@@ -167,7 +167,7 @@ pub fn click_terrain(
                                         tilemap_data,
                                     )));
 
-                                    println!("Digging task at {index:?}");
+                                    debug!("Digging task at {index:?}");
                                 }
 
                                 TaskKind::Smoothen => {
@@ -181,7 +181,7 @@ pub fn click_terrain(
                                     if !task.reachable_positions.is_empty() {
                                         commands.spawn(TaskBundle::new(task));
 
-                                        println!("Smoothening task at {index:?}");
+                                        debug!("Smoothening task at {index:?}");
                                     }
                                 }
 
@@ -193,7 +193,7 @@ pub fn click_terrain(
                                         tilemap_data,
                                     )));
 
-                                    println!("Chopping task at {index:?}");
+                                    debug!("Chopping task at {index:?}");
                                 }
 
                                 TaskKind::Bridge => {
@@ -204,7 +204,7 @@ pub fn click_terrain(
                                         tilemap_data,
                                     )));
 
-                                    println!("Building bridge task at {index:?}");
+                                    debug!("Building bridge task at {index:?}");
                                 }
 
                                 TaskKind::Pickup => {
@@ -215,7 +215,7 @@ pub fn click_terrain(
                                         tilemap_data,
                                     )));
 
-                                    println!("Picking up task at {index:?}");
+                                    debug!("Picking up task at {index:?}");
                                 }
 
                                 TaskKind::Build { cost, .. } => {
@@ -226,7 +226,7 @@ pub fn click_terrain(
                                         tilemap_data,
                                     )));
 
-                                    println!("Building object task at {index:?}");
+                                    debug!("Building object task at {index:?}");
                                 }
 
                                 TaskKind::Hunt => {
@@ -255,7 +255,7 @@ pub fn click_terrain(
                                             });
                                         });
 
-                                        println!("Hunting task at {index:?}");
+                                        debug!("Hunting task at {index:?}");
                                     }
                                 }
 
@@ -275,7 +275,7 @@ pub fn click_terrain(
 
                                     commands.spawn(TaskBundle::new(task));
 
-                                    println!("Stockpiling task at {index:?}");
+                                    debug!("Stockpiling task at {index:?}");
                                 }
                             }
                         }

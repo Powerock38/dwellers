@@ -102,7 +102,7 @@ pub fn focus_any_dweller(
         }
 
         if let Some(transform) = transform {
-            println!("Focusing on dweller {:?}", transform.translation.truncate());
+            info!("Focusing on dweller {:?}", transform.translation.truncate());
             control.target_pos = transform.translation.truncate();
         }
     }
