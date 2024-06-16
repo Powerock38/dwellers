@@ -3,11 +3,12 @@ use bevy_entitiles::{
     prelude::*, render::material::StandardTilemapMaterial, tilemap::map::TilemapTextures,
 };
 use noise::{NoiseFn, Perlin, RidgedMulti};
+use rand::Rng;
 
 use crate::{
-    standard_tilemap_bundle,
+    extract_ok, standard_tilemap_bundle,
     tiles::{ObjectData, TileData},
-    TilemapData,
+    TileKind, TilemapData,
 };
 
 pub const TERRAIN_SIZE: u32 = 256;
@@ -79,11 +80,16 @@ pub fn spawn_terrain(
                 continue;
             }
 
-            // Trees
-            let tree_noise_value = noise.get([u * TREE_NOISE_SCALE, v * TREE_NOISE_SCALE]);
-            if tree_noise_value > 0.0 {
-                // 0.5 {
-                TileData::GRASS_FLOOR.with(ObjectData::TREE).set_at(
+            // Vegetation
+            let vegetation_noise_value = noise.get([u * TREE_NOISE_SCALE, v * TREE_NOISE_SCALE]);
+            if vegetation_noise_value > 0.0 {
+                let vegetation = if vegetation_noise_value > 0.7 {
+                    ObjectData::TALL_GRASS
+                } else {
+                    ObjectData::TREE
+                };
+
+                TileData::GRASS_FLOOR.with(vegetation).set_at(
                     index,
                     &mut commands,
                     &mut tilemap.storage,
@@ -94,4 +100,35 @@ pub fn spawn_terrain(
     }
 
     commands.entity(entity).insert((tilemap, tilemap_data));
+}
+
+pub fn update_terrain(
+    mut commands: Commands,
+    mut q_tilemap: Query<(&mut TilemapStorage, &mut TilemapData)>,
+) {
+    let (mut tilemap, mut tilemap_data) = extract_ok!(q_tilemap.get_single_mut());
+
+    for x in 0..TERRAIN_SIZE {
+        for y in 0..TERRAIN_SIZE {
+            let index = IVec2::new(x as i32, y as i32);
+            if let Some(tile) = tilemap_data.get(index) {
+                match tile.kind {
+                    TileKind::Floor(Some(ObjectData::FARM)) => {
+                        let mut rng = rand::thread_rng();
+
+                        if rng.gen_bool(0.01) {
+                            tile.with(ObjectData::WHEAT).set_at(
+                                index,
+                                &mut commands,
+                                &mut tilemap,
+                                &mut tilemap_data,
+                            );
+                        }
+                    }
+
+                    _ => {}
+                }
+            }
+        }
+    }
 }

@@ -55,6 +55,7 @@ fn main() {
                 click_terrain,
                 // Game logic
                 (update_dwellers, update_mobs).run_if(on_timer(Duration::from_millis(200))),
+                (update_terrain).run_if(on_timer(Duration::from_millis(800))),
                 update_dwellers_movement,
                 update_mobs_movement,
                 update_unreachable_tasks,

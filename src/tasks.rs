@@ -21,7 +21,7 @@ pub enum TaskKind {
     #[default]
     Dig,
     Smoothen,
-    Chop,
+    Harvest,
     Bridge,
     Pickup,
     Hunt,
@@ -45,7 +45,10 @@ impl TaskKind {
                     || tile_data == TileData::STONE_WALL
                     || tile_data == TileData::STONE_FLOOR
             }
-            TaskKind::Chop => tile_data.kind == TileKind::Floor(Some(ObjectData::TREE)),
+            TaskKind::Harvest => {
+                tile_data.kind == TileKind::Floor(Some(ObjectData::TREE))
+                    || tile_data.kind == TileKind::Floor(Some(ObjectData::TALL_GRASS))
+            }
             TaskKind::Bridge => tile_data == TileData::WATER,
             TaskKind::Build { .. } => tile_data.kind == TileKind::Floor(None),
             TaskKind::Pickup => {
@@ -130,14 +133,16 @@ impl MapEntities for Task {
 
 impl Task {
     pub fn new(pos: IVec2, kind: TaskKind, needs: TaskNeeds, tilemap_data: &TilemapData) -> Self {
-        Self {
+        let mut task = Self {
             kind,
             pos,
-            reachable_positions: Self::compute_reachable_positions(pos, tilemap_data),
+            reachable_positions: vec![],
             dweller: None,
             priority: 0,
             needs,
-        }
+        };
+        task.recompute_reachable_positions(tilemap_data);
+        task
     }
 
     pub fn priority(&mut self, priority: i32) {
@@ -145,12 +150,22 @@ impl Task {
     }
 
     pub fn recompute_reachable_positions(&mut self, tilemap_data: &TilemapData) {
-        self.reachable_positions = Self::compute_reachable_positions(self.pos, tilemap_data);
+        self.reachable_positions = self.compute_reachable_positions(self.pos, tilemap_data);
     }
 
-    fn compute_reachable_positions(pos: IVec2, tilemap_data: &TilemapData) -> Vec<IVec2> {
+    fn compute_reachable_positions(&self, pos: IVec2, tilemap_data: &TilemapData) -> Vec<IVec2> {
         if let Some(tile_data) = tilemap_data.get(pos) {
-            if !tile_data.is_blocking() {
+            let will_build_blocking_tile = if let TaskKind::Build {
+                result: BuildResult::Tile(tile),
+                ..
+            } = self.kind
+            {
+                tile.is_blocking()
+            } else {
+                false
+            };
+
+            if !tile_data.is_blocking() && !will_build_blocking_tile {
                 return vec![pos];
             }
         }
@@ -169,6 +184,7 @@ impl Task {
                 astar(
                     pos,
                     |p| {
+                        //TODO: allow diagonal movement
                         tilemap_data
                             .non_blocking_neighbours_pos(*p)
                             .into_iter()
@@ -268,24 +284,30 @@ pub fn event_task_completion(
                     success = true;
                 }
 
-                TaskKind::Chop => {
-                    tile_data.with(ObjectData::WOOD).set_at(
-                        task.pos,
-                        &mut commands,
-                        &mut tilemap,
-                        &mut tilemap_data,
-                    );
+                TaskKind::Harvest => {
+                    if let Some(object) = match tile_data.kind {
+                        TileKind::Floor(Some(ObjectData::TREE)) => Some(ObjectData::WOOD),
+                        TileKind::Floor(Some(ObjectData::TALL_GRASS)) => Some(ObjectData::SEEDS),
+                        _ => None,
+                    } {
+                        tile_data.with(object).set_at(
+                            task.pos,
+                            &mut commands,
+                            &mut tilemap,
+                            &mut tilemap_data,
+                        );
 
-                    commands.spawn(TaskBundle::new(Task::new(
-                        task.pos,
-                        TaskKind::Pickup,
-                        TaskNeeds::EmptyHands,
-                        &tilemap_data,
-                    )));
+                        commands.spawn(TaskBundle::new(Task::new(
+                            task.pos,
+                            TaskKind::Pickup,
+                            TaskNeeds::EmptyHands,
+                            &tilemap_data,
+                        )));
 
-                    debug!("Chopped tile at {:?}", task.pos);
-                    update_tasks_pos = true;
-                    success = true;
+                        debug!("Harvested object at {:?}", task.pos);
+                        update_tasks_pos = true;
+                        success = true;
+                    }
                 }
 
                 TaskKind::Bridge => {
@@ -470,7 +492,6 @@ pub fn event_task_completion(
     }
 }
 
-// FIXME: doesnt add pickup sometimes
 pub fn update_pickups(
     mut commands: Commands,
     q_tilemap: Query<&TilemapData>,
@@ -479,6 +500,8 @@ pub fn update_pickups(
     q_dwellers: Query<(Entity, &Dweller)>,
 ) {
     let tilemap_data = extract_ok!(q_tilemap.get_single());
+
+    let mut task_indexes = vec![];
 
     for task in &q_new_tasks {
         let (specific_object, needs_object) = match task.needs {
@@ -525,7 +548,11 @@ pub fn update_pickups(
                     if let TileKind::Floor(Some(object)) = tile_data.kind {
                         return (specific_object.is_none() || specific_object == Some(object))
                             && TaskKind::Pickup.can_be_completed(tile_data)
-                            && !q_tasks.iter().any(|t| t.pos == index); // make sure there's no task here already
+                            && !task_indexes.contains(&index)
+                            && !q_tasks
+                                .iter()
+                                .any(|t| !matches!(t.kind, TaskKind::Stockpile) && t.pos == index);
+                        // make sure there's no task here already (excluding Stockpile tasks)
                     }
                 }
 
@@ -539,6 +566,8 @@ pub fn update_pickups(
                     TaskNeeds::EmptyHands,
                     tilemap_data,
                 )));
+
+                task_indexes.push(index);
             }
         }
     }

@@ -131,6 +131,11 @@ pub fn spawn_ui(mut commands: Commands) {
                         BuildResult::Object(ObjectData::DOOR),
                         ObjectData::WOOD,
                     ),
+                    (
+                        "farm",
+                        BuildResult::Object(ObjectData::FARM),
+                        ObjectData::SEEDS,
+                    ),
                 ] {
                     build_button_text(
                         c,
@@ -152,7 +157,7 @@ pub fn spawn_ui(mut commands: Commands) {
             .with_children(|c| {
                 build_button(c, ActionKind::Task(TaskKind::Dig));
                 build_button(c, ActionKind::Task(TaskKind::Smoothen));
-                build_button(c, ActionKind::Task(TaskKind::Chop));
+                build_button(c, ActionKind::Task(TaskKind::Harvest));
                 build_button(c, ActionKind::Task(TaskKind::Bridge));
                 build_button(c, ActionKind::Task(TaskKind::Hunt));
                 build_button(c, ActionKind::Task(TaskKind::Pickup));

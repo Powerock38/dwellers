@@ -26,6 +26,10 @@ impl ObjectData {
     pub const BED: Self = Self::blocking(5);
     pub const DOOR: Self = Self::passable(6);
     pub const ROCK: Self = Self::passable(7);
+    pub const TALL_GRASS: Self = Self::passable(8);
+    pub const SEEDS: Self = Self::passable(9);
+    pub const FARM: Self = Self::passable_non_carriable(10);
+    pub const WHEAT: Self = Self::passable(11);
 }
 
 #[derive(Clone, Copy, Encode, Decode, Reflect, Default, Debug)]
@@ -147,6 +151,10 @@ impl ObjectData {
 
     pub const fn blocking(atlas_index: i32) -> Self {
         Self::new(atlas_index, true, true)
+    }
+
+    pub const fn passable_non_carriable(atlas_index: i32) -> Self {
+        Self::new(atlas_index, false, false)
     }
 
     pub const fn blocking_non_carriable(atlas_index: i32) -> Self {

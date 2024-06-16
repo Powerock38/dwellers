@@ -185,7 +185,7 @@ pub fn click_terrain(
                                     }
                                 }
 
-                                TaskKind::Chop => {
+                                TaskKind::Harvest => {
                                     commands.spawn(TaskBundle::new(Task::new(
                                         index,
                                         task_kind,
@@ -193,7 +193,7 @@ pub fn click_terrain(
                                         tilemap_data,
                                     )));
 
-                                    debug!("Chopping task at {index:?}");
+                                    debug!("Harvesting task at {index:?}");
                                 }
 
                                 TaskKind::Bridge => {
