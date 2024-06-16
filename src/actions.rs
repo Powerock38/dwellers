@@ -4,7 +4,7 @@ use crate::{
     extract_ok, extract_some,
     mobs::Mob,
     tasks::{Task, TaskBundle, TaskKind, TaskNeeds},
-    terrain::{TilemapData, TILE_SIZE},
+    tilemap::{TilemapData, TILE_SIZE},
     tiles::{ObjectData, TileKind},
     SpriteLoaderBundle,
 };

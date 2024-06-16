@@ -10,7 +10,7 @@ use crate::{
     dwellers::Dweller,
     extract_ok,
     mobs::Mob,
-    terrain::{find_from_center, TilemapData, TILE_SIZE},
+    tilemap::{TilemapData, TILE_SIZE},
     tiles::{ObjectData, TileData, TileKind},
     utils::manhattan_distance,
     SpriteLoaderBundle,
@@ -520,7 +520,7 @@ pub fn update_pickups(
             }
 
             // Find object: search around task.pos
-            let index = find_from_center(task.pos, |index| {
+            let index = TilemapData::find_from_center(task.pos, |index| {
                 if let Some(tile_data) = tilemap_data.get(index) {
                     if let TileKind::Floor(Some(object)) = tile_data.kind {
                         return (specific_object.is_none() || specific_object == Some(object))

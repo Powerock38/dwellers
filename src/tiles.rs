@@ -2,13 +2,19 @@ use bevy::prelude::*;
 use bevy_entitiles::prelude::*;
 use bitcode::{Decode, Encode};
 
-use crate::terrain::{TilemapData, TilemapFiles, TF};
+use crate::tilemap::{TilemapData, TilemapFiles, TF};
 
-#[derive(PartialEq, Clone, Copy, Encode, Decode, Reflect, Default, Debug)]
-pub struct ObjectData {
-    atlas_index: i32,
-    blocking: bool,
-    carriable: bool,
+// Game Data
+impl TileData {
+    pub const GRASS_FLOOR: Self = Self::floor(0);
+    pub const STONE_FLOOR: Self = Self::floor(1);
+    pub const DUNGEON_FLOOR: Self = Self::floor(2);
+    pub const BRIDGE_FLOOR: Self = Self::floor(3);
+
+    pub const DIRT_WALL: Self = Self::wall(0);
+    pub const STONE_WALL: Self = Self::wall(1);
+    pub const DUNGEON_WALL: Self = Self::wall(2);
+    pub const WATER: Self = Self::wall(3);
 }
 
 impl ObjectData {
@@ -20,39 +26,6 @@ impl ObjectData {
     pub const BED: Self = Self::blocking(5);
     pub const DOOR: Self = Self::passable(6);
     pub const ROCK: Self = Self::passable(7);
-
-    pub const fn passable(atlas_index: i32) -> Self {
-        Self::new(atlas_index, false, true)
-    }
-
-    pub const fn blocking(atlas_index: i32) -> Self {
-        Self::new(atlas_index, true, true)
-    }
-
-    pub const fn blocking_non_carriable(atlas_index: i32) -> Self {
-        Self::new(atlas_index, true, false)
-    }
-
-    #[inline]
-    pub fn carriable(self) -> bool {
-        self.carriable
-    }
-
-    const fn new(atlas_index: i32, blocking: bool, carriable: bool) -> Self {
-        let atlas_index = TilemapFiles::T.atlas_index(TilemapFiles::OBJECTS, atlas_index);
-        Self {
-            atlas_index,
-            blocking,
-            carriable,
-        }
-    }
-}
-
-#[derive(PartialEq, Clone, Copy, Encode, Decode, Reflect, Default, Debug)]
-pub enum TileKind {
-    #[default]
-    Wall,
-    Floor(Option<ObjectData>),
 }
 
 #[derive(Clone, Copy, Encode, Decode, Reflect, Default, Debug)]
@@ -61,17 +34,15 @@ pub struct TileData {
     pub kind: TileKind,
 }
 
+impl PartialEq for TileData {
+    fn eq(&self, other: &Self) -> bool {
+        use std::mem::discriminant;
+        self.atlas_index == other.atlas_index
+            && discriminant(&self.kind) == discriminant(&other.kind)
+    }
+}
+
 impl TileData {
-    pub const GRASS_FLOOR: Self = Self::floor(0);
-    pub const STONE_FLOOR: Self = Self::floor(1);
-    pub const DUNGEON_FLOOR: Self = Self::floor(2);
-    pub const BRIDGE_FLOOR: Self = Self::floor(3);
-
-    pub const DIRT_WALL: Self = Self::wall(0);
-    pub const STONE_WALL: Self = Self::wall(1);
-    pub const DUNGEON_WALL: Self = Self::wall(2);
-    pub const WATER: Self = Self::wall(3);
-
     pub const fn floor(atlas_index: i32) -> Self {
         Self::new(TilemapFiles::FLOORS, atlas_index, TileKind::Floor(None))
     }
@@ -155,10 +126,44 @@ impl TileData {
     }
 }
 
-impl PartialEq for TileData {
-    fn eq(&self, other: &Self) -> bool {
-        use std::mem::discriminant;
-        self.atlas_index == other.atlas_index
-            && discriminant(&self.kind) == discriminant(&other.kind)
+#[derive(PartialEq, Clone, Copy, Encode, Decode, Reflect, Default, Debug)]
+pub enum TileKind {
+    #[default]
+    Wall,
+    Floor(Option<ObjectData>),
+}
+
+#[derive(PartialEq, Clone, Copy, Encode, Decode, Reflect, Default, Debug)]
+pub struct ObjectData {
+    atlas_index: i32,
+    blocking: bool,
+    carriable: bool,
+}
+
+impl ObjectData {
+    pub const fn passable(atlas_index: i32) -> Self {
+        Self::new(atlas_index, false, true)
+    }
+
+    pub const fn blocking(atlas_index: i32) -> Self {
+        Self::new(atlas_index, true, true)
+    }
+
+    pub const fn blocking_non_carriable(atlas_index: i32) -> Self {
+        Self::new(atlas_index, true, false)
+    }
+
+    #[inline]
+    pub fn carriable(self) -> bool {
+        self.carriable
+    }
+
+    const fn new(atlas_index: i32, blocking: bool, carriable: bool) -> Self {
+        let atlas_index = TilemapFiles::T.atlas_index(TilemapFiles::OBJECTS, atlas_index);
+        Self {
+            atlas_index,
+            blocking,
+            carriable,
+        }
     }
 }

@@ -4,8 +4,8 @@ use bevy::{log::LogPlugin, prelude::*, time::common_conditions::on_timer};
 use bevy_entitiles::EntiTilesPlugin;
 
 use crate::{
-    actions::*, camera::*, dwellers::*, mobs::*, save_load::*, tasks::*, terrain::*, tiles::*,
-    ui::*,
+    actions::*, camera::*, dwellers::*, mobs::*, save_load::*, tasks::*, terrain::*, tilemap::*,
+    tiles::*, ui::*,
 };
 
 mod actions;
@@ -15,6 +15,7 @@ mod mobs;
 mod save_load;
 mod tasks;
 mod terrain;
+mod tilemap;
 mod tiles;
 mod ui;
 mod utils;
@@ -34,16 +35,6 @@ fn main() {
         ))
         .insert_resource(ClearColor(Color::BLACK))
         .init_resource::<CameraControl>()
-        /*
-        .insert_resource(ChunkSaveConfig {
-            path: "generated/chunk_unloading".to_string(),
-            chunks_per_frame: 1,
-        })
-        .insert_resource(ChunkLoadConfig {
-            path: "generated/chunk_unloading".to_string(),
-            chunks_per_frame: 1,
-        })
-        */
         .add_event::<TaskCompletionEvent>()
         .add_systems(
             Startup,

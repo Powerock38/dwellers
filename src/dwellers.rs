@@ -4,7 +4,8 @@ use rand::Rng;
 use crate::{
     extract_ok,
     tasks::{BuildResult, Task, TaskCompletionEvent, TaskKind, TaskNeeds},
-    terrain::{find_from_center, TilemapData, TERRAIN_SIZE, TILE_SIZE},
+    terrain::TERRAIN_SIZE,
+    tilemap::{TilemapData, TILE_SIZE},
     tiles::ObjectData,
     SpriteLoaderBundle,
 };
@@ -30,20 +31,22 @@ pub struct DwellerBundle {
 pub fn spawn_dwellers(mut commands: Commands, q_tilemap: Query<&TilemapData>) {
     let tilemap_data = extract_ok!(q_tilemap.get_single());
 
-    let Some(spawn_pos) = find_from_center(IVec2::splat(TERRAIN_SIZE as i32 / 2), |index| {
-        for dx in -1..=1 {
-            for dy in -1..=1 {
-                let Some(tile_data) = tilemap_data.get(index + IVec2::new(dx, dy)) else {
-                    return false;
-                };
+    let Some(spawn_pos) =
+        TilemapData::find_from_center(IVec2::splat(TERRAIN_SIZE as i32 / 2), |index| {
+            for dx in -1..=1 {
+                for dy in -1..=1 {
+                    let Some(tile_data) = tilemap_data.get(index + IVec2::new(dx, dy)) else {
+                        return false;
+                    };
 
-                if tile_data.is_blocking() {
-                    return false;
+                    if tile_data.is_blocking() {
+                        return false;
+                    }
                 }
             }
-        }
-        true
-    }) else {
+            true
+        })
+    else {
         error!("No valid spawn position found for dwellers");
         return;
     };

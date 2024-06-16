@@ -9,7 +9,7 @@ use bevy::{
 use bevy_entitiles::{render::material::StandardTilemapMaterial, tilemap::map::TilemapTextures};
 
 use crate::{
-    standard_tilemap_bundle, terrain::TilemapData, Dweller, Mob, Task, TileData, TERRAIN_SIZE,
+    standard_tilemap_bundle, tilemap::TilemapData, Dweller, Mob, Task, TileData, TERRAIN_SIZE,
 };
 
 pub const SAVE_DIR: &str = "saves";

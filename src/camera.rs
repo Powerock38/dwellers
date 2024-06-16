@@ -3,11 +3,7 @@ use bevy::{
     prelude::*,
 };
 
-use crate::{
-    actions::CurrentAction,
-    dwellers::Dweller,
-    terrain::{TERRAIN_SIZE, TILE_SIZE},
-};
+use crate::{actions::CurrentAction, dwellers::Dweller, terrain::TERRAIN_SIZE, tilemap::TILE_SIZE};
 
 #[derive(Resource)]
 pub struct CameraControl {
