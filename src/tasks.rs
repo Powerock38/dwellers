@@ -1,4 +1,4 @@
-use bevy::{prelude::*, sprite::Anchor};
+use bevy::prelude::*;
 use bevy_entitiles::tilemap::map::TilemapStorage;
 use pathfinding::directed::astar::astar;
 use rand::Rng;
@@ -10,10 +10,12 @@ use crate::{
     terrain::{find_from_center, TilemapData, TILE_SIZE},
     tiles::{ObjectData, TileData, TileKind},
     utils::manhattan_distance,
+    SpriteLoaderBundle,
 };
 
-#[derive(PartialEq, Clone, Copy, Debug)]
+#[derive(PartialEq, Clone, Copy, Reflect, Default, Debug)]
 pub enum TaskKind {
+    #[default]
     Dig,
     Smoothen,
     Chop,
@@ -50,43 +52,53 @@ impl TaskKind {
             TaskKind::Stockpile => matches!(tile_data.kind, TileKind::Floor(_)),
         }
     }
+
+    pub fn id(&self) -> String {
+        format!("{self:?}")
+            .to_lowercase()
+            .split_whitespace()
+            .next()
+            .unwrap()
+            .to_string()
+    }
 }
 
-#[derive(PartialEq, Clone, Copy, Debug)]
+#[derive(PartialEq, Clone, Copy, Reflect, Debug)]
 pub enum BuildResult {
     Object(ObjectData),
     Tile(TileData),
 }
 
+// dumb impl only to make Reflect happy
+impl Default for BuildResult {
+    fn default() -> Self {
+        Self::Object(ObjectData::default())
+    }
+}
+
 #[derive(Bundle)]
 pub struct TaskBundle {
     pub task: Task,
-    pub sprite: SpriteBundle,
+    pub sprite: SpriteLoaderBundle,
 }
 
 impl TaskBundle {
-    pub fn new(task: Task, texture: Handle<Image>) -> Self {
+    pub fn new(task: Task) -> Self {
         let x = task.pos.x as f32 * TILE_SIZE;
         let y = task.pos.y as f32 * TILE_SIZE;
 
+        let texture_path = format!("sprites/{}.png", task.kind.id());
+
         Self {
             task,
-            sprite: SpriteBundle {
-                texture,
-                sprite: Sprite {
-                    anchor: Anchor::BottomLeft,
-                    custom_size: Some(Vec2::splat(TILE_SIZE)),
-                    ..default()
-                },
-                transform: Transform::from_xyz(x, y, 1.),
-                ..default()
-            },
+            sprite: SpriteLoaderBundle::new(texture_path.as_str(), x, y, 1.),
         }
     }
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Reflect, Default, Debug)]
 pub enum TaskNeeds {
+    #[default]
     Nothing,
     EmptyHands,
     Object(ObjectData),
@@ -94,7 +106,8 @@ pub enum TaskNeeds {
     Impossible,
 }
 
-#[derive(Component, Debug)]
+#[derive(Component, Reflect, Default, Debug)]
+#[reflect(Component)]
 pub struct Task {
     pub kind: TaskKind,
     pub pos: IVec2,
@@ -125,7 +138,7 @@ impl Task {
     }
 
     fn compute_reachable_positions(pos: IVec2, tilemap_data: &TilemapData) -> Vec<IVec2> {
-        if let Some(tile_data) = tilemap_data.0.get(pos) {
+        if let Some(tile_data) = tilemap_data.get(pos) {
             if !tile_data.is_blocking() {
                 return vec![pos];
             }
@@ -178,7 +191,6 @@ pub struct TaskCompletionEvent {
 
 pub fn event_task_completion(
     mut commands: Commands,
-    asset_server: Res<AssetServer>,
     mut events: EventReader<TaskCompletionEvent>,
     mut q_tilemap: Query<(&mut TilemapStorage, &mut TilemapData)>,
     q_mobs: Query<(Entity, &Mob, &Transform)>,
@@ -201,7 +213,7 @@ pub fn event_task_completion(
             continue;
         };
 
-        let Some(tile_data) = tilemap_data.0.get(task.pos) else {
+        let Some(tile_data) = tilemap_data.get(task.pos) else {
             continue;
         };
 
@@ -213,15 +225,12 @@ pub fn event_task_completion(
                     let mut rng = rand::thread_rng();
 
                     let tile = if rng.gen_bool(0.2) {
-                        commands.spawn(TaskBundle::new(
-                            Task::new(
-                                task.pos,
-                                TaskKind::Pickup,
-                                TaskNeeds::EmptyHands,
-                                &tilemap_data,
-                            ),
-                            asset_server.load("sprites/pickup.png"),
-                        ));
+                        commands.spawn(TaskBundle::new(Task::new(
+                            task.pos,
+                            TaskKind::Pickup,
+                            TaskNeeds::EmptyHands,
+                            &tilemap_data,
+                        )));
 
                         TileData::STONE_FLOOR.with(ObjectData::ROCK)
                     } else {
@@ -256,15 +265,12 @@ pub fn event_task_completion(
                         &mut tilemap_data,
                     );
 
-                    commands.spawn(TaskBundle::new(
-                        Task::new(
-                            task.pos,
-                            TaskKind::Pickup,
-                            TaskNeeds::EmptyHands,
-                            &tilemap_data,
-                        ),
-                        asset_server.load("sprites/pickup.png"),
-                    ));
+                    commands.spawn(TaskBundle::new(Task::new(
+                        task.pos,
+                        TaskKind::Pickup,
+                        TaskNeeds::EmptyHands,
+                        &tilemap_data,
+                    )));
 
                     println!("Chopped tile at {:?}", task.pos);
                     update_tasks_pos = true;
@@ -336,7 +342,7 @@ pub fn event_task_completion(
                                 .distance(mob_transform.translation)
                                 < TILE_SIZE
                             {
-                                if let Some(loot_tile_data) = tilemap_data.0.get(mob_pos) {
+                                if let Some(loot_tile_data) = tilemap_data.get(mob_pos) {
                                     if loot_tile_data.kind == TileKind::Floor(None) {
                                         loot_tile_data.with(mob.loot).set_at(
                                             mob_pos,
@@ -345,15 +351,12 @@ pub fn event_task_completion(
                                             &mut tilemap_data,
                                         );
 
-                                        commands.spawn(TaskBundle::new(
-                                            Task::new(
-                                                mob_pos,
-                                                TaskKind::Pickup,
-                                                TaskNeeds::EmptyHands,
-                                                &tilemap_data,
-                                            ),
-                                            asset_server.load("sprites/pickup.png"),
-                                        ));
+                                        commands.spawn(TaskBundle::new(Task::new(
+                                            mob_pos,
+                                            TaskKind::Pickup,
+                                            TaskNeeds::EmptyHands,
+                                            &tilemap_data,
+                                        )));
                                     }
                                 }
 
@@ -447,7 +450,6 @@ pub fn event_task_completion(
         for (_, mut task, _) in &mut q_tasks {
             if matches!(task.kind, TaskKind::Stockpile)
                 && tilemap_data
-                    .0
                     .get(task.pos)
                     .map_or(false, |tile_data| tile_data.kind == TileKind::Floor(None))
             {
@@ -457,12 +459,12 @@ pub fn event_task_completion(
     }
 }
 
+// FIXME: doesnt add pickup sometimes
 pub fn update_pickups(
     mut commands: Commands,
     q_tilemap: Query<&TilemapData>,
-    asset_server: Res<AssetServer>,
     q_new_tasks: Query<&Task, Added<Task>>,
-    q_tasks: Query<&Task>,
+    q_tasks: Query<&Task>, // Without<Added<Task>> ?
     q_dwellers: Query<(Entity, &Dweller)>,
 ) {
     let tilemap_data = extract_ok!(q_tilemap.get_single());
@@ -479,7 +481,7 @@ pub fn update_pickups(
             if q_tasks.iter().any(|t| {
                 t.kind == TaskKind::Pickup
                 && t.dweller.is_none() // not being worked on
-                    && tilemap_data.0.get(t.pos).is_some_and(|tile_data| {
+                    && tilemap_data.get(t.pos).is_some_and(|tile_data| {
                         if let TileKind::Floor(Some(object_data)) = tile_data.kind {
                             if let Some(object) = specific_object {
                                 return object == object_data;
@@ -508,7 +510,7 @@ pub fn update_pickups(
 
             // Find object: search around task.pos
             let index = find_from_center(task.pos, |index| {
-                if let Some(tile_data) = tilemap_data.0.get(index) {
+                if let Some(tile_data) = tilemap_data.get(index) {
                     if let TileKind::Floor(Some(object)) = tile_data.kind {
                         return (specific_object.is_none() || specific_object == Some(object))
                             && TaskKind::Pickup.can_be_completed(tile_data)
@@ -520,10 +522,12 @@ pub fn update_pickups(
             });
 
             if let Some(index) = index {
-                commands.spawn(TaskBundle::new(
-                    Task::new(index, TaskKind::Pickup, TaskNeeds::EmptyHands, tilemap_data),
-                    asset_server.load("sprites/pickup.png"),
-                ));
+                commands.spawn(TaskBundle::new(Task::new(
+                    index,
+                    TaskKind::Pickup,
+                    TaskNeeds::EmptyHands,
+                    tilemap_data,
+                )));
             }
         }
     }

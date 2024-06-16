@@ -2,12 +2,10 @@ use bevy::{prelude::*, render::render_resource::FilterMode};
 use bevy_entitiles::{
     prelude::*, render::material::StandardTilemapMaterial, tilemap::map::TilemapTextures,
 };
+use bitcode::{Decode, Encode};
 use noise::{NoiseFn, Perlin, RidgedMulti};
 
-use crate::{
-    tiles::{ObjectData, TileData},
-    utils::Map2D,
-};
+use crate::tiles::{ObjectData, TileData};
 
 pub const TILE_SIZE_U: u32 = 16;
 pub const TILE_SIZE: f32 = TILE_SIZE_U as f32;
@@ -80,17 +78,55 @@ impl TilemapFiles {
     }
 }
 
-#[derive(Component)]
-pub struct TilemapData(pub Map2D<TileData>);
+#[derive(Component, Encode, Decode)]
+pub struct TilemapData {
+    data: Vec<Vec<TileData>>,
+    size: usize,
+}
 
 impl TilemapData {
+    pub fn new(fill_with: TileData, n: usize) -> Self {
+        Self {
+            data: vec![vec![fill_with; n]; n],
+            size: n,
+        }
+    }
+
+    pub fn get(&self, index: IVec2) -> Option<TileData> {
+        if index.x < 0 || index.y < 0 {
+            return None;
+        }
+
+        let x = index.x as usize;
+        let y = index.y as usize;
+
+        if x >= self.size || y >= self.size {
+            return None;
+        }
+
+        Some(self.data[x][y])
+    }
+
+    pub fn set(&mut self, index: IVec2, value: TileData) {
+        if index.x < 0 || index.y < 0 {
+            return;
+        }
+
+        let x = index.x as usize;
+        let y = index.y as usize;
+
+        if x < self.size && y < self.size {
+            self.data[x][y] = value;
+        }
+    }
+
     pub fn neighbours(&self, pos: IVec2) -> Vec<(IVec2, TileData)> {
         [IVec2::X, IVec2::Y, IVec2::NEG_X, IVec2::NEG_Y]
             .into_iter()
             .filter_map(|p| {
                 let index = pos + p;
 
-                if let Some(tile) = self.0.get(index) {
+                if let Some(tile) = self.get(index) {
                     return Some((index, tile));
                 }
 
@@ -113,19 +149,13 @@ impl TilemapData {
     }
 }
 
-pub fn spawn_terrain(
-    mut commands: Commands,
-    assets_server: Res<AssetServer>,
+pub fn standard_tilemap_bundle(
+    entity: Entity,
+    asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<StandardTilemapMaterial>>,
     mut textures: ResMut<Assets<TilemapTextures>>,
-) {
-    commands.spawn((
-        Camera2dBundle::default(), /*CameraChunkUpdater::new(1.3, 2.2) */
-    ));
-
-    let entity = commands.spawn_empty().id();
-
-    let mut tilemap = StandardTilemapBundle {
+) -> StandardTilemapBundle {
+    StandardTilemapBundle {
         name: TilemapName("terrain".to_string()),
         tile_render_size: TileRenderSize(Vec2::splat(TILE_SIZE)),
         slot_size: TilemapSlotSize(Vec2::splat(TILE_SIZE)),
@@ -138,7 +168,7 @@ pub fn spawn_terrain(
                 .iter()
                 .map(|file| {
                     TilemapTexture::new(
-                        assets_server.load(format!("tilemaps/{}.png", file.name)),
+                        asset_server.load(format!("tilemaps/{}.png", file.name)),
                         TilemapTextureDescriptor::new(
                             file.size * TILE_SIZE_U,
                             UVec2::splat(TILE_SIZE_U),
@@ -149,7 +179,22 @@ pub fn spawn_terrain(
             FilterMode::Nearest,
         )),
         ..default()
-    };
+    }
+}
+
+pub fn spawn_terrain(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    materials: ResMut<Assets<StandardTilemapMaterial>>,
+    textures: ResMut<Assets<TilemapTextures>>,
+) {
+    commands.spawn((
+        Camera2dBundle::default(), /*CameraChunkUpdater::new(1.3, 2.2) */
+    ));
+
+    let entity = commands.spawn_empty().id();
+
+    let mut tilemap = standard_tilemap_bundle(entity, asset_server, materials, textures);
 
     let base_tile = TileData::GRASS_FLOOR;
 
@@ -159,7 +204,7 @@ pub fn spawn_terrain(
         base_tile.tile_builder(),
     );
 
-    let mut tilemap_data = TilemapData(Map2D::new(base_tile, TERRAIN_SIZE_USIZE));
+    let mut tilemap_data = TilemapData::new(base_tile, TERRAIN_SIZE_USIZE);
 
     let seed = rand::random();
 

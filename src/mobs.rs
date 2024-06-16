@@ -1,15 +1,17 @@
-use bevy::{prelude::*, sprite::Anchor};
+use bevy::prelude::*;
 use rand::prelude::*;
 
 use crate::{
     extract_ok,
     terrain::{find_from_center, TilemapData, TERRAIN_SIZE, TILE_SIZE},
     tiles::ObjectData,
+    SpriteLoaderBundle,
 };
 
 const Z_INDEX: f32 = 11.0;
 
-#[derive(Component)]
+#[derive(Component, Reflect, Default)]
+#[reflect(Component)]
 pub struct Mob {
     speed: f32,
     move_queue: Vec<IVec2>, // next move is at the end
@@ -29,37 +31,25 @@ impl Mob {
 #[derive(Bundle)]
 pub struct MobBundle {
     mob: Mob,
-    sprite: SpriteBundle,
+    sprite: SpriteLoaderBundle,
 }
 
 impl MobBundle {
-    pub fn new(mob: Mob, texture: Handle<Image>, position: Vec2) -> Self {
+    pub fn new(mob: Mob, texture_path: &str, position: Vec2) -> Self {
         MobBundle {
             mob,
-            sprite: SpriteBundle {
-                texture,
-                sprite: Sprite {
-                    anchor: Anchor::BottomLeft,
-                    ..default()
-                },
-                transform: Transform::from_xyz(position.x, position.y, Z_INDEX),
-                ..default()
-            },
+            sprite: SpriteLoaderBundle::new(texture_path, position.x, position.y, Z_INDEX),
         }
     }
 }
 
-pub fn spawn_mobs(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    q_tilemap: Query<&TilemapData>,
-) {
+pub fn spawn_mobs(mut commands: Commands, q_tilemap: Query<&TilemapData>) {
     let tilemap_data = extract_ok!(q_tilemap.get_single());
 
     let Some(spawn_pos) = find_from_center(IVec2::splat(TERRAIN_SIZE as i32 / 2), |index| {
         for dx in -1..=1 {
             for dy in -1..=1 {
-                let Some(tile_data) = tilemap_data.0.get(index + IVec2::new(dx, dy)) else {
+                let Some(tile_data) = tilemap_data.get(index + IVec2::new(dx, dy)) else {
                     return false;
                 };
 
@@ -80,7 +70,7 @@ pub fn spawn_mobs(
     for _ in 0..nb_sheeps {
         commands.spawn(MobBundle::new(
             Mob::new(60.0, ObjectData::RUG),
-            asset_server.load("sprites/sheep.png"),
+            "sprites/sheep.png",
             Vec2::new(
                 spawn_pos.x as f32 * TILE_SIZE,
                 spawn_pos.y as f32 * TILE_SIZE,
@@ -91,7 +81,7 @@ pub fn spawn_mobs(
     for _ in 0..nb_boars {
         commands.spawn(MobBundle::new(
             Mob::new(50.0, ObjectData::RUG),
-            asset_server.load("sprites/boar.png"),
+            "sprites/boar.png",
             Vec2::new(
                 spawn_pos.x as f32 * TILE_SIZE,
                 spawn_pos.y as f32 * TILE_SIZE,
@@ -122,7 +112,7 @@ pub fn update_mobs(mut q_mobs: Query<(&mut Mob, &Transform)>, mut q_tilemap: Que
             index.y += rng.gen_range(-1..=1);
         }
 
-        let Some(tiledata) = tilemap_data.0.get(index) else {
+        let Some(tiledata) = tilemap_data.get(index) else {
             continue;
         };
 

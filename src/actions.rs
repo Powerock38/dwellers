@@ -1,4 +1,4 @@
-use bevy::{prelude::*, sprite::Anchor, window::PrimaryWindow};
+use bevy::{prelude::*, window::PrimaryWindow};
 
 use crate::{
     extract_ok, extract_some,
@@ -6,6 +6,7 @@ use crate::{
     tasks::{Task, TaskBundle, TaskKind, TaskNeeds},
     terrain::{TilemapData, TILE_SIZE},
     tiles::{ObjectData, TileKind},
+    SpriteLoaderBundle,
 };
 
 #[derive(PartialEq, Clone, Copy, Debug)]
@@ -48,7 +49,6 @@ impl CurrentAction {
 pub fn click_terrain(
     mut commands: Commands,
     mut gizmos: Gizmos,
-    asset_server: Res<AssetServer>,
     mouse_input: Res<ButtonInput<MouseButton>>,
     q_camera: Query<(&Camera, &GlobalTransform)>,
     q_windows: Query<&Window, With<PrimaryWindow>>,
@@ -107,7 +107,7 @@ pub fn click_terrain(
                     let index = IVec2::new(x, y);
 
                     // Make sure there is a tile at this position
-                    let Some(tile_data) = tilemap_data.0.get(index) else {
+                    let Some(tile_data) = tilemap_data.get(index) else {
                         continue;
                     };
 
@@ -125,15 +125,12 @@ pub fn click_terrain(
                                         task.kind == TaskKind::Pickup && task.pos == index
                                     })
                                 {
-                                    commands.spawn(TaskBundle::new(
-                                        Task::new(
-                                            index,
-                                            TaskKind::Pickup,
-                                            TaskNeeds::EmptyHands,
-                                            tilemap_data,
-                                        ),
-                                        asset_server.load("sprites/pickup.png"),
-                                    ));
+                                    commands.spawn(TaskBundle::new(Task::new(
+                                        index,
+                                        TaskKind::Pickup,
+                                        TaskNeeds::EmptyHands,
+                                        tilemap_data,
+                                    )));
 
                                     println!("Removing stockpile at {index:?}");
                                 } else {
@@ -163,15 +160,12 @@ pub fn click_terrain(
 
                             match task_kind {
                                 TaskKind::Dig => {
-                                    commands.spawn(TaskBundle::new(
-                                        Task::new(
-                                            index,
-                                            task_kind,
-                                            TaskNeeds::Nothing,
-                                            tilemap_data,
-                                        ),
-                                        asset_server.load("sprites/dig.png"),
-                                    ));
+                                    commands.spawn(TaskBundle::new(Task::new(
+                                        index,
+                                        task_kind,
+                                        TaskNeeds::Nothing,
+                                        tilemap_data,
+                                    )));
 
                                     println!("Digging task at {index:?}");
                                 }
@@ -185,67 +179,52 @@ pub fn click_terrain(
                                     );
 
                                     if !task.reachable_positions.is_empty() {
-                                        commands.spawn(TaskBundle::new(
-                                            task,
-                                            asset_server.load("sprites/smoothen.png"),
-                                        ));
+                                        commands.spawn(TaskBundle::new(task));
 
                                         println!("Smoothening task at {index:?}");
                                     }
                                 }
 
                                 TaskKind::Chop => {
-                                    commands.spawn(TaskBundle::new(
-                                        Task::new(
-                                            index,
-                                            task_kind,
-                                            TaskNeeds::Nothing,
-                                            tilemap_data,
-                                        ),
-                                        asset_server.load("sprites/chop.png"),
-                                    ));
+                                    commands.spawn(TaskBundle::new(Task::new(
+                                        index,
+                                        task_kind,
+                                        TaskNeeds::Nothing,
+                                        tilemap_data,
+                                    )));
 
                                     println!("Chopping task at {index:?}");
                                 }
 
                                 TaskKind::Bridge => {
-                                    commands.spawn(TaskBundle::new(
-                                        Task::new(
-                                            index,
-                                            task_kind,
-                                            TaskNeeds::Object(ObjectData::WOOD),
-                                            tilemap_data,
-                                        ),
-                                        asset_server.load("sprites/bridge.png"),
-                                    ));
+                                    commands.spawn(TaskBundle::new(Task::new(
+                                        index,
+                                        task_kind,
+                                        TaskNeeds::Object(ObjectData::WOOD),
+                                        tilemap_data,
+                                    )));
 
                                     println!("Building bridge task at {index:?}");
                                 }
 
                                 TaskKind::Pickup => {
-                                    commands.spawn(TaskBundle::new(
-                                        Task::new(
-                                            index,
-                                            task_kind,
-                                            TaskNeeds::EmptyHands,
-                                            tilemap_data,
-                                        ),
-                                        asset_server.load("sprites/pickup.png"),
-                                    ));
+                                    commands.spawn(TaskBundle::new(Task::new(
+                                        index,
+                                        task_kind,
+                                        TaskNeeds::EmptyHands,
+                                        tilemap_data,
+                                    )));
 
                                     println!("Picking up task at {index:?}");
                                 }
 
                                 TaskKind::Build { cost, .. } => {
-                                    commands.spawn(TaskBundle::new(
-                                        Task::new(
-                                            index,
-                                            task_kind,
-                                            TaskNeeds::Object(cost),
-                                            tilemap_data,
-                                        ),
-                                        asset_server.load("sprites/build.png"),
-                                    ));
+                                    commands.spawn(TaskBundle::new(Task::new(
+                                        index,
+                                        task_kind,
+                                        TaskNeeds::Object(cost),
+                                        tilemap_data,
+                                    )));
 
                                     println!("Building object task at {index:?}");
                                 }
@@ -267,16 +246,12 @@ pub fn click_terrain(
                                                     TaskNeeds::Nothing,
                                                     tilemap_data,
                                                 ),
-                                                sprite: SpriteBundle {
-                                                    texture: asset_server.load("sprites/hunt.png"),
-                                                    sprite: Sprite {
-                                                        anchor: Anchor::BottomLeft,
-                                                        custom_size: Some(Vec2::splat(TILE_SIZE)),
-                                                        ..default()
-                                                    },
-                                                    transform: Transform::from_xyz(0., 0., 1.),
-                                                    ..default()
-                                                },
+                                                sprite: SpriteLoaderBundle::new(
+                                                    "sprites/hunt.png",
+                                                    0.,
+                                                    0.,
+                                                    1.,
+                                                ),
                                             });
                                         });
 
@@ -298,10 +273,7 @@ pub fn click_terrain(
 
                                     task.priority(-1);
 
-                                    commands.spawn(TaskBundle::new(
-                                        task,
-                                        asset_server.load("sprites/stockpile.png"),
-                                    ));
+                                    commands.spawn(TaskBundle::new(task));
 
                                     println!("Stockpiling task at {index:?}");
                                 }

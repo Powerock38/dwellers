@@ -1,9 +1,10 @@
 use bevy::prelude::*;
 use bevy_entitiles::prelude::*;
+use bitcode::{Decode, Encode};
 
 use crate::terrain::{TilemapData, TilemapFiles, TF};
 
-#[derive(PartialEq, Clone, Copy, Debug)]
+#[derive(PartialEq, Clone, Copy, Encode, Decode, Reflect, Default, Debug)]
 pub struct ObjectData {
     atlas_index: i32,
     blocking: bool,
@@ -47,13 +48,14 @@ impl ObjectData {
     }
 }
 
-#[derive(PartialEq, Clone, Copy, Debug)]
+#[derive(PartialEq, Clone, Copy, Encode, Decode, Reflect, Default, Debug)]
 pub enum TileKind {
-    Floor(Option<ObjectData>),
+    #[default]
     Wall,
+    Floor(Option<ObjectData>),
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Encode, Decode, Reflect, Default, Debug)]
 pub struct TileData {
     atlas_index: i32,
     pub kind: TileKind,
@@ -116,36 +118,40 @@ impl TileData {
     ) {
         tilemap.set(commands, index, self.tile_builder());
 
-        tilemap_data.0.set(index, *self);
+        tilemap_data.set(index, *self);
 
         Self::update_light_level(index, commands, tilemap, tilemap_data);
-        for (neighbour_index, _) in tilemap_data.neighbours(index) {
-            Self::update_light_level(neighbour_index, commands, tilemap, tilemap_data);
-        }
     }
 
     pub fn update_light_level(
         index: IVec2,
         commands: &mut Commands,
         tilemap: &mut TilemapStorage,
-        tilemap_data: &mut TilemapData,
+        tilemap_data: &TilemapData,
     ) {
-        let tint = if tilemap_data.neighbours(index).iter().all(|(_, tile)| {
-            tile == &Self::STONE_WALL || tile == &Self::DIRT_WALL || tile == &Self::DUNGEON_WALL
-        }) {
-            Color::BLACK
-        } else {
-            Color::WHITE
-        };
+        for index in tilemap_data
+            .neighbours(index)
+            .iter()
+            .map(|n| n.0)
+            .chain([index])
+        {
+            let tint = if tilemap_data.neighbours(index).iter().all(|(_, tile)| {
+                tile == &Self::STONE_WALL || tile == &Self::DIRT_WALL || tile == &Self::DUNGEON_WALL
+            }) {
+                Color::BLACK
+            } else {
+                Color::WHITE
+            };
 
-        tilemap.update(
-            commands,
-            index,
-            TileUpdater {
-                tint: Some(tint),
-                ..default()
-            },
-        );
+            tilemap.update(
+                commands,
+                index,
+                TileUpdater {
+                    tint: Some(tint),
+                    ..default()
+                },
+            );
+        }
     }
 }
 
