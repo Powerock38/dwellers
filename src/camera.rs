@@ -92,7 +92,7 @@ pub fn focus_any_dweller(
     mut control: ResMut<CameraControl>,
 ) {
     let mut transform = q_new_dweller.iter().next();
-    if keyboard_input.just_pressed(KeyCode::Space) || transform.is_some() {
+    if keyboard_input.just_pressed(KeyCode::KeyQ) || transform.is_some() {
         if transform.is_none() {
             transform = q_dwellers.iter().next();
         }

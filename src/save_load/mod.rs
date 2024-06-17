@@ -18,7 +18,6 @@ impl Plugin for SaveLoadPlugin {
             (
                 save_world,
                 load_world,
-                finish_load_world.after(load_world),
                 spawn_load_save_ui,
                 scan_sprite_loaders,
             ),

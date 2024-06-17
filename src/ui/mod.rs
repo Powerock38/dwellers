@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use crate::{
     actions::{ActionKind, CurrentAction},
-    LoadGame, SaveGame,
+    GameState, LoadGame, SaveGame,
 };
 
 mod actions_ui;
@@ -64,6 +64,7 @@ pub fn update_ui_buttons(
     q_windows: Query<Entity, With<UiWindow>>,
     current_action: Option<Res<CurrentAction>>,
     mut current_action_existed: Local<bool>,
+    mut next_state: ResMut<NextState<GameState>>,
 ) {
     for (ui_button, interaction, interaction_changed, mut color, mut border_color) in
         &mut interaction_query
@@ -102,6 +103,8 @@ pub fn update_ui_buttons(
                             if let Some(window) = q_windows.iter().next() {
                                 commands.entity(window).despawn_recursive();
                             }
+
+                            next_state.set(GameState::Running);
                         }
                     }
                 }

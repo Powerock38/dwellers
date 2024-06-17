@@ -3,13 +3,16 @@ use std::{fs::File, io::Write};
 use bevy::{
     prelude::*,
     render::camera::{CameraMainTextureUsages, CameraRenderGraph},
-    scene::SceneInstance,
     tasks::IoTaskPool,
 };
-use bevy_entitiles::{render::material::StandardTilemapMaterial, tilemap::map::TilemapTextures};
+use bevy_entitiles::{
+    render::material::StandardTilemapMaterial,
+    tilemap::{map::TilemapTextures, tile::Tile},
+};
 
 use crate::{
-    standard_tilemap_bundle, tilemap::TilemapData, Dweller, Mob, Task, TileData, TERRAIN_SIZE,
+    standard_tilemap_bundle, tilemap::TilemapData, Dweller, GameState, Mob, Task, TileData,
+    TERRAIN_SIZE,
 };
 
 pub const SAVE_DIR: &str = "saves";
@@ -23,9 +26,6 @@ pub struct SaveGame(pub String);
 
 #[derive(Resource)]
 pub struct LoadGame(pub String);
-
-#[derive(Component)]
-pub struct DynamicSceneForLoading;
 
 pub fn save_world(
     mut commands: Commands,
@@ -96,13 +96,16 @@ pub fn save_world(
 pub fn load_world(
     mut commands: Commands,
     load_game: Option<Res<LoadGame>>,
+    mut scene_spawner: ResMut<SceneSpawner>,
     asset_server: Res<AssetServer>,
     materials: ResMut<Assets<StandardTilemapMaterial>>,
     textures: ResMut<Assets<TilemapTextures>>,
     q_tilemap_data: Query<Entity, With<TilemapData>>,
+    q_tiles: Query<Entity, With<Tile>>,
     q_dwellers: Query<Entity, With<Dweller>>,
     q_tasks: Query<Entity, With<Task>>,
     q_mobs: Query<Entity, With<Mob>>,
+    mut next_state: ResMut<NextState<GameState>>,
 ) {
     if let Some(load_game) = load_game {
         if load_game.is_added() {
@@ -112,6 +115,10 @@ pub fn load_world(
             // Despawn current scene
             if let Some(tilemap_data) = q_tilemap_data.iter().next() {
                 commands.entity(tilemap_data).despawn_recursive();
+            }
+
+            for tile in q_tiles.iter() {
+                commands.entity(tile).despawn_recursive();
             }
 
             for dweller in q_dwellers.iter() {
@@ -127,13 +134,9 @@ pub fn load_world(
             }
 
             // Spawn new scene
-            commands.spawn((
-                DynamicSceneForLoading,
-                DynamicSceneBundle {
-                    scene: asset_server.load(format!("{SAVE_DIR}/{}.ron", load_game.0.clone())),
-                    ..default()
-                },
-            ));
+            scene_spawner.spawn_dynamic(
+                asset_server.load(format!("{SAVE_DIR}/{}.ron", load_game.0.clone())),
+            );
 
             let entity = commands.spawn_empty().id();
             let mut tilemap = standard_tilemap_bundle(entity, asset_server, materials, textures);
@@ -163,26 +166,11 @@ pub fn load_world(
                     }
                 }
                 commands.entity(entity).insert((tilemap, tilemap_data));
+
+                next_state.set(GameState::Running);
             } else {
                 error!("Error while decoding terrain from file");
             }
         }
-    }
-}
-
-// Called when DynamicSceneForLoading is fully loaded (== Added<SceneInstance>)
-pub fn finish_load_world(
-    mut commands: Commands,
-    q_tilemap_data: Query<Entity, (Added<TilemapData>, With<Parent>)>,
-    q_dynamic_scene: Query<Entity, (With<DynamicSceneForLoading>, Added<SceneInstance>)>,
-) {
-    let Some(tilemap_data) = q_tilemap_data.iter().next() else {
-        return;
-    };
-
-    commands.entity(tilemap_data).remove_parent();
-
-    if let Some(dynamic_scene) = q_dynamic_scene.iter().next() {
-        commands.entity(dynamic_scene).despawn_recursive();
     }
 }
