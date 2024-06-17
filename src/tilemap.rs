@@ -74,17 +74,45 @@ impl TilemapData {
             .collect()
     }
 
-    pub fn non_blocking_neighbours_pos(&self, pos: IVec2) -> Vec<IVec2> {
-        self.neighbours(pos)
+    pub fn non_blocking_neighbours_pos(&self, pos: IVec2, diagonal: bool) -> Vec<IVec2> {
+        let mut result: Vec<IVec2> = self
+            .neighbours(pos)
             .into_iter()
             .filter_map(|(index, tile)| {
-                if !tile.is_blocking() {
-                    return Some(index);
+                if tile.is_blocking() {
+                    None
+                } else {
+                    Some(index)
                 }
-
-                None
             })
-            .collect()
+            .collect();
+
+        if diagonal {
+            let diagonal_directions = [
+                IVec2::new(1, 1),
+                IVec2::new(-1, 1),
+                IVec2::new(1, -1),
+                IVec2::new(-1, -1),
+            ];
+
+            for diag_pos in diagonal_directions {
+                let diag_index = pos + diag_pos;
+
+                if let Some(diag_tile) = self.get(diag_index) {
+                    if !diag_tile.is_blocking() {
+                        let adj_blocking = [IVec2::new(diag_pos.x, 0), IVec2::new(0, diag_pos.y)]
+                            .into_iter()
+                            .any(|adj| self.get(pos + adj).map_or(true, |t| t.is_blocking()));
+
+                        if !adj_blocking {
+                            result.push(diag_index);
+                        }
+                    }
+                }
+            }
+        }
+
+        result
     }
 
     pub fn find_from_center(index: IVec2, is_valid: impl Fn(IVec2) -> bool) -> Option<IVec2> {

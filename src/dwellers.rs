@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use rand::Rng;
+use rand::seq::SliceRandom;
 
 use crate::{
     extract_ok,
@@ -81,7 +81,7 @@ pub fn update_dwellers(
             continue;
         }
 
-        let mut index = IVec2::new(
+        let index = IVec2::new(
             (transform.translation.x / TILE_SIZE) as i32,
             (transform.translation.y / TILE_SIZE) as i32,
         );
@@ -177,18 +177,10 @@ pub fn update_dwellers(
         // Wander around
         let mut rng = rand::thread_rng();
 
-        if rng.gen_bool(0.5) {
-            index.x += rng.gen_range(-1..=1);
-        } else {
-            index.y += rng.gen_range(-1..=1);
-        }
+        let directions = tilemap_data.non_blocking_neighbours_pos(index, true);
 
-        let Some(tiledata) = tilemap_data.get(index) else {
-            continue;
-        };
-
-        if !tiledata.is_blocking() {
-            dweller.move_queue.push(index);
+        if let Some(direction) = directions.choose(&mut rng) {
+            dweller.move_queue.push(*direction);
         }
     }
 }

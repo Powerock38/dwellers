@@ -170,7 +170,7 @@ impl Task {
             }
         }
 
-        tilemap_data.non_blocking_neighbours_pos(pos)
+        tilemap_data.non_blocking_neighbours_pos(pos, false)
     }
 
     pub fn pathfind(
@@ -184,9 +184,8 @@ impl Task {
                 astar(
                     pos,
                     |p| {
-                        //TODO: allow diagonal movement
                         tilemap_data
-                            .non_blocking_neighbours_pos(*p)
+                            .non_blocking_neighbours_pos(*p, true)
                             .into_iter()
                             .map(|p| (p, 1))
                     },

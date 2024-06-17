@@ -5,6 +5,7 @@
 - [ ] bitmasking (autotiling)
 - [ ] animations
 - [ ] lighting system
+- [ ] ui (dweller stats, task menu, etc.)
 
 ## World generation
 
@@ -18,7 +19,7 @@
 - [ ] towns
 - [ ] ruins
 - [ ] ores
-- [ ] animals
+- [x] animals
 
 ## Game mechanics
 
