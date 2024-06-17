@@ -46,8 +46,12 @@ impl TaskKind {
                     || tile_data == TileData::STONE_FLOOR
             }
             TaskKind::Harvest => {
-                tile_data.kind == TileKind::Floor(Some(ObjectData::TREE))
-                    || tile_data.kind == TileKind::Floor(Some(ObjectData::TALL_GRASS))
+                matches!(
+                    tile_data.kind,
+                    TileKind::Floor(Some(
+                        ObjectData::TREE | ObjectData::TALL_GRASS | ObjectData::WHEAT_PLANT
+                    ))
+                )
             }
             TaskKind::Bridge => tile_data == TileData::WATER,
             TaskKind::Build { .. } => tile_data.kind == TileKind::Floor(None),
@@ -287,6 +291,7 @@ pub fn event_task_completion(
                     if let Some(object) = match tile_data.kind {
                         TileKind::Floor(Some(ObjectData::TREE)) => Some(ObjectData::WOOD),
                         TileKind::Floor(Some(ObjectData::TALL_GRASS)) => Some(ObjectData::SEEDS),
+                        TileKind::Floor(Some(ObjectData::WHEAT_PLANT)) => Some(ObjectData::WHEAT),
                         _ => None,
                     } {
                         tile_data.with(object).set_at(

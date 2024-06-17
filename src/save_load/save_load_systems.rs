@@ -1,4 +1,4 @@
-use std::{fs::File, io::Write, time::UNIX_EPOCH};
+use std::{fs::File, io::Write};
 
 use bevy::{
     prelude::*,
@@ -26,17 +26,6 @@ pub struct LoadGame(pub String);
 
 #[derive(Component)]
 pub struct DynamicSceneForLoading;
-
-pub fn save_key_shortcut(
-    mut commands: Commands,
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-    save_name: Res<SaveName>,
-) {
-    if keyboard_input.just_pressed(KeyCode::KeyL) {
-        let timestamp = UNIX_EPOCH.elapsed().unwrap().as_millis();
-        commands.insert_resource(SaveGame(format!("{}-{timestamp}", save_name.0.clone())));
-    }
-}
 
 pub fn save_world(
     mut commands: Commands,

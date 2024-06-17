@@ -117,7 +117,7 @@ pub fn update_terrain(
                         let mut rng = rand::thread_rng();
 
                         if rng.gen_bool(0.01) {
-                            tile.with(ObjectData::WHEAT).set_at(
+                            tile.with(ObjectData::WHEAT_PLANT).set_at(
                                 index,
                                 &mut commands,
                                 &mut tilemap,

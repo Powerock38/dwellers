@@ -10,6 +10,7 @@ use crate::{
 
 mod actions;
 mod camera;
+mod data;
 mod dwellers;
 mod mobs;
 mod save_load;
@@ -49,7 +50,7 @@ fn main() {
             (
                 // UI
                 update_camera,
-                update_ui,
+                update_ui_buttons,
                 keyboard_current_action,
                 focus_any_dweller,
                 click_terrain,

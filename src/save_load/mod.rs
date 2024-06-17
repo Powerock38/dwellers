@@ -17,11 +17,9 @@ impl Plugin for SaveLoadPlugin {
             Update,
             (
                 save_world,
-                save_key_shortcut,
                 load_world,
                 finish_load_world.after(load_world),
                 spawn_load_save_ui,
-                update_save_load_buttons,
                 scan_sprite_loaders,
             ),
         )
