@@ -30,10 +30,13 @@ pub enum TaskKind {
         result: BuildResult,
         cost: ObjectData,
     },
+    Workstation {
+        output: ObjectData,
+    },
 }
 
 impl TaskKind {
-    pub fn can_be_completed(&self, tile_data: TileData) -> bool {
+    pub fn is_valid_on_tile(&self, tile_data: TileData) -> bool {
         match self {
             TaskKind::Dig => {
                 tile_data == TileData::DIRT_WALL
@@ -56,11 +59,14 @@ impl TaskKind {
             TaskKind::Bridge => tile_data == TileData::WATER,
             TaskKind::Build { .. } => tile_data.kind == TileKind::Floor(None),
             TaskKind::Pickup => {
-                matches!(tile_data.kind, TileKind::Floor(Some(object)) if object.carriable())
+                matches!(tile_data.kind, TileKind::Floor(Some(object)) if object.is_carriable())
             }
             TaskKind::Hunt => true,
             TaskKind::Stockpile => {
-                matches!(tile_data.kind, TileKind::Floor(object) if object.map_or(true, ObjectData::carriable))
+                matches!(tile_data.kind, TileKind::Floor(object) if object.map_or(true, ObjectData::is_carriable))
+            }
+            TaskKind::Workstation { .. } => {
+                matches!(tile_data.kind, TileKind::Floor(Some(ObjectData::FURNACE)))
             }
         }
     }
@@ -233,6 +239,7 @@ pub fn event_task_completion(
 
     let mut update_tasks_pos = false;
     let mut update_stockpiles = false;
+    let mut update_workstations = false;
 
     for event in events.read() {
         let Ok((entity, mut task, task_parent)) = q_tasks.get_mut(event.task) else {
@@ -253,203 +260,240 @@ pub fn event_task_completion(
 
         let mut success = false;
 
-        if task.kind.can_be_completed(tile_data) {
-            match task.kind {
-                TaskKind::Dig => {
-                    let tile = if rng.gen_bool(0.2) {
-                        commands.spawn(TaskBundle::new(Task::new(
-                            task.pos,
-                            TaskKind::Pickup,
-                            TaskNeeds::EmptyHands,
-                            &tilemap_data,
-                        )));
+        if !task.kind.is_valid_on_tile(tile_data) {
+            error!("SHOULD NEVER HAPPEN: removing invalid task {task:?} on tile {tile_data:?}");
+            commands.entity(entity).despawn_recursive();
+            continue;
+        }
 
-                        TileData::STONE_FLOOR.with(ObjectData::ROCK)
-                    } else {
-                        TileData::STONE_FLOOR
-                    };
+        match task.kind {
+            TaskKind::Dig => {
+                let tile = if rng.gen_bool(0.2) {
+                    commands.spawn(TaskBundle::new(Task::new(
+                        task.pos,
+                        TaskKind::Pickup,
+                        TaskNeeds::EmptyHands,
+                        &tilemap_data,
+                    )));
 
-                    tile.set_at(task.pos, &mut commands, &mut tilemap, &mut tilemap_data);
+                    TileData::STONE_FLOOR.with(ObjectData::ROCK)
+                } else {
+                    TileData::STONE_FLOOR
+                };
 
-                    debug!("Dug tile at {:?}", task.pos);
-                    update_tasks_pos = true;
-                    success = true;
-                }
+                tile.set_at(task.pos, &mut commands, &mut tilemap, &mut tilemap_data);
 
-                TaskKind::Smoothen => {
-                    let tile = match tile_data.kind {
-                        TileKind::Wall => TileData::DUNGEON_WALL,
-                        TileKind::Floor(None) => TileData::DUNGEON_FLOOR,
-                        TileKind::Floor(Some(object)) => TileData::DUNGEON_FLOOR.with(object),
-                    };
+                debug!("Dug tile at {:?}", task.pos);
+                update_tasks_pos = true;
+                success = true;
+            }
 
-                    tile.set_at(task.pos, &mut commands, &mut tilemap, &mut tilemap_data);
+            TaskKind::Smoothen => {
+                let tile = match tile_data.kind {
+                    TileKind::Wall => TileData::DUNGEON_WALL,
+                    TileKind::Floor(None) => TileData::DUNGEON_FLOOR,
+                    TileKind::Floor(Some(object)) => TileData::DUNGEON_FLOOR.with(object),
+                };
 
-                    debug!("Smoothened tile at {:?}", task.pos);
-                    success = true;
-                }
+                tile.set_at(task.pos, &mut commands, &mut tilemap, &mut tilemap_data);
 
-                TaskKind::Harvest => {
-                    if let Some(object) = match tile_data.kind {
-                        TileKind::Floor(Some(ObjectData::TREE)) => {
+                debug!("Smoothened tile at {:?}", task.pos);
+                success = true;
+            }
+
+            TaskKind::Harvest => match tile_data.kind {
+                TileKind::Floor(Some(object)) => {
+                    let drop_object = match object {
+                        ObjectData::TREE => {
                             if rng.gen_bool(0.3) {
-                                Some(Some(ObjectData::WOOD))
+                                Some(ObjectData::WOOD)
                             } else {
-                                Some(None)
+                                None
                             }
                         }
 
-                        TileKind::Floor(Some(ObjectData::TALL_GRASS)) => {
-                            Some(Some(ObjectData::SEEDS))
-                        }
+                        ObjectData::TALL_GRASS => Some(ObjectData::SEEDS),
 
-                        TileKind::Floor(Some(ObjectData::WHEAT_PLANT)) => {
+                        ObjectData::WHEAT_PLANT => {
                             dweller.object = Some(ObjectData::WHEAT);
 
-                            Some(Some(ObjectData::FARM))
+                            Some(ObjectData::FARM)
                         }
+
                         _ => None,
-                    } {
-                        if let Some(object) = object {
-                            tile_data.with(object).set_at(
-                                task.pos,
-                                &mut commands,
-                                &mut tilemap,
-                                &mut tilemap_data,
-                            );
+                    };
 
-                            if object.carriable() {
-                                commands.spawn(TaskBundle::new(Task::new(
-                                    task.pos,
-                                    TaskKind::Pickup,
-                                    TaskNeeds::EmptyHands,
-                                    &tilemap_data,
-                                )));
-                            }
-                        } else {
-                            tile_data.without_object().set_at(
-                                task.pos,
-                                &mut commands,
-                                &mut tilemap,
-                                &mut tilemap_data,
-                            );
-                        }
-
-                        debug!("Harvested object at {:?}", task.pos);
-                        update_tasks_pos = true;
-                        success = true;
-                    }
-                }
-
-                TaskKind::Bridge => {
-                    TileData::BRIDGE_FLOOR.set_at(
-                        task.pos,
-                        &mut commands,
-                        &mut tilemap,
-                        &mut tilemap_data,
-                    );
-
-                    debug!("Bridged tile at {:?}", task.pos);
-                    update_tasks_pos = true;
-                    success = true;
-                }
-
-                TaskKind::Pickup => {
-                    if let TileKind::Floor(Some(object_data)) = tile_data.kind {
-                        let mut new_tile_data = tile_data;
-                        new_tile_data.kind = TileKind::Floor(None);
-
-                        new_tile_data.set_at(
+                    if let Some(object) = drop_object {
+                        tile_data.with(object).set_at(
                             task.pos,
                             &mut commands,
                             &mut tilemap,
                             &mut tilemap_data,
                         );
 
-                        dweller.object = Some(object_data);
-
-                        debug!("Picked up object at {:?}", task.pos);
-                        update_stockpiles = true;
-                        success = true;
-                    }
-                }
-
-                TaskKind::Build { result, .. } => {
-                    match result {
-                        BuildResult::Object(object) => {
-                            tile_data.with(object).set_at(
+                        if object.is_carriable() {
+                            commands.spawn(TaskBundle::new(Task::new(
                                 task.pos,
-                                &mut commands,
-                                &mut tilemap,
-                                &mut tilemap_data,
-                            );
+                                TaskKind::Pickup,
+                                TaskNeeds::EmptyHands,
+                                &tilemap_data,
+                            )));
                         }
-                        BuildResult::Tile(tile) => {
-                            tile.set_at(task.pos, &mut commands, &mut tilemap, &mut tilemap_data);
-                        }
+                    } else {
+                        tile_data.without_object().set_at(
+                            task.pos,
+                            &mut commands,
+                            &mut tilemap,
+                            &mut tilemap_data,
+                        );
                     }
 
-                    debug!("Built {:?} at {:?}", result, task.pos);
+                    debug!("Harvested object at {:?}", task.pos);
                     update_tasks_pos = true;
                     success = true;
                 }
+                _ => {}
+            },
 
-                TaskKind::Hunt => {
-                    if let Some(task_parent) = task_parent.map(Parent::get) {
-                        if let Ok((entity_mob, mob, mob_transform)) = q_mobs.get(task_parent) {
-                            let mob_pos = (mob_transform.translation / TILE_SIZE)
-                                .truncate()
-                                .as_ivec2();
+            TaskKind::Bridge => {
+                TileData::BRIDGE_FLOOR.set_at(
+                    task.pos,
+                    &mut commands,
+                    &mut tilemap,
+                    &mut tilemap_data,
+                );
 
-                            if dweller_transform
-                                .translation
-                                .distance(mob_transform.translation)
-                                < TILE_SIZE
-                            {
-                                if let Some(loot_tile_data) = tilemap_data.get(mob_pos) {
-                                    if loot_tile_data.kind == TileKind::Floor(None) {
-                                        loot_tile_data.with(mob.loot).set_at(
-                                            mob_pos,
-                                            &mut commands,
-                                            &mut tilemap,
-                                            &mut tilemap_data,
-                                        );
+                debug!("Bridged tile at {:?}", task.pos);
+                update_tasks_pos = true;
+                success = true;
+            }
 
-                                        commands.spawn(TaskBundle::new(Task::new(
-                                            mob_pos,
-                                            TaskKind::Pickup,
-                                            TaskNeeds::EmptyHands,
-                                            &tilemap_data,
-                                        )));
-                                    }
-                                }
+            TaskKind::Pickup => {
+                if let TileKind::Floor(Some(object_data)) = tile_data.kind {
+                    let mut new_tile_data = tile_data;
+                    new_tile_data.kind = TileKind::Floor(None);
 
-                                commands.entity(entity_mob).despawn_recursive();
+                    new_tile_data.set_at(task.pos, &mut commands, &mut tilemap, &mut tilemap_data);
 
-                                debug!("Hunted mob at {:?}", mob_transform.translation);
-                                success = true;
-                            } else {
-                                task.pos = mob_pos;
-                                task.recompute_reachable_positions(&tilemap_data);
+                    dweller.object = Some(object_data);
+
+                    debug!("Picked up object at {:?}", task.pos);
+                    if object_data.is_blocking() {
+                        update_tasks_pos = true;
+                    }
+                    update_stockpiles = true;
+                    update_workstations = true; //TODO: only if picked up object is a workstation
+                    success = true;
+                }
+            }
+
+            TaskKind::Build { result, .. } => {
+                match result {
+                    BuildResult::Object(object) => {
+                        tile_data.with(object).set_at(
+                            task.pos,
+                            &mut commands,
+                            &mut tilemap,
+                            &mut tilemap_data,
+                        );
+
+                        match object {
+                            ObjectData::FURNACE => {
+                                commands.spawn(TaskBundle::new(Task::new(
+                                    task.pos,
+                                    TaskKind::Workstation {
+                                        output: ObjectData::BREAD,
+                                    },
+                                    TaskNeeds::Object(ObjectData::WHEAT),
+                                    &tilemap_data,
+                                )));
                             }
+
+                            _ => {}
                         }
+                    }
+                    BuildResult::Tile(tile) => {
+                        tile.set_at(task.pos, &mut commands, &mut tilemap, &mut tilemap_data);
                     }
                 }
 
-                TaskKind::Stockpile => {
-                    if tile_data.kind == TileKind::Floor(None) {
-                        if let Some(object) = dweller.object {
-                            tile_data.with(object).set_at(
-                                task.pos,
-                                &mut commands,
-                                &mut tilemap,
-                                &mut tilemap_data,
-                            );
+                debug!("Built {:?} at {:?}", result, task.pos);
+                update_tasks_pos = true;
+                success = true;
+            }
 
-                            debug!("Stockpiled object at {:?}", task.pos);
-                            update_tasks_pos = true;
+            TaskKind::Hunt => {
+                if let Some(task_parent) = task_parent.map(Parent::get) {
+                    if let Ok((entity_mob, mob, mob_transform)) = q_mobs.get(task_parent) {
+                        let mob_pos = (mob_transform.translation / TILE_SIZE)
+                            .truncate()
+                            .as_ivec2();
+
+                        if dweller_transform
+                            .translation
+                            .distance(mob_transform.translation)
+                            < TILE_SIZE
+                        {
+                            if let Some(loot_tile_data) = tilemap_data.get(mob_pos) {
+                                if loot_tile_data.kind == TileKind::Floor(None) {
+                                    loot_tile_data.with(mob.loot).set_at(
+                                        mob_pos,
+                                        &mut commands,
+                                        &mut tilemap,
+                                        &mut tilemap_data,
+                                    );
+
+                                    commands.spawn(TaskBundle::new(Task::new(
+                                        mob_pos,
+                                        TaskKind::Pickup,
+                                        TaskNeeds::EmptyHands,
+                                        &tilemap_data,
+                                    )));
+                                }
+                            }
+
+                            commands.entity(entity_mob).despawn_recursive();
+
+                            debug!("Hunted mob at {:?}", mob_transform.translation);
                             success = true;
+                        } else {
+                            task.pos = mob_pos;
+                            task.recompute_reachable_positions(&tilemap_data);
                         }
+                    }
+                }
+            }
+
+            TaskKind::Stockpile => {
+                if tile_data.kind == TileKind::Floor(None) {
+                    if let Some(object) = dweller.object {
+                        tile_data.with(object).set_at(
+                            task.pos,
+                            &mut commands,
+                            &mut tilemap,
+                            &mut tilemap_data,
+                        );
+
+                        debug!("Stockpiled object at {:?}", task.pos);
+                        update_tasks_pos = true;
+                        success = true;
+                    }
+                }
+            }
+
+            TaskKind::Workstation { output } => {
+                for (pos, tile_data) in tilemap_data.neighbours(task.pos) {
+                    if tile_data.kind == TileKind::Floor(None) {
+                        tile_data.with(output).set_at(
+                            pos,
+                            &mut commands,
+                            &mut tilemap,
+                            &mut tilemap_data,
+                        );
+
+                        debug!("Workstation output at {:?}", pos);
+                        success = true;
+                        break;
                     }
                 }
             }
@@ -510,6 +554,7 @@ pub fn event_task_completion(
         }
     }
 
+    // Set Stockpile tasks to AnyObject if there is nothing on the tile
     if update_stockpiles {
         for (_, mut task, _) in &mut q_tasks {
             if matches!(task.kind, TaskKind::Stockpile)
@@ -518,6 +563,19 @@ pub fn event_task_completion(
                     .map_or(false, |tile_data| tile_data.kind == TileKind::Floor(None))
             {
                 task.needs = TaskNeeds::AnyObject;
+            }
+        }
+    }
+
+    // Remove Workstation tasks if the workstation is gone
+    if update_workstations {
+        for (entity, task, _) in &mut q_tasks {
+            if matches!(task.kind, TaskKind::Workstation { .. })
+                && tilemap_data
+                    .get(task.pos)
+                    .map_or(false, |tile_data| tile_data.kind == TileKind::Floor(None))
+            {
+                commands.entity(entity).despawn_recursive();
             }
         }
     }
@@ -578,7 +636,7 @@ pub fn update_pickups(
                 if let Some(tile_data) = tilemap_data.get(index) {
                     if let TileKind::Floor(Some(object)) = tile_data.kind {
                         return (specific_object.is_none() || specific_object == Some(object))
-                            && TaskKind::Pickup.can_be_completed(tile_data)
+                            && TaskKind::Pickup.is_valid_on_tile(tile_data)
                             && !task_indexes.contains(&index)
                             && !q_tasks
                                 .iter()

@@ -19,8 +19,7 @@ impl std::fmt::Display for ActionKind {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             Self::Cancel => write!(f, "{self:?}"),
-            Self::Task(TaskKind::Build { .. }) => write!(f, "Build Object"),
-            Self::Task(task_kind) => write!(f, "{task_kind:?}"),
+            Self::Task(task_kind) => write!(f, "{}", task_kind.id()),
         }
     }
 }
@@ -120,7 +119,7 @@ pub fn click_terrain(
 
                                 // if we are cancelling a stockpile task, mark item for pickup (if not already marked)
                                 if task.kind == TaskKind::Stockpile
-                                    && TaskKind::Pickup.can_be_completed(tile_data)
+                                    && TaskKind::Pickup.is_valid_on_tile(tile_data)
                                     && !q_tasks.iter().any(|(_, task)| {
                                         task.kind == TaskKind::Pickup && task.pos == index
                                     })
@@ -139,7 +138,7 @@ pub fn click_terrain(
                             }
                         }
                         ActionKind::Task(task_kind) => {
-                            if !task_kind.can_be_completed(tile_data) {
+                            if !task_kind.is_valid_on_tile(tile_data) {
                                 continue;
                             }
 
@@ -282,6 +281,8 @@ pub fn click_terrain(
 
                                     debug!("Stockpiling task at {index:?}");
                                 }
+
+                                TaskKind::Workstation { .. } => { /* not a valid action */ }
                             }
                         }
                     }

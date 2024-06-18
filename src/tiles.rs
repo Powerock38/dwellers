@@ -141,8 +141,13 @@ impl ObjectData {
     }
 
     #[inline]
-    pub fn carriable(self) -> bool {
+    pub fn is_carriable(self) -> bool {
         self.carriable
+    }
+
+    #[inline]
+    pub fn is_blocking(self) -> bool {
+        self.blocking
     }
 
     const fn new(atlas_index: i32, blocking: bool, carriable: bool) -> Self {
