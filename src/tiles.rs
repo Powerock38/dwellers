@@ -39,6 +39,13 @@ impl TileData {
         }
     }
 
+    pub fn without_object(&self) -> Self {
+        Self {
+            atlas_index: self.atlas_index,
+            kind: TileKind::Floor(None),
+        }
+    }
+
     pub fn is_blocking(&self) -> bool {
         match self.kind {
             TileKind::Wall => true,

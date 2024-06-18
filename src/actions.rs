@@ -120,7 +120,7 @@ pub fn click_terrain(
 
                                 // if we are cancelling a stockpile task, mark item for pickup (if not already marked)
                                 if task.kind == TaskKind::Stockpile
-                                    && matches!(tile_data.kind, TileKind::Floor(Some(_)))
+                                    && TaskKind::Pickup.can_be_completed(tile_data)
                                     && !q_tasks.iter().any(|(_, task)| {
                                         task.kind == TaskKind::Pickup && task.pos == index
                                     })
@@ -189,7 +189,12 @@ pub fn click_terrain(
                                     commands.spawn(TaskBundle::new(Task::new(
                                         index,
                                         task_kind,
-                                        TaskNeeds::Nothing,
+                                        match tile_data.kind {
+                                            TileKind::Floor(Some(ObjectData::WHEAT_PLANT)) => {
+                                                TaskNeeds::EmptyHands
+                                            }
+                                            _ => TaskNeeds::Nothing,
+                                        },
                                         tilemap_data,
                                     )));
 

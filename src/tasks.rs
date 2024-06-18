@@ -59,7 +59,9 @@ impl TaskKind {
                 matches!(tile_data.kind, TileKind::Floor(Some(object)) if object.carriable())
             }
             TaskKind::Hunt => true,
-            TaskKind::Stockpile => matches!(tile_data.kind, TileKind::Floor(_)),
+            TaskKind::Stockpile => {
+                matches!(tile_data.kind, TileKind::Floor(object) if object.map_or(true, ObjectData::carriable))
+            }
         }
     }
 
@@ -247,13 +249,13 @@ pub fn event_task_completion(
             continue;
         };
 
+        let mut rng = rand::thread_rng();
+
         let mut success = false;
 
         if task.kind.can_be_completed(tile_data) {
             match task.kind {
                 TaskKind::Dig => {
-                    let mut rng = rand::thread_rng();
-
                     let tile = if rng.gen_bool(0.2) {
                         commands.spawn(TaskBundle::new(Task::new(
                             task.pos,
@@ -289,24 +291,49 @@ pub fn event_task_completion(
 
                 TaskKind::Harvest => {
                     if let Some(object) = match tile_data.kind {
-                        TileKind::Floor(Some(ObjectData::TREE)) => Some(ObjectData::WOOD),
-                        TileKind::Floor(Some(ObjectData::TALL_GRASS)) => Some(ObjectData::SEEDS),
-                        TileKind::Floor(Some(ObjectData::WHEAT_PLANT)) => Some(ObjectData::WHEAT),
+                        TileKind::Floor(Some(ObjectData::TREE)) => {
+                            if rng.gen_bool(0.3) {
+                                Some(Some(ObjectData::WOOD))
+                            } else {
+                                Some(None)
+                            }
+                        }
+
+                        TileKind::Floor(Some(ObjectData::TALL_GRASS)) => {
+                            Some(Some(ObjectData::SEEDS))
+                        }
+
+                        TileKind::Floor(Some(ObjectData::WHEAT_PLANT)) => {
+                            dweller.object = Some(ObjectData::WHEAT);
+
+                            Some(Some(ObjectData::FARM))
+                        }
                         _ => None,
                     } {
-                        tile_data.with(object).set_at(
-                            task.pos,
-                            &mut commands,
-                            &mut tilemap,
-                            &mut tilemap_data,
-                        );
+                        if let Some(object) = object {
+                            tile_data.with(object).set_at(
+                                task.pos,
+                                &mut commands,
+                                &mut tilemap,
+                                &mut tilemap_data,
+                            );
 
-                        commands.spawn(TaskBundle::new(Task::new(
-                            task.pos,
-                            TaskKind::Pickup,
-                            TaskNeeds::EmptyHands,
-                            &tilemap_data,
-                        )));
+                            if object.carriable() {
+                                commands.spawn(TaskBundle::new(Task::new(
+                                    task.pos,
+                                    TaskKind::Pickup,
+                                    TaskNeeds::EmptyHands,
+                                    &tilemap_data,
+                                )));
+                            }
+                        } else {
+                            tile_data.without_object().set_at(
+                                task.pos,
+                                &mut commands,
+                                &mut tilemap,
+                                &mut tilemap_data,
+                            );
+                        }
 
                         debug!("Harvested object at {:?}", task.pos);
                         update_tasks_pos = true;
