@@ -151,6 +151,14 @@ pub fn click_terrain(
                                         // Stockpile task will be correctly marked TaskNeeds::Impossible below
                                         false
                                     }
+                                    (
+                                        TaskKind::Smoothen,
+                                        TaskKind::Stockpile
+                                        | TaskKind::Pickup
+                                        | TaskKind::Harvest
+                                        | TaskKind::Hunt
+                                        | TaskKind::Workstation { .. },
+                                    ) => false,
                                     _ => true,
                                 },
                             ) {

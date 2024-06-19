@@ -24,10 +24,10 @@ impl ObjectData {
     pub const TALL_GRASS: Self = Self::passable_non_carriable(8);
     pub const SEEDS: Self = Self::passable(9);
     pub const FARM: Self = Self::passable_non_carriable(10);
-    pub const WHEAT_PLANT: Self = Self::passable(11);
+    pub const WHEAT_PLANT: Self = Self::passable_non_carriable(11);
     pub const WHEAT: Self = Self::passable(12);
-    pub const BREAD: Self = Self::passable(13); //TODO: draw this
-    pub const FURNACE: Self = Self::blocking(14);
+    pub const FURNACE: Self = Self::blocking(13);
+    pub const BREAD: Self = Self::passable(14);
 }
 
 pub const BUILD_RECIPES: &[(&str, BuildResult, ObjectData)] = &[
@@ -60,5 +60,10 @@ pub const BUILD_RECIPES: &[(&str, BuildResult, ObjectData)] = &[
         "farm",
         BuildResult::Object(ObjectData::FARM),
         ObjectData::SEEDS,
+    ),
+    (
+        "furnace",
+        BuildResult::Object(ObjectData::FURNACE),
+        ObjectData::ROCK,
     ),
 ];

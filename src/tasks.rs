@@ -484,12 +484,22 @@ pub fn event_task_completion(
             TaskKind::Workstation { output } => {
                 for (pos, tile_data) in tilemap_data.neighbours(task.pos) {
                     if tile_data.kind == TileKind::Floor(None) {
+                        // TODO: ensure there is no task at pos
                         tile_data.with(output).set_at(
                             pos,
                             &mut commands,
                             &mut tilemap,
                             &mut tilemap_data,
                         );
+
+                        if output.is_carriable() {
+                            commands.spawn(TaskBundle::new(Task::new(
+                                pos,
+                                TaskKind::Pickup,
+                                TaskNeeds::EmptyHands,
+                                &tilemap_data,
+                            )));
+                        }
 
                         debug!("Workstation output at {:?}", pos);
                         success = true;
@@ -537,11 +547,19 @@ pub fn event_task_completion(
                 TaskNeeds::EmptyHands | TaskNeeds::Nothing => {}
             }
 
-            if matches!(task.kind, TaskKind::Stockpile) {
-                task.dweller = None;
-                task.needs = TaskNeeds::Impossible;
-            } else {
-                commands.entity(entity).despawn();
+            match task.kind {
+                TaskKind::Stockpile => {
+                    task.dweller = None;
+                    task.needs = TaskNeeds::Impossible;
+                }
+
+                TaskKind::Workstation { .. } => {
+                    task.dweller = None;
+                }
+
+                _ => {
+                    commands.entity(entity).despawn();
+                }
             }
         } else {
             info!("Dweller {} failed task {:?}", dweller.name, task);
@@ -593,6 +611,10 @@ pub fn update_pickups(
     let mut task_indexes = vec![];
 
     for task in &q_new_tasks {
+        if matches!(task.kind, TaskKind::Stockpile) {
+            continue;
+        }
+
         let (specific_object, needs_object) = match task.needs {
             TaskNeeds::Object(object) => (Some(object), true),
             TaskNeeds::AnyObject => (None, true),
@@ -649,6 +671,8 @@ pub fn update_pickups(
             });
 
             if let Some(index) = index {
+                info!("Found object at {index:?} for {task:?}");
+
                 commands.spawn(TaskBundle::new(Task::new(
                     index,
                     TaskKind::Pickup,
