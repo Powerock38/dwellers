@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::{data::BUILD_RECIPES, ActionKind, TaskKind, UiButton};
+use crate::{data::BUILD_RECIPES, ActionKind, TaskKind, TaskNeeds, UiButton};
 
 pub fn spawn_ui(mut commands: Commands) {
     commands
@@ -30,10 +30,10 @@ pub fn spawn_ui(mut commands: Commands) {
                 for (name, result, cost) in BUILD_RECIPES {
                     build_button_text(
                         c,
-                        ActionKind::Task(TaskKind::Build {
-                            result: *result,
-                            cost: *cost,
-                        }),
+                        ActionKind::TaskWithNeeds(
+                            TaskKind::Build { result: *result },
+                            TaskNeeds::Objects(cost.to_vec()),
+                        ),
                         format!("Build {name}"),
                     );
                 }
@@ -63,7 +63,8 @@ pub fn spawn_ui(mut commands: Commands) {
 }
 
 fn build_button(c: &mut ChildBuilder, kind: ActionKind) {
-    build_button_text(c, kind, kind.to_string());
+    let text = kind.to_string();
+    build_button_text(c, kind, text);
 }
 
 fn build_button_text(c: &mut ChildBuilder, kind: ActionKind, text: String) {

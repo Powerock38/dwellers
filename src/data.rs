@@ -1,4 +1,8 @@
-use crate::{BuildResult, ObjectData, TileData};
+use std::sync::LazyLock;
+
+use bevy::utils::HashMap;
+
+use crate::{BuildResult, ObjectData, TaskNeeds, TileData};
 
 impl TileData {
     pub const GRASS_FLOOR: Self = Self::floor(0);
@@ -30,40 +34,40 @@ impl ObjectData {
     pub const BREAD: Self = Self::passable(14);
 }
 
-pub const BUILD_RECIPES: &[(&str, BuildResult, ObjectData)] = &[
+pub const BUILD_RECIPES: &[(&str, BuildResult, &[ObjectData])] = &[
     (
         "wall",
         BuildResult::Tile(TileData::DUNGEON_WALL),
-        ObjectData::ROCK,
+        &[ObjectData::ROCK],
     ),
     (
         "table",
         BuildResult::Object(ObjectData::TABLE),
-        ObjectData::WOOD,
+        &[ObjectData::WOOD],
     ),
     (
         "stool",
         BuildResult::Object(ObjectData::STOOL),
-        ObjectData::WOOD,
+        &[ObjectData::WOOD],
     ),
     (
         "bed",
         BuildResult::Object(ObjectData::BED),
-        ObjectData::WOOD,
+        &[ObjectData::WOOD],
     ),
     (
         "door",
         BuildResult::Object(ObjectData::DOOR),
-        ObjectData::WOOD,
+        &[ObjectData::WOOD],
     ),
     (
         "farm",
         BuildResult::Object(ObjectData::FARM),
-        ObjectData::SEEDS,
+        &[ObjectData::SEEDS],
     ),
     (
         "furnace",
         BuildResult::Object(ObjectData::FURNACE),
-        ObjectData::ROCK,
+        &[ObjectData::ROCK, ObjectData::ROCK, ObjectData::ROCK],
     ),
 ];

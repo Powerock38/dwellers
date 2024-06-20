@@ -28,7 +28,6 @@ pub enum TaskKind {
     Stockpile,
     Build {
         result: BuildResult,
-        cost: ObjectData,
     },
     Workstation {
         output: ObjectData,
@@ -114,12 +113,12 @@ impl TaskBundle {
     }
 }
 
-#[derive(PartialEq, Reflect, Default, Debug)]
+#[derive(PartialEq, Clone, Reflect, Default, Debug)]
 pub enum TaskNeeds {
     #[default]
     Nothing,
     EmptyHands,
-    Object(ObjectData),
+    Objects(Vec<ObjectData>),
     AnyObject,
     Impossible,
 }
@@ -387,34 +386,43 @@ pub fn event_task_completion(
                 }
             }
 
-            TaskKind::Build { result, .. } => {
-                match result {
-                    BuildResult::Object(object) => {
-                        tile_data.with(object).set_at(
-                            task.pos,
-                            &mut commands,
-                            &mut tilemap,
-                            &mut tilemap_data,
-                        );
+            TaskKind::Build { result } => {
+                match &task.needs {
+                    TaskNeeds::Objects(objects) if objects.len() > 1 => {
+                        debug!("Progressing build task {:?}", task);
+                    }
 
-                        match object {
-                            ObjectData::FURNACE => {
-                                commands.spawn(TaskBundle::new(Task::new(
-                                    task.pos,
-                                    TaskKind::Workstation {
-                                        output: ObjectData::BREAD,
-                                    },
-                                    TaskNeeds::Object(ObjectData::WHEAT),
-                                    &tilemap_data,
-                                )));
+                    _ => match result {
+                        BuildResult::Object(object) => {
+                            tile_data.with(object).set_at(
+                                task.pos,
+                                &mut commands,
+                                &mut tilemap,
+                                &mut tilemap_data,
+                            );
+
+                            match object {
+                                ObjectData::FURNACE => {
+                                    commands.spawn(TaskBundle::new(Task::new(
+                                        task.pos,
+                                        TaskKind::Workstation {
+                                            output: ObjectData::BREAD,
+                                        },
+                                        TaskNeeds::Objects(vec![
+                                            ObjectData::WOOD,
+                                            ObjectData::WHEAT,
+                                        ]),
+                                        &tilemap_data,
+                                    )));
+                                }
+
+                                _ => {}
                             }
-
-                            _ => {}
                         }
-                    }
-                    BuildResult::Tile(tile) => {
-                        tile.set_at(task.pos, &mut commands, &mut tilemap, &mut tilemap_data);
-                    }
+                        BuildResult::Tile(tile) => {
+                            tile.set_at(task.pos, &mut commands, &mut tilemap, &mut tilemap_data);
+                        }
+                    },
                 }
 
                 debug!("Built {:?} at {:?}", result, task.pos);
@@ -510,22 +518,31 @@ pub fn event_task_completion(
         }
 
         if success {
-            match task.needs {
-                TaskNeeds::Object(object_data) => {
+            let mut remove_task = true;
+
+            let kind = task.kind;
+            match &mut task.needs {
+                TaskNeeds::Objects(ref mut objects) => {
                     if let Some(dweller_object) = dweller.object {
-                        if dweller_object == object_data
-                            || matches!(
-                                task.kind,
-                                TaskKind::Build {
-                                    result: BuildResult::Object(build_object),
-                                    ..
-                                } if build_object == dweller_object
-                            )
+                        if matches!(
+                            kind,
+                            TaskKind::Build {
+                                result: BuildResult::Object(build_object),
+                                ..
+                            } if build_object == dweller_object
+                        ) {
+                            dweller.object = None;
+                        } else if let Some(i) =
+                            objects.iter().position(|object| *object == dweller_object)
                         {
                             dweller.object = None;
+                            objects.swap_remove(i);
+                            remove_task = objects.is_empty();
+                        } else {
+                            error!("SHOULD NEVER HAPPEN: Dweller {} completed task TaskNeeds::Objects {:?} with object {:?} not in list", dweller.name, kind, dweller_object);
                         }
                     } else {
-                        error!("SHOULD NEVER HAPPEN: Dweller {} completed task {:?} without needed object {:?}", dweller.name, task, object_data);
+                        error!("SHOULD NEVER HAPPEN: Dweller {} completed task TaskNeeds::Objects {:?} without any object", dweller.name, kind);
                     }
                 }
 
@@ -538,28 +555,34 @@ pub fn event_task_completion(
                 }
 
                 TaskNeeds::Impossible => {
+                    remove_task = false;
                     error!(
                         "SHOULD NEVER HAPPEN: Dweller {} completed impossible task {:?}",
                         dweller.name, task
                     );
                 }
 
-                TaskNeeds::EmptyHands | TaskNeeds::Nothing => {}
+                TaskNeeds::Nothing | TaskNeeds::EmptyHands => {}
             }
 
+            // Permanent tasks
             match task.kind {
                 TaskKind::Stockpile => {
-                    task.dweller = None;
                     task.needs = TaskNeeds::Impossible;
+                    remove_task = false;
                 }
 
                 TaskKind::Workstation { .. } => {
-                    task.dweller = None;
+                    remove_task = false;
                 }
 
-                _ => {
-                    commands.entity(entity).despawn();
-                }
+                _ => {}
+            }
+
+            if remove_task {
+                commands.entity(entity).despawn();
+            } else {
+                task.dweller = None;
             }
         } else {
             info!("Dweller {} failed task {:?}", dweller.name, task);
@@ -615,21 +638,21 @@ pub fn update_pickups(
             continue;
         }
 
-        let (specific_object, needs_object) = match task.needs {
-            TaskNeeds::Object(object) => (Some(object), true),
+        let (specific_objects, needs_objects) = match &task.needs {
+            TaskNeeds::Objects(objects) => (Some(objects), true),
             TaskNeeds::AnyObject => (None, true),
             _ => (None, false),
         };
 
-        if needs_object {
+        if needs_objects {
             // check if it needs a new Pickup task: check for already existing Pickup tasks for the required object
             if q_tasks.iter().any(|t| {
                 t.kind == TaskKind::Pickup
                 && t.dweller.is_none() // not being worked on
                     && tilemap_data.get(t.pos).is_some_and(|tile_data| {
                         if let TileKind::Floor(Some(object_data)) = tile_data.kind {
-                            if let Some(object) = specific_object {
-                                return object == object_data;
+                            if let Some(objects) = specific_objects {
+                                return objects.iter().any(|object| *object == object_data);
                             }
 
                             return true;
@@ -640,15 +663,18 @@ pub fn update_pickups(
                     })
             }) || // or Dwellers with the required object
             q_dwellers.iter().any(|(entity_dweller, dweller)| {
-                if let Some(dweller_object) = dweller.object {
-                 (specific_object.is_none() || specific_object == dweller.object)
-                    && // not working on a task that needs it
+                let has_object = match (specific_objects, dweller.object) {
+                    (Some(objects), Some(dweller_object)) => objects.iter().any(|object| *object == dweller_object),
+                    (None, _) => true,
+                    _ => false,
+                };
+
+                let not_working_on_task_that_needs_it =
                     !q_tasks.iter().any(|t| {
-                        t.dweller == Some(entity_dweller) && t.needs == TaskNeeds::Object(dweller_object)
-                    })
-                } else {
-                    false
-                }
+                        t.dweller == Some(entity_dweller) && matches!(&t.needs, TaskNeeds::Objects(objects) if objects.iter().any(|object| dweller.object.map_or(false, |dweller_object| dweller_object == *object) ))
+                    });
+
+                has_object && not_working_on_task_that_needs_it
             }) {
                 continue;
             }
@@ -657,13 +683,18 @@ pub fn update_pickups(
             let index = TilemapData::find_from_center(task.pos, |index| {
                 if let Some(tile_data) = tilemap_data.get(index) {
                     if let TileKind::Floor(Some(object)) = tile_data.kind {
-                        return (specific_object.is_none() || specific_object == Some(object))
+                        let has_object = match (specific_objects, object) {
+                            (Some(objects), object) => objects.iter().any(|o| *o == object),
+                            (None, _) => true,
+                        };
+
+                        return has_object
                             && TaskKind::Pickup.is_valid_on_tile(tile_data)
                             && !task_indexes.contains(&index)
+                            // make sure there's no task here already (excluding Stockpile tasks)
                             && !q_tasks
                                 .iter()
                                 .any(|t| !matches!(t.kind, TaskKind::Stockpile) && t.pos == index);
-                        // make sure there's no task here already (excluding Stockpile tasks)
                     }
                 }
 

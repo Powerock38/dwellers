@@ -9,17 +9,20 @@ use crate::{
     SpriteLoaderBundle,
 };
 
-#[derive(PartialEq, Clone, Copy, Debug)]
+#[derive(PartialEq, Clone, Debug)]
 pub enum ActionKind {
     Cancel,
     Task(TaskKind),
+    TaskWithNeeds(TaskKind, TaskNeeds),
 }
 
 impl std::fmt::Display for ActionKind {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             Self::Cancel => write!(f, "{self:?}"),
-            Self::Task(task_kind) => write!(f, "{}", task_kind.id()),
+            Self::Task(task_kind) | Self::TaskWithNeeds(task_kind, _) => {
+                write!(f, "{}", task_kind.id())
+            }
         }
     }
 }
@@ -137,7 +140,8 @@ pub fn click_terrain(
                                 }
                             }
                         }
-                        ActionKind::Task(task_kind) => {
+
+                        ActionKind::Task(task_kind) | ActionKind::TaskWithNeeds(task_kind, _) => {
                             if !task_kind.is_valid_on_tile(tile_data) {
                                 continue;
                             }
@@ -164,135 +168,139 @@ pub fn click_terrain(
                             ) {
                                 continue;
                             }
+                        }
+                    }
 
-                            match task_kind {
-                                TaskKind::Dig => {
-                                    commands.spawn(TaskBundle::new(Task::new(
-                                        index,
-                                        task_kind,
-                                        TaskNeeds::Nothing,
-                                        tilemap_data,
-                                    )));
+                    match &current_action.kind {
+                        ActionKind::Task(task_kind) => match task_kind {
+                            TaskKind::Dig => {
+                                commands.spawn(TaskBundle::new(Task::new(
+                                    index,
+                                    *task_kind,
+                                    TaskNeeds::Nothing,
+                                    tilemap_data,
+                                )));
 
-                                    debug!("Digging task at {index:?}");
-                                }
+                                debug!("Digging task at {index:?}");
+                            }
 
-                                TaskKind::Smoothen => {
-                                    let task = Task::new(
-                                        index,
-                                        task_kind,
-                                        TaskNeeds::Nothing,
-                                        tilemap_data,
-                                    );
+                            TaskKind::Smoothen => {
+                                let task =
+                                    Task::new(index, *task_kind, TaskNeeds::Nothing, tilemap_data);
 
-                                    if !task.reachable_positions.is_empty() {
-                                        commands.spawn(TaskBundle::new(task));
-
-                                        debug!("Smoothening task at {index:?}");
-                                    }
-                                }
-
-                                TaskKind::Harvest => {
-                                    commands.spawn(TaskBundle::new(Task::new(
-                                        index,
-                                        task_kind,
-                                        match tile_data.kind {
-                                            TileKind::Floor(Some(ObjectData::WHEAT_PLANT)) => {
-                                                TaskNeeds::EmptyHands
-                                            }
-                                            _ => TaskNeeds::Nothing,
-                                        },
-                                        tilemap_data,
-                                    )));
-
-                                    debug!("Harvesting task at {index:?}");
-                                }
-
-                                TaskKind::Bridge => {
-                                    commands.spawn(TaskBundle::new(Task::new(
-                                        index,
-                                        task_kind,
-                                        TaskNeeds::Object(ObjectData::WOOD),
-                                        tilemap_data,
-                                    )));
-
-                                    debug!("Building bridge task at {index:?}");
-                                }
-
-                                TaskKind::Pickup => {
-                                    commands.spawn(TaskBundle::new(Task::new(
-                                        index,
-                                        task_kind,
-                                        TaskNeeds::EmptyHands,
-                                        tilemap_data,
-                                    )));
-
-                                    debug!("Picking up task at {index:?}");
-                                }
-
-                                TaskKind::Build { cost, .. } => {
-                                    commands.spawn(TaskBundle::new(Task::new(
-                                        index,
-                                        task_kind,
-                                        TaskNeeds::Object(cost),
-                                        tilemap_data,
-                                    )));
-
-                                    debug!("Building object task at {index:?}");
-                                }
-
-                                TaskKind::Hunt => {
-                                    if let Some((entity_mob, _)) =
-                                        q_mobs.iter().find(|(_, mob_transform)| {
-                                            mob_transform.translation.distance(
-                                                Vec3::new(index.x as f32, index.y as f32, 0.)
-                                                    * TILE_SIZE,
-                                            ) < TILE_SIZE
-                                        })
-                                    {
-                                        commands.entity(entity_mob).with_children(|c| {
-                                            c.spawn(TaskBundle {
-                                                task: Task::new(
-                                                    index,
-                                                    task_kind,
-                                                    TaskNeeds::Nothing,
-                                                    tilemap_data,
-                                                ),
-                                                sprite: SpriteLoaderBundle::new(
-                                                    "sprites/hunt.png",
-                                                    0.,
-                                                    0.,
-                                                    1.,
-                                                ),
-                                            });
-                                        });
-
-                                        debug!("Hunting task at {index:?}");
-                                    }
-                                }
-
-                                TaskKind::Stockpile => {
-                                    let mut task = Task::new(
-                                        index,
-                                        task_kind,
-                                        if tile_data.kind == TileKind::Floor(None) {
-                                            TaskNeeds::AnyObject
-                                        } else {
-                                            TaskNeeds::Impossible
-                                        },
-                                        tilemap_data,
-                                    );
-
-                                    task.priority(-1);
-
+                                if !task.reachable_positions.is_empty() {
                                     commands.spawn(TaskBundle::new(task));
 
-                                    debug!("Stockpiling task at {index:?}");
+                                    debug!("Smoothening task at {index:?}");
                                 }
-
-                                TaskKind::Workstation { .. } => { /* not a valid action */ }
                             }
-                        }
+
+                            TaskKind::Harvest => {
+                                commands.spawn(TaskBundle::new(Task::new(
+                                    index,
+                                    *task_kind,
+                                    match tile_data.kind {
+                                        TileKind::Floor(Some(ObjectData::WHEAT_PLANT)) => {
+                                            TaskNeeds::EmptyHands
+                                        }
+                                        _ => TaskNeeds::Nothing,
+                                    },
+                                    tilemap_data,
+                                )));
+
+                                debug!("Harvesting task at {index:?}");
+                            }
+
+                            TaskKind::Bridge => {
+                                commands.spawn(TaskBundle::new(Task::new(
+                                    index,
+                                    *task_kind,
+                                    TaskNeeds::Objects(vec![ObjectData::WOOD]),
+                                    tilemap_data,
+                                )));
+
+                                debug!("Building bridge task at {index:?}");
+                            }
+
+                            TaskKind::Pickup => {
+                                commands.spawn(TaskBundle::new(Task::new(
+                                    index,
+                                    *task_kind,
+                                    TaskNeeds::EmptyHands,
+                                    tilemap_data,
+                                )));
+
+                                debug!("Picking up task at {index:?}");
+                            }
+
+                            TaskKind::Hunt => {
+                                if let Some((entity_mob, _)) =
+                                    q_mobs.iter().find(|(_, mob_transform)| {
+                                        mob_transform.translation.distance(
+                                            Vec3::new(index.x as f32, index.y as f32, 0.)
+                                                * TILE_SIZE,
+                                        ) < TILE_SIZE
+                                    })
+                                {
+                                    commands.entity(entity_mob).with_children(|c| {
+                                        c.spawn(TaskBundle {
+                                            task: Task::new(
+                                                index,
+                                                *task_kind,
+                                                TaskNeeds::Nothing,
+                                                tilemap_data,
+                                            ),
+                                            sprite: SpriteLoaderBundle::new(
+                                                "sprites/hunt.png",
+                                                0.,
+                                                0.,
+                                                1.,
+                                            ),
+                                        });
+                                    });
+
+                                    debug!("Hunting task at {index:?}");
+                                }
+                            }
+
+                            TaskKind::Stockpile => {
+                                let mut task = Task::new(
+                                    index,
+                                    *task_kind,
+                                    if tile_data.kind == TileKind::Floor(None) {
+                                        TaskNeeds::AnyObject
+                                    } else {
+                                        TaskNeeds::Impossible
+                                    },
+                                    tilemap_data,
+                                );
+
+                                task.priority(-1);
+
+                                commands.spawn(TaskBundle::new(task));
+
+                                debug!("Stockpiling task at {index:?}");
+                            }
+
+                            TaskKind::Workstation { .. } | TaskKind::Build { .. } => {}
+                        },
+
+                        ActionKind::TaskWithNeeds(task_kind, needs) => match task_kind {
+                            TaskKind::Build { .. } => {
+                                commands.spawn(TaskBundle::new(Task::new(
+                                    index,
+                                    *task_kind,
+                                    needs.clone(),
+                                    tilemap_data,
+                                )));
+
+                                debug!("Building task at {index:?}");
+                            }
+
+                            _ => {}
+                        },
+
+                        ActionKind::Cancel => {}
                     }
                 }
             }

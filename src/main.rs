@@ -1,3 +1,5 @@
+#![feature(lazy_cell)]
+
 use std::time::Duration;
 
 use bevy::{log::LogPlugin, prelude::*, time::common_conditions::on_timer};

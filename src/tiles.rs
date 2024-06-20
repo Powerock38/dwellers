@@ -116,7 +116,7 @@ pub enum TileKind {
     Floor(Option<ObjectData>),
 }
 
-#[derive(PartialEq, Clone, Copy, Encode, Decode, Reflect, Default, Debug)]
+#[derive(PartialEq, Eq, Hash, Clone, Copy, Encode, Decode, Reflect, Default, Debug)]
 pub struct ObjectData {
     atlas_index: i32,
     blocking: bool,

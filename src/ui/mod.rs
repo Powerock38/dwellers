@@ -83,7 +83,7 @@ pub fn update_ui_buttons(
                             {
                                 commands.remove_resource::<CurrentAction>();
                             } else {
-                                commands.insert_resource(CurrentAction::new(*action));
+                                commands.insert_resource(CurrentAction::new(action.clone()));
                             }
 
                             continue;

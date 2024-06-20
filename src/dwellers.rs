@@ -117,17 +117,17 @@ pub fn update_dwellers(
             .iter_mut()
             .filter_map(|(_, task)| {
                 if task.dweller.is_none() && !task.reachable_positions.is_empty() {
-                    match task.needs {
+                    match &task.needs {
                         TaskNeeds::Nothing => {}
                         TaskNeeds::EmptyHands => {
                             if dweller.object.is_some() {
                                 return None;
                             }
                         }
-                        TaskNeeds::Object(object_data) => match dweller.object {
+                        TaskNeeds::Objects(objects) => match dweller.object {
                             None => return None,
                             Some(dweller_object) => {
-                                if dweller_object != object_data
+                                if !objects.iter().any(|object| *object == dweller_object)
                                     && !matches!(
                                         task.kind,
                                         TaskKind::Build {
