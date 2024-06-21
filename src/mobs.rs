@@ -2,10 +2,10 @@ use bevy::prelude::*;
 use rand::prelude::*;
 
 use crate::{
+    data::ObjectId,
     extract_ok,
     terrain::TERRAIN_SIZE,
     tilemap::{TilemapData, TILE_SIZE},
-    tiles::ObjectData,
     SpriteLoaderBundle,
 };
 
@@ -16,11 +16,11 @@ const Z_INDEX: f32 = 11.0;
 pub struct Mob {
     speed: f32,
     move_queue: Vec<IVec2>, // next move is at the end
-    pub loot: ObjectData,
+    pub loot: ObjectId,
 }
 
 impl Mob {
-    pub fn new(speed: f32, loot: ObjectData) -> Self {
+    pub fn new(speed: f32, loot: ObjectId) -> Self {
         Mob {
             speed,
             move_queue: Vec::new(),
@@ -72,7 +72,7 @@ pub fn spawn_mobs(mut commands: Commands, q_tilemap: Query<&TilemapData>) {
 
     for _ in 0..nb_sheeps {
         commands.spawn(MobBundle::new(
-            Mob::new(60.0, ObjectData::RUG),
+            Mob::new(60.0, ObjectId::Rug),
             "sprites/sheep.png",
             Vec2::new(
                 spawn_pos.x as f32 * TILE_SIZE,
@@ -83,7 +83,7 @@ pub fn spawn_mobs(mut commands: Commands, q_tilemap: Query<&TilemapData>) {
 
     for _ in 0..nb_boars {
         commands.spawn(MobBundle::new(
-            Mob::new(50.0, ObjectData::RUG),
+            Mob::new(50.0, ObjectId::Rug),
             "sprites/boar.png",
             Vec2::new(
                 spawn_pos.x as f32 * TILE_SIZE,

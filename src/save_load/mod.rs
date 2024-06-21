@@ -3,7 +3,9 @@ pub use save_load_assets::*;
 pub use save_load_systems::*;
 pub use save_load_ui::*;
 
-use crate::{BuildResult, Dweller, Mob, ObjectData, Task, TaskKind, TaskNeeds, TileData, TileKind};
+use crate::{
+    data::ObjectId, BuildResult, Dweller, Mob, Task, TaskKind, TaskNeeds, TileData, TileKind,
+};
 
 mod save_load_assets;
 mod save_load_systems;
@@ -25,8 +27,9 @@ impl Plugin for SaveLoadPlugin {
         .insert_resource(SaveName("new_world".to_string()))
         .register_type::<SaveName>()
         .register_type::<Dweller>()
-        .register_type::<ObjectData>()
-        .register_type::<Option<ObjectData>>()
+        .register_type::<ObjectId>()
+        .register_type::<Option<ObjectId>>()
+        .register_type::<Vec<ObjectId>>()
         .register_type::<TileKind>()
         .register_type::<TileData>()
         .register_type::<Mob>()

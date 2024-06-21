@@ -4,7 +4,7 @@ use bevy_entitiles::{
 };
 use bitcode::{Decode, Encode};
 
-use crate::{TileData, TERRAIN_SIZE};
+use crate::{TileData, TileKind, TERRAIN_SIZE};
 
 pub const TILE_SIZE_U: u32 = 16;
 pub const TILE_SIZE: f32 = TILE_SIZE_U as f32;
@@ -102,7 +102,11 @@ impl TilemapData {
                     if !diag_tile.is_blocking() {
                         let adj_blocking = [IVec2::new(diag_pos.x, 0), IVec2::new(0, diag_pos.y)]
                             .into_iter()
-                            .any(|adj| self.get(pos + adj).map_or(true, |t| t.is_blocking()));
+                            .any(|adj| {
+                                self.get(pos + adj)
+                                    .map_or(true, |t| matches!(t.kind, TileKind::Wall))
+                                // Do not allow diagonal movement if there is a wall, but allow if it's a blocking object
+                            });
 
                         if !adj_blocking {
                             result.push(diag_index);

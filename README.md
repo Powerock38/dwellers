@@ -23,7 +23,7 @@
 
 ## Game mechanics
 
-- [ ] crafting with workstations
+- [x] crafting with workstations
 - [x] hold one object
 - [ ] equip objects
 - [ ] monsters

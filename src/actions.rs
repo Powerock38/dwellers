@@ -1,11 +1,12 @@
 use bevy::{prelude::*, window::PrimaryWindow};
 
 use crate::{
+    data::ObjectId,
     extract_ok, extract_some,
     mobs::Mob,
     tasks::{Task, TaskBundle, TaskKind, TaskNeeds},
     tilemap::{TilemapData, TILE_SIZE},
-    tiles::{ObjectData, TileKind},
+    tiles::TileKind,
     SpriteLoaderBundle,
 };
 
@@ -200,7 +201,7 @@ pub fn click_terrain(
                                     index,
                                     *task_kind,
                                     match tile_data.kind {
-                                        TileKind::Floor(Some(ObjectData::WHEAT_PLANT)) => {
+                                        TileKind::Floor(Some(ObjectId::WheatPlant)) => {
                                             TaskNeeds::EmptyHands
                                         }
                                         _ => TaskNeeds::Nothing,
@@ -215,7 +216,7 @@ pub fn click_terrain(
                                 commands.spawn(TaskBundle::new(Task::new(
                                     index,
                                     *task_kind,
-                                    TaskNeeds::Objects(vec![ObjectData::WOOD]),
+                                    TaskNeeds::Objects(vec![ObjectId::Wood]),
                                     tilemap_data,
                                 )));
 

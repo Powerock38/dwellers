@@ -1,8 +1,29 @@
 use std::sync::LazyLock;
 
-use bevy::utils::HashMap;
+use bevy::{prelude::*, utils::hashbrown::HashMap};
+use bitcode::{Decode, Encode};
 
-use crate::{BuildResult, ObjectData, TaskNeeds, TileData};
+use crate::{enum_map, BuildResult, ObjectData, TileData};
+
+enum_map! {
+    ObjectId => ObjectData {
+        Wood = ObjectData::passable(0),
+        Rug = ObjectData::passable(1),
+        Tree = ObjectData::blocking_non_carriable(2),
+        Table = ObjectData::blocking(3),
+        Stool = ObjectData::blocking(4),
+        Bed = ObjectData::blocking(5),
+        Door = ObjectData::passable(6),
+        Rock = ObjectData::passable(7),
+        TallGrass = ObjectData::passable_non_carriable(8),
+        Seeds = ObjectData::passable(9),
+        Farm = ObjectData::passable_non_carriable(10),
+        WheatPlant = ObjectData::passable_non_carriable(11),
+        Wheat = ObjectData::passable(12),
+        Furnace = ObjectData::blocking(13),
+        Bread = ObjectData::passable(14),
+    }
+}
 
 impl TileData {
     pub const GRASS_FLOOR: Self = Self::floor(0);
@@ -16,58 +37,44 @@ impl TileData {
     pub const WATER: Self = Self::wall(3);
 }
 
-impl ObjectData {
-    pub const WOOD: Self = Self::passable(0);
-    pub const RUG: Self = Self::passable(1);
-    pub const TREE: Self = Self::blocking_non_carriable(2);
-    pub const TABLE: Self = Self::blocking(3);
-    pub const STOOL: Self = Self::blocking(4);
-    pub const BED: Self = Self::blocking(5);
-    pub const DOOR: Self = Self::passable(6);
-    pub const ROCK: Self = Self::passable(7);
-    pub const TALL_GRASS: Self = Self::passable_non_carriable(8);
-    pub const SEEDS: Self = Self::passable(9);
-    pub const FARM: Self = Self::passable_non_carriable(10);
-    pub const WHEAT_PLANT: Self = Self::passable_non_carriable(11);
-    pub const WHEAT: Self = Self::passable(12);
-    pub const FURNACE: Self = Self::blocking(13);
-    pub const BREAD: Self = Self::passable(14);
-}
-
-pub const BUILD_RECIPES: &[(&str, BuildResult, &[ObjectData])] = &[
+pub const BUILD_RECIPES: &[(&str, BuildResult, &[ObjectId])] = &[
     (
         "wall",
         BuildResult::Tile(TileData::DUNGEON_WALL),
-        &[ObjectData::ROCK],
+        &[ObjectId::Rock],
     ),
     (
         "table",
-        BuildResult::Object(ObjectData::TABLE),
-        &[ObjectData::WOOD],
+        BuildResult::Object(ObjectId::Table),
+        &[ObjectId::Wood, ObjectId::Wood],
     ),
     (
         "stool",
-        BuildResult::Object(ObjectData::STOOL),
-        &[ObjectData::WOOD],
+        BuildResult::Object(ObjectId::Stool),
+        &[ObjectId::Wood],
     ),
-    (
-        "bed",
-        BuildResult::Object(ObjectData::BED),
-        &[ObjectData::WOOD],
-    ),
+    ("bed", BuildResult::Object(ObjectId::Bed), &[ObjectId::Wood]),
     (
         "door",
-        BuildResult::Object(ObjectData::DOOR),
-        &[ObjectData::WOOD],
+        BuildResult::Object(ObjectId::Door),
+        &[ObjectId::Wood],
     ),
     (
         "farm",
-        BuildResult::Object(ObjectData::FARM),
-        &[ObjectData::SEEDS],
+        BuildResult::Object(ObjectId::Farm),
+        &[ObjectId::Seeds],
     ),
     (
         "furnace",
-        BuildResult::Object(ObjectData::FURNACE),
-        &[ObjectData::ROCK, ObjectData::ROCK, ObjectData::ROCK],
+        BuildResult::Object(ObjectId::Furnace),
+        &[ObjectId::Rock, ObjectId::Rock, ObjectId::Rock],
     ),
 ];
+
+pub static WORKSTATIONS: LazyLock<HashMap<ObjectId, (ObjectId, Vec<ObjectId>)>> =
+    LazyLock::new(|| {
+        HashMap::from([(
+            ObjectId::Furnace,
+            (ObjectId::Bread, vec![ObjectId::Wheat, ObjectId::Wood]),
+        )])
+    });

@@ -6,9 +6,7 @@ use noise::{NoiseFn, Perlin, RidgedMulti};
 use rand::Rng;
 
 use crate::{
-    extract_ok, standard_tilemap_bundle,
-    tiles::{ObjectData, TileData},
-    TileKind, TilemapData,
+    data::ObjectId, extract_ok, standard_tilemap_bundle, tiles::TileData, TileKind, TilemapData,
 };
 
 pub const TERRAIN_SIZE: u32 = 256;
@@ -84,9 +82,9 @@ pub fn spawn_terrain(
             let vegetation_noise_value = noise.get([u * TREE_NOISE_SCALE, v * TREE_NOISE_SCALE]);
             if vegetation_noise_value > 0.0 {
                 let vegetation = if vegetation_noise_value > 0.7 {
-                    ObjectData::TALL_GRASS
+                    ObjectId::TallGrass
                 } else {
-                    ObjectData::TREE
+                    ObjectId::Tree
                 };
 
                 TileData::GRASS_FLOOR.with(vegetation).set_at(
@@ -113,11 +111,11 @@ pub fn update_terrain(
             let index = IVec2::new(x as i32, y as i32);
             if let Some(tile) = tilemap_data.get(index) {
                 match tile.kind {
-                    TileKind::Floor(Some(ObjectData::FARM)) => {
+                    TileKind::Floor(Some(ObjectId::Farm)) => {
                         let mut rng = rand::thread_rng();
 
                         if rng.gen_bool(0.01) {
-                            tile.with(ObjectData::WHEAT_PLANT).set_at(
+                            tile.with(ObjectId::WheatPlant).set_at(
                                 index,
                                 &mut commands,
                                 &mut tilemap,

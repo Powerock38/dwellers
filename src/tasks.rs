@@ -7,11 +7,12 @@ use pathfinding::directed::astar::astar;
 use rand::Rng;
 
 use crate::{
+    data::{ObjectId, WORKSTATIONS},
     dwellers::Dweller,
     extract_ok,
     mobs::Mob,
     tilemap::{TilemapData, TILE_SIZE},
-    tiles::{ObjectData, TileData, TileKind},
+    tiles::{TileData, TileKind},
     utils::manhattan_distance,
     SpriteLoaderBundle,
 };
@@ -29,13 +30,11 @@ pub enum TaskKind {
     Build {
         result: BuildResult,
     },
-    Workstation {
-        output: ObjectData,
-    },
+    Workstation,
 }
 
 impl TaskKind {
-    pub fn is_valid_on_tile(&self, tile_data: TileData) -> bool {
+    pub fn is_valid_on_tile(self, tile_data: TileData) -> bool {
         match self {
             TaskKind::Dig => {
                 tile_data == TileData::DIRT_WALL
@@ -51,26 +50,26 @@ impl TaskKind {
                 matches!(
                     tile_data.kind,
                     TileKind::Floor(Some(
-                        ObjectData::TREE | ObjectData::TALL_GRASS | ObjectData::WHEAT_PLANT
+                        ObjectId::Tree | ObjectId::TallGrass | ObjectId::WheatPlant
                     ))
                 )
             }
             TaskKind::Bridge => tile_data == TileData::WATER,
             TaskKind::Build { .. } => tile_data.kind == TileKind::Floor(None),
             TaskKind::Pickup => {
-                matches!(tile_data.kind, TileKind::Floor(Some(object)) if object.is_carriable())
+                matches!(tile_data.kind, TileKind::Floor(Some(object)) if object.data().is_carriable())
             }
             TaskKind::Hunt => true,
             TaskKind::Stockpile => {
-                matches!(tile_data.kind, TileKind::Floor(object) if object.map_or(true, ObjectData::is_carriable))
+                matches!(tile_data.kind, TileKind::Floor(object) if object.map_or(true, |object| object.data().is_carriable()))
             }
-            TaskKind::Workstation { .. } => {
-                matches!(tile_data.kind, TileKind::Floor(Some(ObjectData::FURNACE)))
+            TaskKind::Workstation => {
+                matches!(tile_data.kind, TileKind::Floor(Some(workstation)) if WORKSTATIONS.contains_key(&workstation))
             }
         }
     }
 
-    pub fn id(&self) -> String {
+    pub fn id(self) -> String {
         format!("{self:?}")
             .to_lowercase()
             .split_whitespace()
@@ -82,15 +81,8 @@ impl TaskKind {
 
 #[derive(PartialEq, Clone, Copy, Reflect, Debug)]
 pub enum BuildResult {
-    Object(ObjectData),
+    Object(ObjectId),
     Tile(TileData),
-}
-
-// dumb impl only to make Reflect happy
-impl Default for BuildResult {
-    fn default() -> Self {
-        Self::Object(ObjectData::default())
-    }
 }
 
 #[derive(Bundle)]
@@ -118,7 +110,7 @@ pub enum TaskNeeds {
     #[default]
     Nothing,
     EmptyHands,
-    Objects(Vec<ObjectData>),
+    Objects(Vec<ObjectId>),
     AnyObject,
     Impossible,
 }
@@ -181,7 +173,7 @@ impl Task {
             }
         }
 
-        tilemap_data.non_blocking_neighbours_pos(pos, false)
+        tilemap_data.non_blocking_neighbours_pos(pos, true)
     }
 
     pub fn pathfind(
@@ -275,7 +267,7 @@ pub fn event_task_completion(
                         &tilemap_data,
                     )));
 
-                    TileData::STONE_FLOOR.with(ObjectData::ROCK)
+                    TileData::STONE_FLOOR.with(ObjectId::Rock)
                 } else {
                     TileData::STONE_FLOOR
                 };
@@ -303,20 +295,20 @@ pub fn event_task_completion(
             TaskKind::Harvest => match tile_data.kind {
                 TileKind::Floor(Some(object)) => {
                     let drop_object = match object {
-                        ObjectData::TREE => {
+                        ObjectId::Tree => {
                             if rng.gen_bool(0.3) {
-                                Some(ObjectData::WOOD)
+                                Some(ObjectId::Wood)
                             } else {
                                 None
                             }
                         }
 
-                        ObjectData::TALL_GRASS => Some(ObjectData::SEEDS),
+                        ObjectId::TallGrass => Some(ObjectId::Seeds),
 
-                        ObjectData::WHEAT_PLANT => {
-                            dweller.object = Some(ObjectData::WHEAT);
+                        ObjectId::WheatPlant => {
+                            dweller.object = Some(ObjectId::Wheat);
 
-                            Some(ObjectData::FARM)
+                            Some(ObjectId::Farm)
                         }
 
                         _ => None,
@@ -330,7 +322,7 @@ pub fn event_task_completion(
                             &mut tilemap_data,
                         );
 
-                        if object.is_carriable() {
+                        if object.data().is_carriable() {
                             commands.spawn(TaskBundle::new(Task::new(
                                 task.pos,
                                 TaskKind::Pickup,
@@ -377,7 +369,7 @@ pub fn event_task_completion(
                     dweller.object = Some(object_data);
 
                     debug!("Picked up object at {:?}", task.pos);
-                    if object_data.is_blocking() {
+                    if object_data.data().is_blocking() {
                         update_tasks_pos = true;
                     }
                     update_stockpiles = true;
@@ -401,22 +393,13 @@ pub fn event_task_completion(
                                 &mut tilemap_data,
                             );
 
-                            match object {
-                                ObjectData::FURNACE => {
-                                    commands.spawn(TaskBundle::new(Task::new(
-                                        task.pos,
-                                        TaskKind::Workstation {
-                                            output: ObjectData::BREAD,
-                                        },
-                                        TaskNeeds::Objects(vec![
-                                            ObjectData::WOOD,
-                                            ObjectData::WHEAT,
-                                        ]),
-                                        &tilemap_data,
-                                    )));
-                                }
-
-                                _ => {}
+                            if let Some(workstation) = WORKSTATIONS.get(&object) {
+                                commands.spawn(TaskBundle::new(Task::new(
+                                    task.pos,
+                                    TaskKind::Workstation,
+                                    TaskNeeds::Objects(workstation.1.clone()),
+                                    &tilemap_data,
+                                )));
                             }
                         }
                         BuildResult::Tile(tile) => {
@@ -489,29 +472,34 @@ pub fn event_task_completion(
                 }
             }
 
-            TaskKind::Workstation { output } => {
-                for (pos, tile_data) in tilemap_data.neighbours(task.pos) {
-                    if tile_data.kind == TileKind::Floor(None) {
-                        // TODO: ensure there is no task at pos
-                        tile_data.with(output).set_at(
-                            pos,
-                            &mut commands,
-                            &mut tilemap,
-                            &mut tilemap_data,
-                        );
+            TaskKind::Workstation => {
+                if let TileKind::Floor(Some(workstation)) = tile_data.kind {
+                    if let Some(recipe) = WORKSTATIONS.get(&workstation) {
+                        for (pos, tile_data) in tilemap_data.neighbours(task.pos) {
+                            if tile_data.kind == TileKind::Floor(None) {
+                                // TODO: ensure there is no task at pos
 
-                        if output.is_carriable() {
-                            commands.spawn(TaskBundle::new(Task::new(
-                                pos,
-                                TaskKind::Pickup,
-                                TaskNeeds::EmptyHands,
-                                &tilemap_data,
-                            )));
+                                tile_data.with(recipe.0).set_at(
+                                    pos,
+                                    &mut commands,
+                                    &mut tilemap,
+                                    &mut tilemap_data,
+                                );
+
+                                if recipe.0.data().is_carriable() {
+                                    commands.spawn(TaskBundle::new(Task::new(
+                                        pos,
+                                        TaskKind::Pickup,
+                                        TaskNeeds::EmptyHands,
+                                        &tilemap_data,
+                                    )));
+                                }
+
+                                debug!("Workstation output at {:?}", pos);
+                                success = true;
+                                break;
+                            }
                         }
-
-                        debug!("Workstation output at {:?}", pos);
-                        success = true;
-                        break;
                     }
                 }
             }
@@ -572,8 +560,15 @@ pub fn event_task_completion(
                     remove_task = false;
                 }
 
-                TaskKind::Workstation { .. } => {
-                    remove_task = false;
+                TaskKind::Workstation => {
+                    if remove_task {
+                        if let TileKind::Floor(Some(workstation)) = tile_data.kind {
+                            if let Some(recipe) = WORKSTATIONS.get(&workstation) {
+                                task.needs = TaskNeeds::Objects(recipe.1.clone());
+                            }
+                        }
+                        remove_task = false;
+                    }
                 }
 
                 _ => {}

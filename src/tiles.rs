@@ -2,7 +2,10 @@ use bevy::prelude::*;
 use bevy_entitiles::prelude::*;
 use bitcode::{Decode, Encode};
 
-use crate::tilemap::{TilemapData, TilemapFiles, TF};
+use crate::{
+    data::ObjectId,
+    tilemap::{TilemapData, TilemapFiles, TF},
+};
 
 #[derive(Clone, Copy, Encode, Decode, Reflect, Default, Debug)]
 pub struct TileData {
@@ -32,39 +35,39 @@ impl TileData {
         Self { atlas_index, kind }
     }
 
-    pub fn with(&self, object_data: ObjectData) -> Self {
+    pub fn with(self, object_id: ObjectId) -> Self {
         Self {
             atlas_index: self.atlas_index,
-            kind: TileKind::Floor(Some(object_data)),
+            kind: TileKind::Floor(Some(object_id)),
         }
     }
 
-    pub fn without_object(&self) -> Self {
+    pub fn without_object(self) -> Self {
         Self {
             atlas_index: self.atlas_index,
             kind: TileKind::Floor(None),
         }
     }
 
-    pub fn is_blocking(&self) -> bool {
+    pub fn is_blocking(self) -> bool {
         match self.kind {
             TileKind::Wall => true,
-            TileKind::Floor(Some(object_data)) => object_data.blocking,
+            TileKind::Floor(Some(object)) => object.data().blocking,
             _ => false,
         }
     }
 
-    pub fn tile_builder(&self) -> TileBuilder {
+    pub fn tile_builder(self) -> TileBuilder {
         match self.kind {
-            TileKind::Floor(Some(object_data)) => TileBuilder::new()
+            TileKind::Floor(Some(object)) => TileBuilder::new()
                 .with_layer(0, TileLayer::no_flip(self.atlas_index))
-                .with_layer(1, TileLayer::no_flip(object_data.atlas_index)),
+                .with_layer(1, TileLayer::no_flip(object.data().atlas_index)),
             _ => TileBuilder::new().with_layer(0, TileLayer::no_flip(self.atlas_index)),
         }
     }
 
     pub fn set_at(
-        &self,
+        self,
         index: IVec2,
         commands: &mut Commands,
         tilemap: &mut TilemapStorage,
@@ -72,7 +75,7 @@ impl TileData {
     ) {
         tilemap.set(commands, index, self.tile_builder());
 
-        tilemap_data.set(index, *self);
+        tilemap_data.set(index, self);
 
         Self::update_light_level(index, commands, tilemap, tilemap_data);
     }
@@ -113,7 +116,7 @@ impl TileData {
 pub enum TileKind {
     #[default]
     Wall,
-    Floor(Option<ObjectData>),
+    Floor(Option<ObjectId>),
 }
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy, Encode, Decode, Reflect, Default, Debug)]

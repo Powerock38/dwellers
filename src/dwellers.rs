@@ -2,11 +2,11 @@ use bevy::prelude::*;
 use rand::seq::SliceRandom;
 
 use crate::{
+    data::ObjectId,
     extract_ok,
     tasks::{BuildResult, Task, TaskCompletionEvent, TaskKind, TaskNeeds},
     terrain::TERRAIN_SIZE,
     tilemap::{TilemapData, TILE_SIZE},
-    tiles::ObjectData,
     SpriteLoaderBundle,
 };
 
@@ -19,7 +19,7 @@ pub struct Dweller {
     pub name: String,
     speed: f32,
     move_queue: Vec<IVec2>, // next move is at the end
-    pub object: Option<ObjectData>,
+    pub object: Option<ObjectId>,
 }
 
 #[derive(Bundle)]
