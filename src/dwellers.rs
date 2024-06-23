@@ -5,9 +5,8 @@ use crate::{
     data::ObjectId,
     extract_ok,
     tasks::{BuildResult, Task, TaskCompletionEvent, TaskKind, TaskNeeds},
-    terrain::TERRAIN_SIZE,
     tilemap::{TilemapData, TILE_SIZE},
-    SpriteLoaderBundle,
+    LoadChunk, SpawnEntitiesOnChunk, SpriteLoaderBundle, CHUNK_SIZE,
 };
 
 const SPEED: f32 = 80.0;
@@ -28,46 +27,58 @@ pub struct DwellerBundle {
     sprite: SpriteLoaderBundle,
 }
 
-pub fn spawn_dwellers(mut commands: Commands, q_tilemap: Query<&TilemapData>) {
+pub fn spawn_dwellers(
+    mut commands: Commands,
+    q_tilemap: Query<&TilemapData>,
+    mut ev_spawn_entities_on_chunk: EventReader<SpawnEntitiesOnChunk>,
+) {
     let tilemap_data = extract_ok!(q_tilemap.get_single());
 
-    let Some(spawn_pos) =
-        TilemapData::find_from_center(IVec2::splat(TERRAIN_SIZE as i32 / 2), |index| {
-            for dx in -1..=1 {
-                for dy in -1..=1 {
-                    let Some(tile_data) = tilemap_data.get(index + IVec2::new(dx, dy)) else {
-                        return false;
-                    };
+    for SpawnEntitiesOnChunk(chunk_index) in ev_spawn_entities_on_chunk.read() {
+        let Some(spawn_pos) =
+            TilemapData::find_from_center(IVec2::splat(CHUNK_SIZE as i32 / 2), |index| {
+                for dx in -1..=1 {
+                    for dy in -1..=1 {
+                        let index = TilemapData::local_index_to_global(
+                            *chunk_index,
+                            index + IVec2::new(dx, dy),
+                        );
 
-                    if tile_data.is_blocking() {
-                        return false;
+                        let Some(tile_data) = tilemap_data.get(index) else {
+                            return false;
+                        };
+
+                        if tile_data.is_blocking() {
+                            return false;
+                        }
                     }
                 }
-            }
-            true
-        })
-    else {
-        error!("No valid spawn position found for dwellers");
-        return;
-    };
+                true
+            })
+        else {
+            error!("No valid spawn position found for dwellers");
+            return;
+        };
 
-    for name in ["Alice", "Bob", "Charlie", "Dave", "Eve"] {
-        commands.spawn(DwellerBundle {
-            sprite: SpriteLoaderBundle::new(
-                "sprites/dweller.png",
-                spawn_pos.x as f32 * TILE_SIZE,
-                spawn_pos.y as f32 * TILE_SIZE,
-                Z_INDEX,
-            ),
-            dweller: Dweller {
-                name: name.to_string(),
-                speed: SPEED,
-                move_queue: vec![],
-                object: None,
-            },
-        });
+        for name in ["Alice", "Bob", "Charlie", "Dave", "Eve"] {
+            commands.spawn(DwellerBundle {
+                sprite: SpriteLoaderBundle::new(
+                    "sprites/dweller.png",
+                    spawn_pos.x as f32 * TILE_SIZE,
+                    spawn_pos.y as f32 * TILE_SIZE,
+                    Z_INDEX,
+                ),
+                dweller: Dweller {
+                    name: name.to_string(),
+                    speed: SPEED,
+                    move_queue: vec![],
+                    object: None,
+                },
+            });
+        }
     }
 }
+
 pub fn update_dwellers(
     mut q_dwellers: Query<(Entity, &mut Dweller, &Transform)>,
     mut q_tilemap: Query<&TilemapData>,
@@ -210,6 +221,34 @@ pub fn update_dwellers_movement(
                 transform.translation.y += dir.y * dweller.speed * time.delta_seconds();
 
                 sprite.flip_x = dir.x < 0.0;
+            }
+        }
+    }
+}
+
+pub fn update_dwellers_load_chunks(
+    q_dwellers: Query<&Transform, With<Dweller>>,
+    q_tilemap: Query<&TilemapData>,
+    mut ev_load_chunk: EventWriter<LoadChunk>,
+) {
+    let tilemap_data = extract_ok!(q_tilemap.get_single());
+
+    for transform in &q_dwellers {
+        let index = IVec2::new(
+            (transform.translation.x / TILE_SIZE) as i32,
+            (transform.translation.y / TILE_SIZE) as i32,
+        );
+
+        // Load new chunks if needed
+        let (chunk_index, _) = tilemap_data.data.transform_index(index);
+
+        for dx in -1..=1 {
+            for dy in -1..=1 {
+                let chunk_index = chunk_index + IVec2::new(dx, dy);
+
+                if tilemap_data.data.get_chunk(chunk_index).is_none() {
+                    ev_load_chunk.send(LoadChunk(chunk_index));
+                }
             }
         }
     }

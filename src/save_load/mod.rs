@@ -24,7 +24,6 @@ impl Plugin for SaveLoadPlugin {
                 scan_sprite_loaders,
             ),
         )
-        .insert_resource(SaveName("new_world".to_string()))
         .register_type::<SaveName>()
         .register_type::<Dweller>()
         .register_type::<ObjectId>()

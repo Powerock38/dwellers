@@ -4,9 +4,8 @@ use rand::prelude::*;
 use crate::{
     data::ObjectId,
     extract_ok,
-    terrain::TERRAIN_SIZE,
     tilemap::{TilemapData, TILE_SIZE},
-    SpriteLoaderBundle,
+    SpawnEntitiesOnChunk, SpriteLoaderBundle, CHUNK_SIZE,
 };
 
 const Z_INDEX: f32 = 11.0;
@@ -44,52 +43,63 @@ impl MobBundle {
     }
 }
 
-pub fn spawn_mobs(mut commands: Commands, q_tilemap: Query<&TilemapData>) {
+pub fn spawn_mobs(
+    mut commands: Commands,
+    q_tilemap: Query<&TilemapData>,
+    mut ev_spawn_entities_on_chunk: EventReader<SpawnEntitiesOnChunk>,
+) {
     let tilemap_data = extract_ok!(q_tilemap.get_single());
 
-    let Some(spawn_pos) =
-        TilemapData::find_from_center(IVec2::splat(TERRAIN_SIZE as i32 / 2), |index| {
-            for dx in -1..=1 {
-                for dy in -1..=1 {
-                    let Some(tile_data) = tilemap_data.get(index + IVec2::new(dx, dy)) else {
-                        return false;
-                    };
+    for SpawnEntitiesOnChunk(chunk_index) in ev_spawn_entities_on_chunk.read() {
+        let Some(spawn_pos) =
+            TilemapData::find_from_center(IVec2::splat(CHUNK_SIZE as i32 / 2), |index| {
+                for dx in -1..=1 {
+                    for dy in -1..=1 {
+                        let index = TilemapData::local_index_to_global(
+                            *chunk_index,
+                            index + IVec2::new(dx, dy),
+                        );
 
-                    if tile_data.is_blocking() {
-                        return false;
+                        let Some(tile_data) = tilemap_data.get(index) else {
+                            return false;
+                        };
+
+                        if tile_data.is_blocking() {
+                            return false;
+                        }
                     }
                 }
-            }
-            true
-        })
-    else {
-        error!("No valid spawn position found for mobs");
-        return;
-    };
+                true
+            })
+        else {
+            error!("No valid spawn position found for mobs");
+            return;
+        };
 
-    let nb_sheeps = 5;
-    let nb_boars = 3;
+        let nb_sheeps = 5;
+        let nb_boars = 3;
 
-    for _ in 0..nb_sheeps {
-        commands.spawn(MobBundle::new(
-            Mob::new(60.0, ObjectId::Rug),
-            "sprites/sheep.png",
-            Vec2::new(
-                spawn_pos.x as f32 * TILE_SIZE,
-                spawn_pos.y as f32 * TILE_SIZE,
-            ),
-        ));
-    }
+        for _ in 0..nb_sheeps {
+            commands.spawn(MobBundle::new(
+                Mob::new(60.0, ObjectId::Rug),
+                "sprites/sheep.png",
+                Vec2::new(
+                    spawn_pos.x as f32 * TILE_SIZE,
+                    spawn_pos.y as f32 * TILE_SIZE,
+                ),
+            ));
+        }
 
-    for _ in 0..nb_boars {
-        commands.spawn(MobBundle::new(
-            Mob::new(50.0, ObjectId::Rug),
-            "sprites/boar.png",
-            Vec2::new(
-                spawn_pos.x as f32 * TILE_SIZE,
-                spawn_pos.y as f32 * TILE_SIZE,
-            ),
-        ));
+        for _ in 0..nb_boars {
+            commands.spawn(MobBundle::new(
+                Mob::new(50.0, ObjectId::Rug),
+                "sprites/boar.png",
+                Vec2::new(
+                    spawn_pos.x as f32 * TILE_SIZE,
+                    spawn_pos.y as f32 * TILE_SIZE,
+                ),
+            ));
+        }
     }
 }
 

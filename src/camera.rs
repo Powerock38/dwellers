@@ -3,7 +3,7 @@ use bevy::{
     prelude::*,
 };
 
-use crate::{actions::CurrentAction, dwellers::Dweller, terrain::TERRAIN_SIZE, tilemap::TILE_SIZE};
+use crate::{actions::CurrentAction, dwellers::Dweller, CHUNK_SIZE, TILE_SIZE};
 
 #[derive(Resource)]
 pub struct CameraControl {
@@ -14,10 +14,14 @@ pub struct CameraControl {
 impl Default for CameraControl {
     fn default() -> Self {
         Self {
-            target_pos: Vec2::splat(TERRAIN_SIZE as f32 * 0.5 * TILE_SIZE),
+            target_pos: Vec2::splat(CHUNK_SIZE as f32 * 0.5 * TILE_SIZE),
             target_scale: 1.,
         }
     }
+}
+
+pub fn spawn_camera(mut commands: Commands) {
+    commands.spawn(Camera2dBundle::default());
 }
 
 pub fn update_camera(

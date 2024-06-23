@@ -10,10 +10,7 @@ use bevy_entitiles::{
     tilemap::{map::TilemapTextures, tile::Tile},
 };
 
-use crate::{
-    standard_tilemap_bundle, tilemap::TilemapData, Dweller, GameState, Mob, Task, TileData,
-    TERRAIN_SIZE,
-};
+use crate::{init_tilemap, tilemap::TilemapData, Dweller, GameState, Mob, Task};
 
 pub const SAVE_DIR: &str = "saves";
 
@@ -151,40 +148,10 @@ pub fn load_world(
                 asset_server.load(format!("{SAVE_DIR}/{}/entities.ron", load_game.0.clone())),
             );
 
-            let entity = commands.spawn_empty().id();
-            let mut tilemap = standard_tilemap_bundle(entity, asset_server, materials, textures);
+            // Init tilemap, chunks will be loaded from disk
+            init_tilemap(commands, asset_server, materials, textures);
 
-            let tilemap_data = bitcode::decode::<Vec<TileData>>(
-                &std::fs::read(format!("assets/{SAVE_DIR}/{}/0_0.bin", load_game.0))
-                    .expect("Error while reading terrain from file"),
-            )
-            .map(TilemapData::from_chunk_0_0);
-
-            if let Ok(tilemap_data) = tilemap_data {
-                for x in 0..TERRAIN_SIZE {
-                    for y in 0..TERRAIN_SIZE {
-                        let index = IVec2::new(x as i32, y as i32);
-
-                        if let Some(tile_data) = tilemap_data.get(index) {
-                            tilemap
-                                .storage
-                                .set(&mut commands, index, tile_data.tile_builder());
-
-                            TileData::update_light_level(
-                                index,
-                                &mut commands,
-                                &mut tilemap.storage,
-                                &tilemap_data,
-                            );
-                        }
-                    }
-                }
-                commands.entity(entity).insert((tilemap, tilemap_data));
-
-                next_state.set(GameState::Running);
-            } else {
-                error!("Error while decoding terrain from file");
-            }
+            next_state.set(GameState::Running);
         }
     }
 }

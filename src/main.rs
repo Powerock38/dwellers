@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use bevy::{log::LogPlugin, prelude::*, time::common_conditions::on_timer};
 use bevy_entitiles::EntiTilesPlugin;
+use rand::{distributions::Alphanumeric, Rng};
 
 use crate::{
     actions::*, camera::*, dwellers::*, mobs::*, save_load::*, state::*, tasks::*, terrain::*,
@@ -37,22 +38,19 @@ fn main() {
         ))
         .insert_resource(ClearColor(Color::BLACK))
         .init_resource::<CameraControl>()
+        .add_event::<LoadChunk>()
         .add_event::<TaskCompletionEvent>()
+        .add_event::<SpawnEntitiesOnChunk>()
         .configure_sets(Update, GameplaySet.run_if(in_state(GameState::Running)))
-        .add_systems(
-            Startup,
-            (
-                spawn_terrain,
-                (spawn_dwellers, spawn_mobs).after(spawn_terrain),
-                spawn_ui,
-            ),
-        )
+        .add_systems(Startup, (spawn_camera, spawn_new_terrain, spawn_ui))
         .add_systems(
             Update,
             (
                 update_ui_buttons,
                 update_camera,
                 toggle_state,
+                load_chunks,
+                (spawn_dwellers, spawn_mobs).after(load_chunks),
                 (
                     // Game UI
                     keyboard_current_action,
@@ -60,7 +58,8 @@ fn main() {
                     click_terrain,
                     // Game logic
                     (update_dwellers, update_mobs).run_if(on_timer(Duration::from_millis(200))),
-                    (update_terrain).run_if(on_timer(Duration::from_millis(800))),
+                    (update_dwellers_load_chunks).run_if(on_timer(Duration::from_millis(1000))),
+                    // (update_loaded_chunks).run_if(on_timer(Duration::from_millis(800))),
                     update_dwellers_movement,
                     update_mobs_movement,
                     update_unreachable_tasks,
@@ -71,5 +70,12 @@ fn main() {
             ),
         )
         .init_state::<GameState>()
+        .insert_resource(SaveName({
+            rand::thread_rng()
+                .sample_iter(&Alphanumeric)
+                .take(10)
+                .map(char::from)
+                .collect()
+        }))
         .run();
 }

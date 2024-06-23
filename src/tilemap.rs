@@ -1,22 +1,15 @@
-use bevy::{prelude::*, render::render_resource::FilterMode, utils::HashMap};
+use bevy::{prelude::*, render::render_resource::FilterMode};
 use bevy_entitiles::{
     prelude::*,
     render::material::StandardTilemapMaterial,
     tilemap::{chunking::storage::ChunkedStorage, map::TilemapTextures},
 };
 
-use crate::{TileData, TileKind, TERRAIN_SIZE};
+use crate::{TileData, TileKind};
 
 pub const TILE_SIZE_U: u32 = 16;
 pub const TILE_SIZE: f32 = TILE_SIZE_U as f32;
 pub const CHUNK_SIZE: u32 = 64;
-
-#[derive(Clone, Copy)]
-pub struct TilemapFile {
-    name: &'static str,
-    size: UVec2,
-    start_atlas_index: i32,
-}
 
 #[derive(Component)]
 pub struct TilemapData {
@@ -24,26 +17,9 @@ pub struct TilemapData {
 }
 
 impl TilemapData {
-    pub fn new(fill_with: TileData, n: usize) -> Self {
-        let mut mapper = HashMap::new();
-
-        for x in 0..n {
-            for y in 0..n {
-                mapper.insert(IVec2::new(x as i32, y as i32), fill_with);
-            }
-        }
-
+    pub fn new() -> Self {
         Self {
-            data: ChunkedStorage::from_mapper(mapper, Some(CHUNK_SIZE)),
-        }
-    }
-
-    pub fn from_chunk_0_0(chunk: Vec<TileData>) -> Self {
-        Self {
-            data: ChunkedStorage {
-                chunk_size: CHUNK_SIZE,
-                chunks: HashMap::from([(IVec2::ZERO, chunk.iter().map(|t| Some(*t)).collect())]),
-            },
+            data: ChunkedStorage::new(CHUNK_SIZE),
         }
     }
 
@@ -53,6 +29,15 @@ impl TilemapData {
 
     pub fn get(&self, index: IVec2) -> Option<TileData> {
         self.data.get_elem(index).copied()
+    }
+
+    pub fn set_chunk(&mut self, index: IVec2, chunk_data: Vec<TileData>) {
+        self.data
+            .set_chunk(index, chunk_data.into_iter().map(Some).collect());
+    }
+
+    pub fn local_index_to_global(chunk_index: IVec2, local_index: IVec2) -> IVec2 {
+        chunk_index * CHUNK_SIZE as i32 + local_index
     }
 
     pub fn neighbours(&self, pos: IVec2) -> Vec<(IVec2, TileData)> {
@@ -116,16 +101,16 @@ impl TilemapData {
     }
 
     pub fn find_from_center(index: IVec2, is_valid: impl Fn(IVec2) -> bool) -> Option<IVec2> {
-        for radius in 0..=(TERRAIN_SIZE as i32 / 2) {
+        for radius in 0..=(CHUNK_SIZE as i32 / 2) {
             // Top and Bottom edges of the square
-            for x in (index.x - radius).max(1)..=(index.x + radius).min(TERRAIN_SIZE as i32 - 2) {
+            for x in (index.x - radius).max(1)..=(index.x + radius).min(CHUNK_SIZE as i32 - 2) {
                 // Top edge
                 let top_y = (index.y - radius).max(1);
                 if is_valid(IVec2::new(x, top_y)) {
                     return Some(IVec2::new(x, top_y));
                 }
                 // Bottom edge
-                let bottom_y = (index.y + radius).min(TERRAIN_SIZE as i32 - 2);
+                let bottom_y = (index.y + radius).min(CHUNK_SIZE as i32 - 2);
                 if is_valid(IVec2::new(x, bottom_y)) {
                     return Some(IVec2::new(x, bottom_y));
                 }
@@ -133,7 +118,7 @@ impl TilemapData {
 
             // Left and Right edges of the square (excluding corners already checked)
             for y in ((index.y - radius + 1).max(1))
-                ..=((index.y + radius - 1).min(TERRAIN_SIZE as i32 - 2))
+                ..=((index.y + radius - 1).min(CHUNK_SIZE as i32 - 2))
             {
                 // Left edge
                 let left_x = (index.x - radius).max(1);
@@ -141,7 +126,7 @@ impl TilemapData {
                     return Some(IVec2::new(left_x, y));
                 }
                 // Right edge
-                let right_x = (index.x + radius).min(TERRAIN_SIZE as i32 - 2);
+                let right_x = (index.x + radius).min(CHUNK_SIZE as i32 - 2);
                 if is_valid(IVec2::new(right_x, y)) {
                     return Some(IVec2::new(right_x, y));
                 }
@@ -152,13 +137,15 @@ impl TilemapData {
     }
 }
 
-pub fn standard_tilemap_bundle(
-    entity: Entity,
+pub fn init_tilemap(
+    mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<StandardTilemapMaterial>>,
     mut textures: ResMut<Assets<TilemapTextures>>,
-) -> StandardTilemapBundle {
-    StandardTilemapBundle {
+) {
+    let entity = commands.spawn_empty().id();
+
+    let tilemap = StandardTilemapBundle {
         name: TilemapName("terrain".to_string()),
         tile_render_size: TileRenderSize(Vec2::splat(TILE_SIZE)),
         slot_size: TilemapSlotSize(Vec2::splat(TILE_SIZE)),
@@ -182,14 +169,25 @@ pub fn standard_tilemap_bundle(
             FilterMode::Nearest,
         )),
         ..default()
-    }
+    };
+
+    let tilemap_data = TilemapData::new();
+
+    commands.entity(entity).insert((tilemap, tilemap_data));
 }
 
-const N: usize = 3;
+const N_TF: usize = 3;
 pub type TF = (&'static str, UVec2);
 
+#[derive(Clone, Copy)]
+pub struct TilemapFile {
+    name: &'static str,
+    size: UVec2,
+    start_atlas_index: i32,
+}
+
 pub struct TilemapFiles {
-    files: [TilemapFile; N],
+    files: [TilemapFile; N_TF],
 }
 
 impl TilemapFiles {
@@ -206,12 +204,12 @@ impl TilemapFiles {
             name: "",
             size: UVec2::ZERO,
             start_atlas_index: 0,
-        }; N];
+        }; N_TF];
 
         let mut i = 0;
         let mut atlas_index = 0;
 
-        while i < N {
+        while i < N_TF {
             files[i] = TilemapFile {
                 name: tilemaps[i].0,
                 size: tilemaps[i].1,
@@ -226,7 +224,7 @@ impl TilemapFiles {
 
     pub const fn atlas_index(&self, file: TF, atlas_index: i32) -> i32 {
         let mut i = 0;
-        while i < N {
+        while i < N_TF {
             // Can't compare strings directly, dirty workaround
             if self.files[i].name.len() == file.0.len() {
                 return self.files[i].start_atlas_index + atlas_index;
