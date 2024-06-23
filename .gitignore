@@ -1,4 +1,3 @@
 /target
 
-assets/saves/*.ron
-assets/saves/*.bin
+assets/saves/**/*

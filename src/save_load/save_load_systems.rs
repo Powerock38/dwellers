@@ -43,9 +43,6 @@ pub fn save_world(
 
             let tilemap_data = q_tilemap_data.single();
 
-            // Save terrain with bitcode
-            let tilemap_data_encoded = bitcode::encode(tilemap_data);
-
             // Save entities with bevy reflection
 
             let app_type_registry = world.resource::<AppTypeRegistry>().clone();
@@ -68,20 +65,36 @@ pub fn save_world(
             match scene.serialize_ron(&app_type_registry) {
                 Ok(serialized) => {
                     let save_name = save_game.0.clone();
+
+                    let save_folder = format!("assets/{SAVE_DIR}/{save_name}");
+
+                    std::fs::create_dir(save_folder.clone())
+                        .expect("Error while creating save folder");
+
+                    // Save tilemap with bitcode
+                    for (chunk_index, chunk) in &tilemap_data.data.chunks {
+                        let save_folder = save_folder.clone();
+                        let chunk_name = format!("{}_{}", chunk_index.x, chunk_index.y);
+
+                        let chunk = chunk.iter().filter_map(|t| *t).collect::<Vec<_>>();
+
+                        let chunk_encoded = bitcode::encode(&chunk);
+
+                        IoTaskPool::get()
+                            .spawn(async move {
+                                File::create(format!("{save_folder}/{chunk_name}.bin"))
+                                    .and_then(|mut file| file.write(chunk_encoded.as_slice()))
+                                    .expect("Error while writing terrain to file");
+                            })
+                            .detach();
+                    }
+
+                    // Save tasks & entities with Bevy reflection
                     IoTaskPool::get()
                         .spawn(async move {
-                            File::create(format!("assets/{SAVE_DIR}/{save_name}.ron"))
+                            File::create(format!("{save_folder}/entities.ron"))
                                 .and_then(|mut file| file.write(serialized.as_bytes()))
                                 .expect("Error while writing entities to file");
-                        })
-                        .detach();
-
-                    let save_name = save_game.0.clone();
-                    IoTaskPool::get()
-                        .spawn(async move {
-                            File::create(format!("assets/{SAVE_DIR}/{save_name}.bin"))
-                                .and_then(|mut file| file.write(tilemap_data_encoded.as_slice()))
-                                .expect("Error while writing terrain to file");
                         })
                         .detach();
                 }
@@ -135,16 +148,17 @@ pub fn load_world(
 
             // Spawn new scene
             scene_spawner.spawn_dynamic(
-                asset_server.load(format!("{SAVE_DIR}/{}.ron", load_game.0.clone())),
+                asset_server.load(format!("{SAVE_DIR}/{}/entities.ron", load_game.0.clone())),
             );
 
             let entity = commands.spawn_empty().id();
             let mut tilemap = standard_tilemap_bundle(entity, asset_server, materials, textures);
 
-            let tilemap_data = bitcode::decode::<TilemapData>(
-                &std::fs::read(format!("assets/{SAVE_DIR}/{}.bin", load_game.0))
+            let tilemap_data = bitcode::decode::<Vec<TileData>>(
+                &std::fs::read(format!("assets/{SAVE_DIR}/{}/0_0.bin", load_game.0))
                     .expect("Error while reading terrain from file"),
-            );
+            )
+            .map(TilemapData::from_chunk_0_0);
 
             if let Ok(tilemap_data) = tilemap_data {
                 for x in 0..TERRAIN_SIZE {

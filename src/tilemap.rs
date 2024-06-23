@@ -1,14 +1,15 @@
-use bevy::{prelude::*, render::render_resource::FilterMode};
+use bevy::{prelude::*, render::render_resource::FilterMode, utils::HashMap};
 use bevy_entitiles::{
-    prelude::*, render::material::StandardTilemapMaterial, tilemap::map::TilemapTextures,
+    prelude::*,
+    render::material::StandardTilemapMaterial,
+    tilemap::{chunking::storage::ChunkedStorage, map::TilemapTextures},
 };
-use bitcode::{Decode, Encode};
 
 use crate::{TileData, TileKind, TERRAIN_SIZE};
 
 pub const TILE_SIZE_U: u32 = 16;
 pub const TILE_SIZE: f32 = TILE_SIZE_U as f32;
-const CHUNK_SIZE: u32 = 16;
+pub const CHUNK_SIZE: u32 = 64;
 
 #[derive(Clone, Copy)]
 pub struct TilemapFile {
@@ -17,46 +18,41 @@ pub struct TilemapFile {
     start_atlas_index: i32,
 }
 
-#[derive(Component, Encode, Decode)]
+#[derive(Component)]
 pub struct TilemapData {
-    data: Vec<Vec<TileData>>,
-    size: usize,
+    pub data: ChunkedStorage<TileData>,
 }
 
 impl TilemapData {
     pub fn new(fill_with: TileData, n: usize) -> Self {
-        Self {
-            data: vec![vec![fill_with; n]; n],
-            size: n,
+        let mut mapper = HashMap::new();
+
+        for x in 0..n {
+            for y in 0..n {
+                mapper.insert(IVec2::new(x as i32, y as i32), fill_with);
+            }
         }
+
+        Self {
+            data: ChunkedStorage::from_mapper(mapper, Some(CHUNK_SIZE)),
+        }
+    }
+
+    pub fn from_chunk_0_0(chunk: Vec<TileData>) -> Self {
+        Self {
+            data: ChunkedStorage {
+                chunk_size: CHUNK_SIZE,
+                chunks: HashMap::from([(IVec2::ZERO, chunk.iter().map(|t| Some(*t)).collect())]),
+            },
+        }
+    }
+
+    pub fn set(&mut self, index: IVec2, tile: TileData) {
+        self.data.set_elem(index, tile);
     }
 
     pub fn get(&self, index: IVec2) -> Option<TileData> {
-        if index.x < 0 || index.y < 0 {
-            return None;
-        }
-
-        let x = index.x as usize;
-        let y = index.y as usize;
-
-        if x >= self.size || y >= self.size {
-            return None;
-        }
-
-        Some(self.data[x][y])
-    }
-
-    pub fn set(&mut self, index: IVec2, value: TileData) {
-        if index.x < 0 || index.y < 0 {
-            return;
-        }
-
-        let x = index.x as usize;
-        let y = index.y as usize;
-
-        if x < self.size && y < self.size {
-            self.data[x][y] = value;
-        }
+        self.data.get_elem(index).copied()
     }
 
     pub fn neighbours(&self, pos: IVec2) -> Vec<(IVec2, TileData)> {

@@ -52,17 +52,12 @@ pub fn spawn_load_save_ui(
                         std::fs::read_dir(format!("assets/{SAVE_DIR}")).map(|dir| {
                             let mut saves = dir
                                 .filter_map(|entry| {
-                                    entry.ok().and_then(|entry| {
-                                        if let Some(extension) = entry.path().extension() {
-                                            if extension == "bin" {
-                                                return entry.file_name().into_string().ok().map(
-                                                    |file_name| file_name.replacen(".bin", "", 1),
-                                                );
-                                            }
-                                        }
-
-                                        None
-                                    })
+                                    entry
+                                        .ok()
+                                        .filter(|entry| {
+                                            entry.file_type().ok().map_or(false, |ft| ft.is_dir())
+                                        })
+                                        .and_then(|entry| entry.file_name().into_string().ok())
                                 })
                                 .collect::<Vec<_>>();
 
