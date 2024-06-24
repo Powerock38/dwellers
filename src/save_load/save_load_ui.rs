@@ -1,13 +1,12 @@
 use bevy::prelude::*;
 
-use crate::{GameState, SaveName, UiButton, UiWindow, UiWindowBundle, SAVE_DIR};
+use crate::{GameState, UiButton, UiWindow, UiWindowBundle, SAVE_DIR};
 
 pub fn spawn_load_save_ui(
     mut commands: Commands,
     mut next_state: ResMut<NextState<GameState>>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     q_windows: Query<Entity, With<UiWindow>>,
-    save_name: Res<SaveName>,
 ) {
     if keyboard_input.just_pressed(KeyCode::KeyM) {
         if let Some(window) = q_windows.iter().next() {
@@ -19,9 +18,6 @@ pub fn spawn_load_save_ui(
                 .spawn(UiWindowBundle::default())
                 .with_children(|c| {
                     // Save button
-                    let timestamp = std::time::UNIX_EPOCH.elapsed().unwrap().as_millis();
-                    let save_filename = format!("{}-{timestamp}", save_name.0.clone());
-
                     c.spawn((
                         ButtonBundle {
                             style: Style {
@@ -35,7 +31,7 @@ pub fn spawn_load_save_ui(
                             background_color: UiButton::NORMAL.into(),
                             ..default()
                         },
-                        UiButton::SaveGame(save_filename),
+                        UiButton::SaveGame,
                     ))
                     .with_children(|c| {
                         c.spawn(TextBundle::from_section(

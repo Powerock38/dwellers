@@ -19,7 +19,7 @@ pub const SAVE_DIR: &str = "saves";
 pub struct SaveName(pub String);
 
 #[derive(Resource)]
-pub struct SaveGame(pub String);
+pub struct SaveGame;
 
 #[derive(Resource)]
 pub struct LoadGame(pub String);
@@ -42,6 +42,7 @@ pub fn save_world_before(
 
 pub fn save_world(
     mut commands: Commands,
+    save_name: Res<SaveName>,
     save_game: Option<Res<SaveGame>>,
     q_tilemap_data: Query<&TilemapData>,
     q_dwellers: Query<Entity, With<Dweller>>,
@@ -49,14 +50,14 @@ pub fn save_world(
     q_mobs: Query<Entity, With<Mob>>,
     world: &World,
 ) {
-    if let Some(save_game) = save_game {
+    if save_game.is_some() {
         let tilemap_data = q_tilemap_data.single();
 
-        info!("Saving scene: {}: unloading all chunks...", save_game.0);
+        info!("Saving scene: unloading all chunks...");
 
         if tilemap_data.data.chunks.is_empty() {
             commands.remove_resource::<SaveGame>();
-            info!("Saving scene: {}: serializing...", save_game.0);
+            info!("Saving scene: serializing...");
 
             // Save entities with bevy reflection
 
@@ -79,7 +80,7 @@ pub fn save_world(
 
             match scene.serialize_ron(&app_type_registry) {
                 Ok(serialized) => {
-                    let save_folder = format!("assets/{SAVE_DIR}/{}", save_game.0);
+                    let save_folder = format!("assets/{SAVE_DIR}/{}", save_name.0);
 
                     // Save tasks & entities with Bevy reflection
                     IoTaskPool::get()

@@ -11,7 +11,7 @@ pub use actions_ui::*;
 #[derive(Component)]
 pub enum UiButton {
     Action(ActionKind),
-    SaveGame(String),
+    SaveGame,
     LoadGame(String),
 }
 
@@ -97,8 +97,8 @@ pub fn update_ui_buttons(
                             }
                         }
 
-                        UiButton::SaveGame(save_file) => {
-                            commands.insert_resource(SaveGame(save_file.clone()));
+                        UiButton::SaveGame => {
+                            commands.insert_resource(SaveGame);
 
                             if let Some(window) = q_windows.iter().next() {
                                 commands.entity(window).despawn_recursive();
