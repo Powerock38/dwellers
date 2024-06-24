@@ -193,9 +193,9 @@ pub struct TilemapFiles {
 impl TilemapFiles {
     pub const T: Self = Self::new();
 
-    pub const FLOORS: TF = ("floors", UVec2::new(2, 2));
-    pub const WALLS: TF = ("walls", UVec2::new(4, 4));
-    pub const OBJECTS: TF = ("objects", UVec2::new(4, 4));
+    pub const FLOORS: TF = ("floors", UVec2::splat(8));
+    pub const WALLS: TF = ("walls", UVec2::splat(8));
+    pub const OBJECTS: TF = ("objects", UVec2::splat(8));
 
     pub const fn new() -> Self {
         let tilemaps = [Self::FLOORS, Self::WALLS, Self::OBJECTS];

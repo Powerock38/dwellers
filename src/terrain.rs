@@ -4,7 +4,7 @@ use bevy::{prelude::*, tasks::IoTaskPool};
 use bevy_entitiles::{
     prelude::*, render::material::StandardTilemapMaterial, tilemap::map::TilemapTextures,
 };
-use noise::{NoiseFn, Perlin, RidgedMulti};
+use noise::{NoiseFn, Perlin, RidgedMulti, Simplex, Worley};
 use rand::Rng;
 
 use crate::{
@@ -14,9 +14,10 @@ use crate::{
     SaveName, TilemapData, CHUNK_SIZE, SAVE_DIR,
 };
 
-//FIXME: Terrain generation repeats itself
-const TREE_NOISE_SCALE: f64 = 1.0 / 32.0;
-const MOUNTAIN_NOISE_SCALE: f64 = 1.0 / 128.0;
+const VEGETATION_NOISE_SCALE: f64 = 0.5;
+const VEGETATION_ZONES_NOISE_SCALE: f64 = 0.05;
+const MOUNTAIN_NOISE_SCALE: f64 = 1.0 / 256.0;
+const CLIMATE_NOISE_SCALE: f64 = 0.01;
 
 #[derive(Event)]
 pub struct LoadChunk(pub IVec2);
@@ -56,7 +57,10 @@ pub fn load_chunks(
 
     // Seed is based on the save name
     let seed = save_name.0.as_bytes().iter().map(|b| *b as u32).sum();
-    let noise = RidgedMulti::<Perlin>::new(seed);
+    let noise = RidgedMulti::<Simplex>::new(seed);
+    let noise_vegetation = Worley::new(seed);
+    let noise_vegetation_zones = Perlin::new(seed);
+    let noise_climate = Simplex::new(seed);
 
     let save_folder = format!("assets/{SAVE_DIR}/{}", save_name.0);
 
@@ -122,11 +126,14 @@ pub fn load_chunks(
                     let u = index.x as f64;
                     let v = index.y as f64;
 
+                    let climate_noise_value =
+                        noise_climate.get([u * CLIMATE_NOISE_SCALE, v * CLIMATE_NOISE_SCALE]);
+
                     // Mountains
                     let mountain_noise_value =
                         noise.get([u * MOUNTAIN_NOISE_SCALE, v * MOUNTAIN_NOISE_SCALE]);
-                    if mountain_noise_value < -0.1 {
-                        let tile = if mountain_noise_value < -0.3 {
+                    if mountain_noise_value < -0.4 {
+                        let tile = if mountain_noise_value < -0.5 {
                             TileData::STONE_WALL
                         } else {
                             TileData::DIRT_WALL
@@ -150,32 +157,45 @@ pub fn load_chunks(
                     }
 
                     // Vegetation
-                    let vegetation_noise_value =
-                        noise.get([u * TREE_NOISE_SCALE, v * TREE_NOISE_SCALE]);
-                    if vegetation_noise_value > 0.0 {
-                        let vegetation = if vegetation_noise_value > 0.7 {
-                            ObjectId::TallGrass
+                    let vegetation_noise_value = noise_vegetation
+                        .get([u * VEGETATION_NOISE_SCALE, v * VEGETATION_NOISE_SCALE]);
+
+                    let vegetation_zones_noise_value = noise_vegetation_zones.get([
+                        u * VEGETATION_ZONES_NOISE_SCALE,
+                        v * VEGETATION_ZONES_NOISE_SCALE,
+                    ]);
+
+                    let vegetation = if vegetation_zones_noise_value > 0.4 {
+                        if vegetation_noise_value > 0.4 {
+                            if climate_noise_value > 0.5 {
+                                Some(ObjectId::PalmTree)
+                            } else {
+                                Some(ObjectId::Tree)
+                            }
+                        } else if vegetation_noise_value < -0.7 {
+                            if climate_noise_value > 0.5 {
+                                Some(ObjectId::Cactus)
+                            } else {
+                                Some(ObjectId::TallGrass)
+                            }
                         } else {
-                            ObjectId::Tree
-                        };
+                            None
+                        }
+                    } else {
+                        None
+                    };
 
-                        TileData::GRASS_FLOOR.with(vegetation).set_at(
-                            index,
-                            &mut commands,
-                            &mut tilemap,
-                            &mut tilemap_data,
-                        );
+                    let mut ground_tile = if climate_noise_value > 0.5 {
+                        TileData::SAND_FLOOR
+                    } else {
+                        TileData::GRASS_FLOOR
+                    };
 
-                        continue;
+                    if let Some(object_id) = vegetation {
+                        ground_tile = ground_tile.with(object_id);
                     }
 
-                    // Base tile
-                    TileData::GRASS_FLOOR.set_at(
-                        index,
-                        &mut commands,
-                        &mut tilemap,
-                        &mut tilemap_data,
-                    );
+                    ground_tile.set_at(index, &mut commands, &mut tilemap, &mut tilemap_data);
                 }
             }
         }

@@ -22,14 +22,20 @@ enum_map! {
         Wheat = ObjectData::passable(12),
         Furnace = ObjectData::blocking(13),
         Bread = ObjectData::passable(14),
+        PalmTree = ObjectData::blocking_non_carriable(15),
+        Cactus = ObjectData::passable_non_carriable(16),
+        CopperOre = ObjectData::passable(17),
+        CopperIngot = ObjectData::passable(18),
     }
 }
 
+//TODO: make enum like ObjectData and allow walls to contain objects (ores) but keep pickup logic for floor only
 impl TileData {
     pub const GRASS_FLOOR: Self = Self::floor(0);
     pub const STONE_FLOOR: Self = Self::floor(1);
     pub const DUNGEON_FLOOR: Self = Self::floor(2);
     pub const BRIDGE_FLOOR: Self = Self::floor(3);
+    pub const SAND_FLOOR: Self = Self::floor(4);
 
     pub const DIRT_WALL: Self = Self::wall(0);
     pub const STONE_WALL: Self = Self::wall(1);
