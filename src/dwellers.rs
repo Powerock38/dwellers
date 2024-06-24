@@ -6,8 +6,10 @@ use crate::{
     extract_ok,
     tasks::{BuildResult, Task, TaskCompletionEvent, TaskKind, TaskNeeds},
     tilemap::{TilemapData, TILE_SIZE},
-    LoadChunk, SpawnEntitiesOnChunk, SpriteLoaderBundle, CHUNK_SIZE,
+    LoadChunk, SpawnEntitiesOnChunk, SpriteLoaderBundle, UnloadChunk, CHUNK_SIZE,
 };
+
+const LOAD_CHUNKS_RADIUS: i32 = 1;
 
 const SPEED: f32 = 80.0;
 const Z_INDEX: f32 = 10.0;
@@ -230,8 +232,11 @@ pub fn update_dwellers_load_chunks(
     q_dwellers: Query<&Transform, With<Dweller>>,
     q_tilemap: Query<&TilemapData>,
     mut ev_load_chunk: EventWriter<LoadChunk>,
+    mut ev_unload_chunk: EventWriter<UnloadChunk>,
 ) {
     let tilemap_data = extract_ok!(q_tilemap.get_single());
+
+    let mut sent_event_for = vec![];
 
     for transform in &q_dwellers {
         let index = IVec2::new(
@@ -242,14 +247,29 @@ pub fn update_dwellers_load_chunks(
         // Load new chunks if needed
         let (chunk_index, _) = tilemap_data.data.transform_index(index);
 
-        for dx in -1..=1 {
-            for dy in -1..=1 {
+        for dx in -LOAD_CHUNKS_RADIUS..=LOAD_CHUNKS_RADIUS {
+            for dy in -LOAD_CHUNKS_RADIUS..=LOAD_CHUNKS_RADIUS {
                 let chunk_index = chunk_index + IVec2::new(dx, dy);
 
-                if tilemap_data.data.get_chunk(chunk_index).is_none() {
+                if !sent_event_for.contains(&chunk_index) {
                     ev_load_chunk.send(LoadChunk(chunk_index));
+                    sent_event_for.push(chunk_index);
                 }
             }
         }
     }
+
+    if q_dwellers.is_empty() {
+        return;
+    }
+
+    // Unload chunks without dwellers
+    tilemap_data
+        .data
+        .chunks
+        .keys()
+        .filter(|chunk_index| !sent_event_for.contains(chunk_index))
+        .for_each(|chunk_index| {
+            ev_unload_chunk.send(UnloadChunk(*chunk_index));
+        });
 }

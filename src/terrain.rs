@@ -1,20 +1,28 @@
-use bevy::prelude::*;
+use std::io::Write;
+
+use bevy::{prelude::*, tasks::IoTaskPool};
 use bevy_entitiles::{
     prelude::*, render::material::StandardTilemapMaterial, tilemap::map::TilemapTextures,
 };
 use noise::{NoiseFn, Perlin, RidgedMulti};
+use rand::Rng;
 
 use crate::{
-    data::ObjectId, extract_ok, init_tilemap, tiles::TileData, SaveName, TilemapData, CHUNK_SIZE,
-    SAVE_DIR,
+    data::ObjectId,
+    extract_ok, init_tilemap,
+    tiles::{TileData, TileKind},
+    SaveName, TilemapData, CHUNK_SIZE, SAVE_DIR,
 };
 
 //FIXME: Terrain generation repeats itself
-const TREE_NOISE_SCALE: f64 = 1.0 / 128.0;
+const TREE_NOISE_SCALE: f64 = 1.0 / 32.0;
 const MOUNTAIN_NOISE_SCALE: f64 = 1.0 / 128.0;
 
 #[derive(Event)]
 pub struct LoadChunk(pub IVec2);
+
+#[derive(Event)]
+pub struct UnloadChunk(pub IVec2);
 
 #[derive(Event)]
 pub struct SpawnEntitiesOnChunk(pub IVec2);
@@ -26,15 +34,21 @@ pub fn spawn_new_terrain(
     textures: ResMut<Assets<TilemapTextures>>,
     mut ev_load_chunk: EventWriter<LoadChunk>,
     mut ev_spawn_entities_on_chunk: EventWriter<SpawnEntitiesOnChunk>,
+    save_name: Res<SaveName>,
 ) {
     init_tilemap(commands, asset_server, materials, textures);
+
+    let save_folder = format!("assets/{SAVE_DIR}/{}", save_name.0);
+    std::fs::create_dir(save_folder).expect("Error while creating save folder");
+
     ev_load_chunk.send(LoadChunk(IVec2::ZERO));
     ev_spawn_entities_on_chunk.send(SpawnEntitiesOnChunk(IVec2::ZERO));
 }
 
 pub fn load_chunks(
     mut commands: Commands,
-    mut events: EventReader<LoadChunk>,
+    mut ev_load: EventReader<LoadChunk>,
+    mut ev_unload: EventReader<UnloadChunk>,
     mut q_tilemap: Query<(&mut TilemapStorage, &mut TilemapData)>,
     save_name: Res<SaveName>,
 ) {
@@ -44,17 +58,25 @@ pub fn load_chunks(
     let seed = save_name.0.as_bytes().iter().map(|b| *b as u32).sum();
     let noise = RidgedMulti::<Perlin>::new(seed);
 
+    let save_folder = format!("assets/{SAVE_DIR}/{}", save_name.0);
+
     let mut loaded = vec![];
 
-    for LoadChunk(chunk_index) in events.read() {
-        if loaded.contains(chunk_index) || tilemap_data.data.chunks.contains_key(chunk_index) {
+    for LoadChunk(chunk_index) in ev_load.read() {
+        if loaded.contains(chunk_index) {
+            continue;
+        }
+
+        loaded.push(*chunk_index);
+
+        if tilemap_data.data.chunks.contains_key(chunk_index) {
             continue;
         }
 
         // Try to load the chunk from the save
         if let Some(chunk_data) = std::fs::read(format!(
-            "assets/{SAVE_DIR}/{}/{}_{}.bin",
-            save_name.0, chunk_index.x, chunk_index.y
+            "{save_folder}/{}_{}.bin",
+            chunk_index.x, chunk_index.y
         ))
         .ok()
         .and_then(|data| bitcode::decode::<Vec<TileData>>(&data).ok())
@@ -97,8 +119,8 @@ pub fn load_chunks(
                         IVec2::new(x as i32, y as i32),
                     );
 
-                    let u = x as f64;
-                    let v = y as f64;
+                    let u = index.x as f64;
+                    let v = index.y as f64;
 
                     // Mountains
                     let mountain_noise_value =
@@ -157,48 +179,70 @@ pub fn load_chunks(
                 }
             }
         }
+    }
 
-        loaded.push(*chunk_index);
+    for UnloadChunk(chunk_index) in ev_unload.read() {
+        let Some(chunk) = tilemap_data.data.chunks.get(chunk_index) else {
+            continue;
+        };
+
+        debug!("Unloading chunk {}", chunk_index);
+
+        let chunk = chunk.iter().filter_map(|t| *t).collect::<Vec<_>>();
+
+        let chunk_encoded = bitcode::encode(&chunk);
+
+        let save_folder = save_folder.clone();
+        let x = chunk_index.x;
+        let y = chunk_index.y;
+
+        IoTaskPool::get()
+            .spawn(async move {
+                std::fs::File::create(format!("{save_folder}/{x}_{y}.bin"))
+                    .and_then(|mut file| file.write(chunk_encoded.as_slice()))
+                    .expect("Error while writing terrain to file");
+            })
+            .detach();
+        tilemap_data.data.remove_chunk(*chunk_index);
+        tilemap.remove_chunk(&mut commands, *chunk_index);
     }
 }
 
-// FIXME: doesnt work because of borrow checker
-// TODO: loop over tiles individually (take advantage of ECS)
-// pub fn update_loaded_chunks(
-//     mut commands: Commands,
-//     mut q_tilemap: Query<(&mut TilemapStorage, &mut TilemapData)>,
-// ) {
-//     let (mut tilemap, mut tilemap_data) = extract_ok!(q_tilemap.get_single_mut());
+pub fn update_terrain(
+    mut commands: Commands,
+    mut q_tilemap: Query<(&mut TilemapStorage, &mut TilemapData)>,
+) {
+    let (mut tilemap, mut tilemap_data) = extract_ok!(q_tilemap.get_single_mut());
 
-//     let chunks = &tilemap_data.data.chunks;
+    let chunks = &tilemap_data.data.chunks.clone(); // FIXME: clone
 
-//     for (chunk_index, _chunk) in chunks {
-//         for x in 0..CHUNK_SIZE {
-//             for y in 0..CHUNK_SIZE {
-//                 let index = TilemapData::local_index_to_global(
-//                        *chunk_index,
-//                        IVec2::new(x as i32, y as i32),
-//                    );
+    for (chunk_index, _chunk) in chunks {
+        for x in 0..CHUNK_SIZE {
+            for y in 0..CHUNK_SIZE {
+                let index = TilemapData::local_index_to_global(
+                    *chunk_index,
+                    IVec2::new(x as i32, y as i32),
+                );
 
-//                 if let Some(tile) = tilemap_data.get(index) {
-//                     match tile.kind {
-//                         TileKind::Floor(Some(ObjectId::Farm)) => {
-//                             let mut rng = rand::thread_rng();
+                if let Some(tile) = tilemap_data.get(index) {
+                    match tile.kind {
+                        TileKind::Floor(Some(ObjectId::Farm)) => {
+                            let mut rng = rand::thread_rng();
 
-//                             if rng.gen_bool(0.01) {
-//                                 tile.with(ObjectId::WheatPlant).set_at(
-//                                     index,
-//                                     &mut commands,
-//                                     &mut tilemap,
-//                                     &mut tilemap_data,
-//                                 );
-//                             }
-//                         }
+                            if rng.gen_bool(0.01) {
+                                tile.with(ObjectId::WheatPlant).set_at(
+                                    index,
+                                    &mut commands,
+                                    &mut tilemap,
+                                    &mut tilemap_data,
+                                );
+                            }
+                        }
 
-//                         _ => {}
-//                     }
-//                 }
-//             }
-//         }
-//     }
-// }
+                        _ => {}
+                    }
+                }
+            }
+        }
+    }
+}

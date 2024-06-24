@@ -10,7 +10,7 @@ use bevy_entitiles::{
     tilemap::{map::TilemapTextures, tile::Tile},
 };
 
-use crate::{init_tilemap, tilemap::TilemapData, Dweller, GameState, Mob, Task};
+use crate::{init_tilemap, tilemap::TilemapData, Dweller, GameState, Mob, Task, UnloadChunk};
 
 pub const SAVE_DIR: &str = "saves";
 
@@ -24,6 +24,22 @@ pub struct SaveGame(pub String);
 #[derive(Resource)]
 pub struct LoadGame(pub String);
 
+pub fn save_world_before(
+    save_game: Option<Res<SaveGame>>,
+    q_tilemap_data: Query<&TilemapData>,
+    mut ev_unload_w: EventWriter<UnloadChunk>,
+) {
+    if let Some(save_game) = save_game {
+        if save_game.is_added() {
+            let tilemap_data = q_tilemap_data.single();
+
+            for chunk_index in tilemap_data.data.chunks.keys() {
+                ev_unload_w.send(UnloadChunk(*chunk_index));
+            }
+        }
+    }
+}
+
 pub fn save_world(
     mut commands: Commands,
     save_game: Option<Res<SaveGame>>,
@@ -34,11 +50,13 @@ pub fn save_world(
     world: &World,
 ) {
     if let Some(save_game) = save_game {
-        if save_game.is_added() {
-            commands.remove_resource::<SaveGame>();
-            info!("Saving scene: {}", save_game.0);
+        let tilemap_data = q_tilemap_data.single();
 
-            let tilemap_data = q_tilemap_data.single();
+        info!("Saving scene: {}: unloading all chunks...", save_game.0);
+
+        if tilemap_data.data.chunks.is_empty() {
+            commands.remove_resource::<SaveGame>();
+            info!("Saving scene: {}: serializing...", save_game.0);
 
             // Save entities with bevy reflection
 
@@ -61,30 +79,7 @@ pub fn save_world(
 
             match scene.serialize_ron(&app_type_registry) {
                 Ok(serialized) => {
-                    let save_name = save_game.0.clone();
-
-                    let save_folder = format!("assets/{SAVE_DIR}/{save_name}");
-
-                    std::fs::create_dir(save_folder.clone())
-                        .expect("Error while creating save folder");
-
-                    // Save tilemap with bitcode
-                    for (chunk_index, chunk) in &tilemap_data.data.chunks {
-                        let save_folder = save_folder.clone();
-                        let chunk_name = format!("{}_{}", chunk_index.x, chunk_index.y);
-
-                        let chunk = chunk.iter().filter_map(|t| *t).collect::<Vec<_>>();
-
-                        let chunk_encoded = bitcode::encode(&chunk);
-
-                        IoTaskPool::get()
-                            .spawn(async move {
-                                File::create(format!("{save_folder}/{chunk_name}.bin"))
-                                    .and_then(|mut file| file.write(chunk_encoded.as_slice()))
-                                    .expect("Error while writing terrain to file");
-                            })
-                            .detach();
-                    }
+                    let save_folder = format!("assets/{SAVE_DIR}/{}", save_game.0);
 
                     // Save tasks & entities with Bevy reflection
                     IoTaskPool::get()

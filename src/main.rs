@@ -39,6 +39,7 @@ fn main() {
         .insert_resource(ClearColor(Color::BLACK))
         .init_resource::<CameraControl>()
         .add_event::<LoadChunk>()
+        .add_event::<UnloadChunk>()
         .add_event::<TaskCompletionEvent>()
         .add_event::<SpawnEntitiesOnChunk>()
         .configure_sets(Update, GameplaySet.run_if(in_state(GameState::Running)))
@@ -59,7 +60,7 @@ fn main() {
                     // Game logic
                     (update_dwellers, update_mobs).run_if(on_timer(Duration::from_millis(200))),
                     (update_dwellers_load_chunks).run_if(on_timer(Duration::from_millis(1000))),
-                    // (update_loaded_chunks).run_if(on_timer(Duration::from_millis(800))),
+                    (update_terrain).run_if(on_timer(Duration::from_millis(800))),
                     update_dwellers_movement,
                     update_mobs_movement,
                     update_unreachable_tasks,
