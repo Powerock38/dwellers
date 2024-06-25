@@ -266,7 +266,15 @@ pub fn event_task_completion(
 
         match task.kind {
             TaskKind::Dig => {
-                let tile = if rng.gen_bool(0.2) {
+                let object = if let Some(object) = tile.object {
+                    Some(object)
+                } else if rng.gen_bool(0.2) {
+                    Some(ObjectId::Rock)
+                } else {
+                    None
+                };
+
+                let tile = if let Some(object) = object {
                     commands.spawn(TaskBundle::new(Task::new(
                         task.pos,
                         TaskKind::Pickup,
@@ -274,7 +282,7 @@ pub fn event_task_completion(
                         &tilemap_data,
                     )));
 
-                    TileId::StoneFloor.with(ObjectId::Rock)
+                    TileId::StoneFloor.with(object)
                 } else {
                     TileId::StoneFloor.empty()
                 };
