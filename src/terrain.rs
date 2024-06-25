@@ -14,10 +14,11 @@ use crate::{
     SaveName, TilemapData, CHUNK_SIZE, SAVE_DIR,
 };
 
+const CLIMATE_NOISE_SCALE: f64 = 0.01;
+const MOUNTAIN_NOISE_SCALE: f64 = 0.004;
+const ORES_NOISE_SCALE: f64 = 0.1;
 const VEGETATION_NOISE_SCALE: f64 = 0.5;
 const VEGETATION_ZONES_NOISE_SCALE: f64 = 0.05;
-const MOUNTAIN_NOISE_SCALE: f64 = 1.0 / 256.0;
-const CLIMATE_NOISE_SCALE: f64 = 0.01;
 
 #[derive(Event)]
 pub struct LoadChunk(pub IVec2);
@@ -58,9 +59,10 @@ pub fn load_chunks(
     // Seed is based on the save name
     let seed = save_name.0.as_bytes().iter().map(|b| *b as u32).sum();
     let noise = RidgedMulti::<Simplex>::new(seed);
-    let noise_vegetation = Worley::new(seed);
-    let noise_vegetation_zones = Perlin::new(seed);
     let noise_climate = Simplex::new(seed);
+    let noise_ores = Perlin::new(seed);
+    let noise_vegetation = Worley::new(seed);
+    let noise_vegetation_zones = Perlin::new(seed + 1);
 
     let save_folder = format!("assets/{SAVE_DIR}/{}", save_name.0);
 
@@ -132,11 +134,19 @@ pub fn load_chunks(
                     // Mountains
                     let mountain_noise_value =
                         noise.get([u * MOUNTAIN_NOISE_SCALE, v * MOUNTAIN_NOISE_SCALE]);
+
                     if mountain_noise_value < -0.4 {
-                        let tile = if mountain_noise_value < -0.5 {
-                            TileId::StoneWall.without_object()
+                        let tile = if mountain_noise_value < -0.55 {
+                            let ores_noise_value =
+                                noise_ores.get([u * ORES_NOISE_SCALE, v * ORES_NOISE_SCALE]);
+
+                            if ores_noise_value > 0.5 {
+                                TileId::StoneWall.with(ObjectId::CopperOre)
+                            } else {
+                                TileId::StoneWall.empty()
+                            }
                         } else {
-                            TileId::DirtWall.without_object()
+                            TileId::DirtWall.empty()
                         };
 
                         tile.set_at(index, &mut commands, &mut tilemap, &mut tilemap_data);
@@ -146,7 +156,7 @@ pub fn load_chunks(
 
                     // Rivers
                     if mountain_noise_value > 0.5 {
-                        TileId::Water.without_object().set_at(
+                        TileId::Water.empty().set_at(
                             index,
                             &mut commands,
                             &mut tilemap,
@@ -186,9 +196,9 @@ pub fn load_chunks(
                     };
 
                     let mut ground_tile = if climate_noise_value > 0.5 {
-                        TileId::SandFloor.without_object()
+                        TileId::SandFloor.empty()
                     } else {
-                        TileId::GrassFloor.without_object()
+                        TileId::GrassFloor.empty()
                     };
 
                     if let Some(object) = vegetation {

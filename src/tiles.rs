@@ -122,7 +122,7 @@ impl TileId {
         }
     }
 
-    pub fn without_object(self) -> TilePlaced {
+    pub fn empty(self) -> TilePlaced {
         TilePlaced {
             id: self,
             object: None,
