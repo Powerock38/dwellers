@@ -4,7 +4,8 @@ pub use save_load_systems::*;
 pub use save_load_ui::*;
 
 use crate::{
-    data::ObjectId, BuildResult, Dweller, Mob, Task, TaskKind, TaskNeeds, TileData, TileKind,
+    data::{ObjectId, TileId},
+    BuildResult, Dweller, Mob, Task, TaskKind, TaskNeeds, TilePlaced,
 };
 
 mod save_load_assets;
@@ -30,8 +31,8 @@ impl Plugin for SaveLoadPlugin {
         .register_type::<ObjectId>()
         .register_type::<Option<ObjectId>>()
         .register_type::<Vec<ObjectId>>()
-        .register_type::<TileKind>()
-        .register_type::<TileData>()
+        .register_type::<TileId>()
+        .register_type::<TilePlaced>()
         .register_type::<Mob>()
         .register_type::<Task>()
         .register_type::<Option<Entity>>()

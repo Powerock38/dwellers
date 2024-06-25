@@ -46,11 +46,11 @@ pub fn spawn_dwellers(
                             index + IVec2::new(dx, dy),
                         );
 
-                        let Some(tile_data) = tilemap_data.get(index) else {
+                        let Some(tile) = tilemap_data.get(index) else {
                             return false;
                         };
 
-                        if tile_data.is_blocking() {
+                        if tile.is_blocking() {
                             return false;
                         }
                     }

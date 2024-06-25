@@ -6,7 +6,6 @@ use crate::{
     mobs::Mob,
     tasks::{Task, TaskBundle, TaskKind, TaskNeeds},
     tilemap::{TilemapData, TILE_SIZE},
-    tiles::TileKind,
     SpriteLoaderBundle,
 };
 
@@ -110,7 +109,7 @@ pub fn click_terrain(
                     let index = IVec2::new(x, y);
 
                     // Make sure there is a tile at this position
-                    let Some(tile_data) = tilemap_data.get(index) else {
+                    let Some(tile) = tilemap_data.get(index) else {
                         continue;
                     };
 
@@ -123,7 +122,7 @@ pub fn click_terrain(
 
                                 // if we are cancelling a stockpile task, mark item for pickup (if not already marked)
                                 if task.kind == TaskKind::Stockpile
-                                    && TaskKind::Pickup.is_valid_on_tile(tile_data)
+                                    && TaskKind::Pickup.is_valid_on_tile(tile)
                                     && !q_tasks.iter().any(|(_, task)| {
                                         task.kind == TaskKind::Pickup && task.pos == index
                                     })
@@ -143,7 +142,7 @@ pub fn click_terrain(
                         }
 
                         ActionKind::Task(task_kind) | ActionKind::TaskWithNeeds(task_kind, _) => {
-                            if !task_kind.is_valid_on_tile(tile_data) {
+                            if !task_kind.is_valid_on_tile(tile) {
                                 continue;
                             }
 
@@ -201,10 +200,8 @@ pub fn click_terrain(
                                 commands.spawn(TaskBundle::new(Task::new(
                                     index,
                                     *task_kind,
-                                    match tile_data.kind {
-                                        TileKind::Floor(Some(ObjectId::WheatPlant)) => {
-                                            TaskNeeds::EmptyHands
-                                        }
+                                    match tile.object {
+                                        Some(ObjectId::WheatPlant) => TaskNeeds::EmptyHands,
                                         _ => TaskNeeds::Nothing,
                                     },
                                     tilemap_data,
@@ -269,7 +266,7 @@ pub fn click_terrain(
                                 let mut task = Task::new(
                                     index,
                                     *task_kind,
-                                    if tile_data.kind == TileKind::Floor(None) {
+                                    if tile.object.is_none() {
                                         TaskNeeds::AnyObject
                                     } else {
                                         TaskNeeds::Impossible
@@ -282,6 +279,17 @@ pub fn click_terrain(
                                 commands.spawn(TaskBundle::new(task));
 
                                 debug!("Stockpiling task at {index:?}");
+                            }
+
+                            TaskKind::GoThere => {
+                                let mut task =
+                                    Task::new(index, *task_kind, TaskNeeds::Nothing, tilemap_data);
+
+                                task.priority(-1);
+
+                                commands.spawn(TaskBundle::new(task));
+
+                                debug!("Going there task at {index:?}");
                             }
 
                             TaskKind::Workstation { .. } | TaskKind::Build { .. } => {}

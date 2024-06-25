@@ -7,12 +7,12 @@ use pathfinding::directed::astar::astar;
 use rand::Rng;
 
 use crate::{
-    data::{ObjectId, WORKSTATIONS},
+    data::{ObjectId, TileId, WORKSTATIONS},
     dwellers::Dweller,
     extract_ok,
     mobs::Mob,
     tilemap::{TilemapData, TILE_SIZE},
-    tiles::{TileData, TileKind},
+    tiles::TilePlaced,
     utils::manhattan_distance,
     SpriteLoaderBundle,
 };
@@ -31,41 +31,48 @@ pub enum TaskKind {
         result: BuildResult,
     },
     Workstation,
+    GoThere,
 }
 
 impl TaskKind {
-    pub fn is_valid_on_tile(self, tile_data: TileData) -> bool {
+    pub fn is_valid_on_tile(self, tile: TilePlaced) -> bool {
+        let tile_id = tile.id;
         match self {
             TaskKind::Dig => {
-                tile_data == TileData::DIRT_WALL
-                    || tile_data == TileData::STONE_WALL
-                    || tile_data == TileData::DUNGEON_WALL
+                tile_id == TileId::DirtWall
+                    || tile_id == TileId::StoneWall
+                    || tile_id == TileId::DungeonWall
             }
             TaskKind::Smoothen => {
-                tile_data == TileData::DIRT_WALL
-                    || tile_data == TileData::STONE_WALL
-                    || tile_data == TileData::STONE_FLOOR
+                tile_id == TileId::DirtWall
+                    || tile_id == TileId::StoneWall
+                    || tile_id == TileId::StoneFloor
             }
             TaskKind::Harvest => {
                 matches!(
-                    tile_data.kind,
-                    TileKind::Floor(Some(
-                        ObjectId::Tree | ObjectId::TallGrass | ObjectId::WheatPlant
-                    ))
+                    tile.object,
+                    Some(ObjectId::Tree | ObjectId::TallGrass | ObjectId::WheatPlant)
                 )
             }
-            TaskKind::Bridge => tile_data == TileData::WATER,
-            TaskKind::Build { .. } => tile_data.kind == TileKind::Floor(None),
+            TaskKind::Bridge => tile_id == TileId::Water,
+            TaskKind::Build { .. } => tile.object.is_none(),
             TaskKind::Pickup => {
-                matches!(tile_data.kind, TileKind::Floor(Some(object)) if object.data().is_carriable())
+                !tile_id.data().is_wall()
+                    && tile
+                        .object
+                        .map_or(false, |object| object.data().is_carriable())
             }
             TaskKind::Hunt => true,
             TaskKind::Stockpile => {
-                matches!(tile_data.kind, TileKind::Floor(object) if object.map_or(true, |object| object.data().is_carriable()))
+                !tile_id.data().is_wall()
+                    && tile
+                        .object
+                        .map_or(true, |object| object.data().is_carriable())
             }
-            TaskKind::Workstation => {
-                matches!(tile_data.kind, TileKind::Floor(Some(workstation)) if WORKSTATIONS.contains_key(&workstation))
-            }
+            TaskKind::Workstation => tile
+                .object
+                .map_or(false, |object| WORKSTATIONS.contains_key(&object)),
+            TaskKind::GoThere => !tile.is_blocking(),
         }
     }
 
@@ -82,7 +89,7 @@ impl TaskKind {
 #[derive(PartialEq, Clone, Copy, Reflect, Debug)]
 pub enum BuildResult {
     Object(ObjectId),
-    Tile(TileData),
+    Tile(TileId),
 }
 
 #[derive(Bundle)]
@@ -157,18 +164,18 @@ impl Task {
     }
 
     fn compute_reachable_positions(&self, pos: IVec2, tilemap_data: &TilemapData) -> Vec<IVec2> {
-        if let Some(tile_data) = tilemap_data.get(pos) {
-            let will_build_blocking_tile = if let TaskKind::Build {
-                result: BuildResult::Tile(tile),
+        if let Some(tile) = tilemap_data.get(pos) {
+            let will_build_wall = if let TaskKind::Build {
+                result: BuildResult::Tile(tile_id),
                 ..
             } = self.kind
             {
-                tile.is_blocking()
+                tile_id.data().is_wall()
             } else {
                 false
             };
 
-            if !tile_data.is_blocking() && !will_build_blocking_tile {
+            if !tile.is_blocking() && !will_build_wall {
                 return vec![pos];
             }
         }
@@ -243,7 +250,7 @@ pub fn event_task_completion(
             continue;
         };
 
-        let Some(tile_data) = tilemap_data.get(task.pos) else {
+        let Some(tile) = tilemap_data.get(task.pos) else {
             continue;
         };
 
@@ -251,8 +258,8 @@ pub fn event_task_completion(
 
         let mut success = false;
 
-        if !task.kind.is_valid_on_tile(tile_data) {
-            error!("SHOULD NEVER HAPPEN: removing invalid task {task:?} on tile {tile_data:?}");
+        if !task.kind.is_valid_on_tile(tile) {
+            error!("SHOULD NEVER HAPPEN: removing invalid task {task:?} on tile {tile:?}");
             commands.entity(entity).despawn_recursive();
             continue;
         }
@@ -267,9 +274,9 @@ pub fn event_task_completion(
                         &tilemap_data,
                     )));
 
-                    TileData::STONE_FLOOR.with(ObjectId::Rock)
+                    TileId::StoneFloor.with(ObjectId::Rock)
                 } else {
-                    TileData::STONE_FLOOR
+                    TileId::StoneFloor.without_object()
                 };
 
                 tile.set_at(task.pos, &mut commands, &mut tilemap, &mut tilemap_data);
@@ -280,10 +287,12 @@ pub fn event_task_completion(
             }
 
             TaskKind::Smoothen => {
-                let tile = match tile_data.kind {
-                    TileKind::Wall => TileData::DUNGEON_WALL,
-                    TileKind::Floor(None) => TileData::DUNGEON_FLOOR,
-                    TileKind::Floor(Some(object)) => TileData::DUNGEON_FLOOR.with(object),
+                let tile = if tile.id.data().is_wall() {
+                    TileId::DungeonWall.without_object()
+                } else if let Some(object) = tile.object {
+                    TileId::DungeonFloor.with(object)
+                } else {
+                    TileId::DungeonFloor.without_object()
                 };
 
                 tile.set_at(task.pos, &mut commands, &mut tilemap, &mut tilemap_data);
@@ -292,8 +301,8 @@ pub fn event_task_completion(
                 success = true;
             }
 
-            TaskKind::Harvest => match tile_data.kind {
-                TileKind::Floor(Some(object)) => {
+            TaskKind::Harvest => match tile.object {
+                Some(object) => {
                     let drop_object = match object {
                         ObjectId::Tree => {
                             if rng.gen_bool(0.3) {
@@ -315,7 +324,7 @@ pub fn event_task_completion(
                     };
 
                     if let Some(object) = drop_object {
-                        tile_data.with(object).set_at(
+                        tile.id.with(object).set_at(
                             task.pos,
                             &mut commands,
                             &mut tilemap,
@@ -331,7 +340,7 @@ pub fn event_task_completion(
                             )));
                         }
                     } else {
-                        tile_data.without_object().set_at(
+                        tile.id.without_object().set_at(
                             task.pos,
                             &mut commands,
                             &mut tilemap,
@@ -347,7 +356,7 @@ pub fn event_task_completion(
             },
 
             TaskKind::Bridge => {
-                TileData::BRIDGE_FLOOR.set_at(
+                TileId::BridgeFloor.without_object().set_at(
                     task.pos,
                     &mut commands,
                     &mut tilemap,
@@ -360,20 +369,24 @@ pub fn event_task_completion(
             }
 
             TaskKind::Pickup => {
-                if let TileKind::Floor(Some(object_data)) = tile_data.kind {
-                    let mut new_tile_data = tile_data;
-                    new_tile_data.kind = TileKind::Floor(None);
+                if let Some(object) = tile.object {
+                    tile.id.without_object().set_at(
+                        task.pos,
+                        &mut commands,
+                        &mut tilemap,
+                        &mut tilemap_data,
+                    );
 
-                    new_tile_data.set_at(task.pos, &mut commands, &mut tilemap, &mut tilemap_data);
-
-                    dweller.object = Some(object_data);
+                    dweller.object = Some(object);
 
                     debug!("Picked up object at {:?}", task.pos);
-                    if object_data.data().is_blocking() {
+                    if object.data().is_blocking() {
                         update_tasks_pos = true;
                     }
                     update_stockpiles = true;
-                    update_workstations = true; //TODO: only if picked up object is a workstation
+                    if WORKSTATIONS.contains_key(&object) {
+                        update_workstations = true;
+                    }
                     success = true;
                 }
             }
@@ -386,7 +399,7 @@ pub fn event_task_completion(
 
                     _ => match result {
                         BuildResult::Object(object) => {
-                            tile_data.with(object).set_at(
+                            tile.id.with(object).set_at(
                                 task.pos,
                                 &mut commands,
                                 &mut tilemap,
@@ -403,7 +416,12 @@ pub fn event_task_completion(
                             }
                         }
                         BuildResult::Tile(tile) => {
-                            tile.set_at(task.pos, &mut commands, &mut tilemap, &mut tilemap_data);
+                            tile.without_object().set_at(
+                                task.pos,
+                                &mut commands,
+                                &mut tilemap,
+                                &mut tilemap_data,
+                            );
                         }
                     },
                 }
@@ -425,9 +443,9 @@ pub fn event_task_completion(
                             .distance(mob_transform.translation)
                             < TILE_SIZE
                         {
-                            if let Some(loot_tile_data) = tilemap_data.get(mob_pos) {
-                                if loot_tile_data.kind == TileKind::Floor(None) {
-                                    loot_tile_data.with(mob.loot).set_at(
+                            if let Some(loot_tile) = tilemap_data.get(mob_pos) {
+                                if loot_tile.object.is_none() {
+                                    loot_tile.id.with(mob.loot).set_at(
                                         mob_pos,
                                         &mut commands,
                                         &mut tilemap,
@@ -456,9 +474,9 @@ pub fn event_task_completion(
             }
 
             TaskKind::Stockpile => {
-                if tile_data.kind == TileKind::Floor(None) {
+                if tile.object.is_none() {
                     if let Some(object) = dweller.object {
-                        tile_data.with(object).set_at(
+                        tile.id.with(object).set_at(
                             task.pos,
                             &mut commands,
                             &mut tilemap,
@@ -473,13 +491,13 @@ pub fn event_task_completion(
             }
 
             TaskKind::Workstation => {
-                if let TileKind::Floor(Some(workstation)) = tile_data.kind {
+                if let Some(workstation) = tile.object {
                     if let Some(recipe) = WORKSTATIONS.get(&workstation) {
-                        for (pos, tile_data) in tilemap_data.neighbours(task.pos) {
-                            if tile_data.kind == TileKind::Floor(None) {
+                        for (pos, tile) in tilemap_data.neighbours(task.pos) {
+                            if tile.is_floor_free() {
                                 // TODO: ensure there is no task at pos
 
-                                tile_data.with(recipe.0).set_at(
+                                tile.id.with(recipe.0).set_at(
                                     pos,
                                     &mut commands,
                                     &mut tilemap,
@@ -502,6 +520,10 @@ pub fn event_task_completion(
                         }
                     }
                 }
+            }
+
+            TaskKind::GoThere => {
+                success = true;
             }
         }
 
@@ -562,7 +584,7 @@ pub fn event_task_completion(
 
                 TaskKind::Workstation => {
                     if remove_task {
-                        if let TileKind::Floor(Some(workstation)) = tile_data.kind {
+                        if let Some(workstation) = tile.object {
                             if let Some(recipe) = WORKSTATIONS.get(&workstation) {
                                 task.needs = TaskNeeds::Objects(recipe.1.clone());
                             }
@@ -596,7 +618,7 @@ pub fn event_task_completion(
             if matches!(task.kind, TaskKind::Stockpile)
                 && tilemap_data
                     .get(task.pos)
-                    .map_or(false, |tile_data| tile_data.kind == TileKind::Floor(None))
+                    .map_or(false, TilePlaced::is_floor_free)
             {
                 task.needs = TaskNeeds::AnyObject;
             }
@@ -609,7 +631,7 @@ pub fn event_task_completion(
             if matches!(task.kind, TaskKind::Workstation { .. })
                 && tilemap_data
                     .get(task.pos)
-                    .map_or(false, |tile_data| tile_data.kind == TileKind::Floor(None))
+                    .map_or(false, TilePlaced::is_floor_free)
             {
                 commands.entity(entity).despawn_recursive();
             }
@@ -644,10 +666,10 @@ pub fn update_pickups(
             if q_tasks.iter().any(|t| {
                 t.kind == TaskKind::Pickup
                 && t.dweller.is_none() // not being worked on
-                    && tilemap_data.get(t.pos).is_some_and(|tile_data| {
-                        if let TileKind::Floor(Some(object_data)) = tile_data.kind {
+                    && tilemap_data.get(t.pos).is_some_and(|tile| {
+                        if let Some(object) = tile.object {
                             if let Some(objects) = specific_objects {
-                                return objects.iter().any(|object| *object == object_data);
+                                return objects.iter().any(|o| object == *o);
                             }
 
                             return true;
@@ -676,15 +698,15 @@ pub fn update_pickups(
 
             // Find object: search around task.pos
             let index = TilemapData::find_from_center(task.pos, |index| {
-                if let Some(tile_data) = tilemap_data.get(index) {
-                    if let TileKind::Floor(Some(object)) = tile_data.kind {
+                if let Some(tile) = tilemap_data.get(index) {
+                    if let Some(object) = tile.object {
                         let has_object = match (specific_objects, object) {
                             (Some(objects), object) => objects.iter().any(|o| *o == object),
                             (None, _) => true,
                         };
 
                         return has_object
-                            && TaskKind::Pickup.is_valid_on_tile(tile_data)
+                            && TaskKind::Pickup.is_valid_on_tile(tile)
                             && !task_indexes.contains(&index)
                             // make sure there's no task here already (excluding Stockpile tasks)
                             && !q_tasks

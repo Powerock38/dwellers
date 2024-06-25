@@ -5,7 +5,7 @@ use bevy_entitiles::{
     tilemap::{chunking::storage::ChunkedStorage, map::TilemapTextures},
 };
 
-use crate::{TileData, TileKind};
+use crate::TilePlaced;
 
 pub const TILE_SIZE_U: u32 = 16;
 pub const TILE_SIZE: f32 = TILE_SIZE_U as f32;
@@ -13,7 +13,7 @@ pub const CHUNK_SIZE: u32 = 64;
 
 #[derive(Component)]
 pub struct TilemapData {
-    pub data: ChunkedStorage<TileData>,
+    pub data: ChunkedStorage<TilePlaced>,
 }
 
 impl TilemapData {
@@ -23,15 +23,15 @@ impl TilemapData {
         }
     }
 
-    pub fn set(&mut self, index: IVec2, tile: TileData) {
+    pub fn set(&mut self, index: IVec2, tile: TilePlaced) {
         self.data.set_elem(index, tile);
     }
 
-    pub fn get(&self, index: IVec2) -> Option<TileData> {
+    pub fn get(&self, index: IVec2) -> Option<TilePlaced> {
         self.data.get_elem(index).copied()
     }
 
-    pub fn set_chunk(&mut self, index: IVec2, chunk_data: Vec<TileData>) {
+    pub fn set_chunk(&mut self, index: IVec2, chunk_data: Vec<TilePlaced>) {
         self.data
             .set_chunk(index, chunk_data.into_iter().map(Some).collect());
     }
@@ -40,7 +40,7 @@ impl TilemapData {
         chunk_index * CHUNK_SIZE as i32 + local_index
     }
 
-    pub fn neighbours(&self, pos: IVec2) -> Vec<(IVec2, TileData)> {
+    pub fn neighbours(&self, pos: IVec2) -> Vec<(IVec2, TilePlaced)> {
         [IVec2::X, IVec2::Y, IVec2::NEG_X, IVec2::NEG_Y]
             .into_iter()
             .filter_map(|p| {
@@ -84,8 +84,7 @@ impl TilemapData {
                         let adj_blocking = [IVec2::new(diag_pos.x, 0), IVec2::new(0, diag_pos.y)]
                             .into_iter()
                             .any(|adj| {
-                                self.get(pos + adj)
-                                    .map_or(true, |t| matches!(t.kind, TileKind::Wall))
+                                self.get(pos + adj).map_or(true, |t| t.id.data().is_wall())
                                 // Do not allow diagonal movement if there is a wall, but allow if it's a blocking object
                             });
 

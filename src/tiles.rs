@@ -3,67 +3,37 @@ use bevy_entitiles::prelude::*;
 use bitcode::{Decode, Encode};
 
 use crate::{
-    data::ObjectId,
+    data::{ObjectId, TileId},
     tilemap::{TilemapData, TilemapFiles, TF},
 };
 
 #[derive(Clone, Copy, Encode, Decode, Reflect, Default, Debug)]
-pub struct TileData {
-    atlas_index: i32,
-    pub kind: TileKind,
+pub struct TilePlaced {
+    pub id: TileId,
+    pub object: Option<ObjectId>,
 }
 
-impl PartialEq for TileData {
-    fn eq(&self, other: &Self) -> bool {
-        use std::mem::discriminant;
-        self.atlas_index == other.atlas_index
-            && discriminant(&self.kind) == discriminant(&other.kind)
-    }
-}
-
-impl TileData {
-    pub const fn floor(atlas_index: i32) -> Self {
-        Self::new(TilemapFiles::FLOORS, atlas_index, TileKind::Floor(None))
-    }
-
-    pub const fn wall(atlas_index: i32) -> Self {
-        Self::new(TilemapFiles::WALLS, atlas_index, TileKind::Wall)
-    }
-
-    const fn new(tf: TF, atlas_index: i32, kind: TileKind) -> Self {
-        let atlas_index = TilemapFiles::T.atlas_index(tf, atlas_index);
-        Self { atlas_index, kind }
-    }
-
-    pub fn with(self, object_id: ObjectId) -> Self {
-        Self {
-            atlas_index: self.atlas_index,
-            kind: TileKind::Floor(Some(object_id)),
-        }
-    }
-
-    pub fn without_object(self) -> Self {
-        Self {
-            atlas_index: self.atlas_index,
-            kind: TileKind::Floor(None),
-        }
-    }
-
+impl TilePlaced {
     pub fn is_blocking(self) -> bool {
-        match self.kind {
-            TileKind::Wall => true,
-            TileKind::Floor(Some(object)) => object.data().blocking,
-            _ => false,
-        }
+        TileId::data(&self.id).wall
+            || self
+                .object
+                .map_or(false, |o| ObjectId::data(&o).is_blocking())
+    }
+
+    pub fn is_floor_free(self) -> bool {
+        !self.is_blocking() && self.object.is_none()
     }
 
     pub fn tile_builder(self) -> TileBuilder {
-        match self.kind {
-            TileKind::Floor(Some(object)) => TileBuilder::new()
-                .with_layer(0, TileLayer::no_flip(self.atlas_index))
-                .with_layer(1, TileLayer::no_flip(object.data().atlas_index)),
-            _ => TileBuilder::new().with_layer(0, TileLayer::no_flip(self.atlas_index)),
+        let mut tb =
+            TileBuilder::new().with_layer(0, TileLayer::no_flip(self.id.data().atlas_index));
+
+        if let Some(object) = self.object {
+            tb = tb.with_layer(1, TileLayer::no_flip(object.data().atlas_index));
         }
+
+        tb
     }
 
     pub fn set_at(
@@ -92,13 +62,20 @@ impl TileData {
             .map(|n| n.0)
             .chain([index])
         {
-            let tint = if tilemap_data.neighbours(index).iter().all(|(_, tile)| {
-                tile == &Self::STONE_WALL || tile == &Self::DIRT_WALL || tile == &Self::DUNGEON_WALL
-            }) {
-                Color::BLACK
-            } else {
-                Color::WHITE
-            };
+            let tint =
+                if tilemap_data
+                    .neighbours(index)
+                    .iter()
+                    .all(|(_, TilePlaced { id: tile, .. })| {
+                        *tile == TileId::StoneWall
+                            || *tile == TileId::DirtWall
+                            || *tile == TileId::DungeonWall
+                    })
+                {
+                    Color::BLACK
+                } else {
+                    Color::WHITE
+                };
 
             tilemap.update(
                 commands,
@@ -112,14 +89,47 @@ impl TileData {
     }
 }
 
-#[derive(PartialEq, Clone, Copy, Encode, Decode, Reflect, Default, Debug)]
-pub enum TileKind {
-    #[default]
-    Wall,
-    Floor(Option<ObjectId>),
+pub struct TileData {
+    atlas_index: i32,
+    wall: bool,
 }
 
-#[derive(PartialEq, Eq, Hash, Clone, Copy, Encode, Decode, Reflect, Default, Debug)]
+impl TileData {
+    pub const fn floor(atlas_index: i32) -> Self {
+        Self::new(TilemapFiles::FLOORS, atlas_index, false)
+    }
+
+    pub const fn wall(atlas_index: i32) -> Self {
+        Self::new(TilemapFiles::WALLS, atlas_index, true)
+    }
+
+    pub const fn new(tf: TF, atlas_index: i32, wall: bool) -> Self {
+        let atlas_index = TilemapFiles::T.atlas_index(tf, atlas_index);
+        Self { atlas_index, wall }
+    }
+
+    #[inline]
+    pub fn is_wall(&self) -> bool {
+        self.wall
+    }
+}
+
+impl TileId {
+    pub fn with(self, object_id: ObjectId) -> TilePlaced {
+        TilePlaced {
+            id: self,
+            object: Some(object_id),
+        }
+    }
+
+    pub fn without_object(self) -> TilePlaced {
+        TilePlaced {
+            id: self,
+            object: None,
+        }
+    }
+}
+
 pub struct ObjectData {
     atlas_index: i32,
     blocking: bool,
@@ -144,12 +154,12 @@ impl ObjectData {
     }
 
     #[inline]
-    pub fn is_carriable(self) -> bool {
+    pub fn is_carriable(&self) -> bool {
         self.carriable
     }
 
     #[inline]
-    pub fn is_blocking(self) -> bool {
+    pub fn is_blocking(&self) -> bool {
         self.blocking
     }
 

@@ -8,9 +8,9 @@ use noise::{NoiseFn, Perlin, RidgedMulti, Simplex, Worley};
 use rand::Rng;
 
 use crate::{
-    data::ObjectId,
+    data::{ObjectId, TileId},
     extract_ok, init_tilemap,
-    tiles::{TileData, TileKind},
+    tiles::TilePlaced,
     SaveName, TilemapData, CHUNK_SIZE, SAVE_DIR,
 };
 
@@ -83,7 +83,7 @@ pub fn load_chunks(
             chunk_index.x, chunk_index.y
         ))
         .ok()
-        .and_then(|data| bitcode::decode::<Vec<TileData>>(&data).ok())
+        .and_then(|data| bitcode::decode::<Vec<TilePlaced>>(&data).ok())
         {
             debug!("Loading chunk {} from save file", chunk_index);
 
@@ -98,10 +98,10 @@ pub fn load_chunks(
                         IVec2::new(x as i32, y as i32),
                     );
 
-                    if let Some(tile_data) = tilemap_data.get(index) {
-                        tilemap.set(&mut commands, index, tile_data.tile_builder());
+                    if let Some(tile) = tilemap_data.get(index) {
+                        tilemap.set(&mut commands, index, tile.tile_builder());
 
-                        TileData::update_light_level(
+                        TilePlaced::update_light_level(
                             index,
                             &mut commands,
                             &mut tilemap,
@@ -134,9 +134,9 @@ pub fn load_chunks(
                         noise.get([u * MOUNTAIN_NOISE_SCALE, v * MOUNTAIN_NOISE_SCALE]);
                     if mountain_noise_value < -0.4 {
                         let tile = if mountain_noise_value < -0.5 {
-                            TileData::STONE_WALL
+                            TileId::StoneWall.without_object()
                         } else {
-                            TileData::DIRT_WALL
+                            TileId::DirtWall.without_object()
                         };
 
                         tile.set_at(index, &mut commands, &mut tilemap, &mut tilemap_data);
@@ -146,7 +146,7 @@ pub fn load_chunks(
 
                     // Rivers
                     if mountain_noise_value > 0.5 {
-                        TileData::WATER.set_at(
+                        TileId::Water.without_object().set_at(
                             index,
                             &mut commands,
                             &mut tilemap,
@@ -186,13 +186,13 @@ pub fn load_chunks(
                     };
 
                     let mut ground_tile = if climate_noise_value > 0.5 {
-                        TileData::SAND_FLOOR
+                        TileId::SandFloor.without_object()
                     } else {
-                        TileData::GRASS_FLOOR
+                        TileId::GrassFloor.without_object()
                     };
 
-                    if let Some(object_id) = vegetation {
-                        ground_tile = ground_tile.with(object_id);
+                    if let Some(object) = vegetation {
+                        ground_tile = ground_tile.id.with(object);
                     }
 
                     ground_tile.set_at(index, &mut commands, &mut tilemap, &mut tilemap_data);
@@ -245,12 +245,12 @@ pub fn update_terrain(
                 );
 
                 if let Some(tile) = tilemap_data.get(index) {
-                    match tile.kind {
-                        TileKind::Floor(Some(ObjectId::Farm)) => {
+                    match tile.object {
+                        Some(ObjectId::Farm) => {
                             let mut rng = rand::thread_rng();
 
                             if rng.gen_bool(0.01) {
-                                tile.with(ObjectId::WheatPlant).set_at(
+                                tile.id.with(ObjectId::WheatPlant).set_at(
                                     index,
                                     &mut commands,
                                     &mut tilemap,
