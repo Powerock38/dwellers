@@ -1,5 +1,3 @@
-use std::io::Write;
-
 use bevy::{prelude::*, tasks::IoTaskPool};
 use bevy_entitiles::{
     prelude::*, render::material::StandardTilemapMaterial, tilemap::map::TilemapTextures,
@@ -228,8 +226,7 @@ pub fn load_chunks(
 
         IoTaskPool::get()
             .spawn(async move {
-                std::fs::File::create(format!("{save_folder}/{x}_{y}.bin"))
-                    .and_then(|mut file| file.write(chunk_encoded.as_slice()))
+                std::fs::write(format!("{save_folder}/{x}_{y}.bin"), chunk_encoded)
                     .expect("Error while writing terrain to file");
             })
             .detach();

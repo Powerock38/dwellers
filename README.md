@@ -9,7 +9,7 @@
 
 ## World generation
 
-- [ ] chunks
+- [x] chunks
 - [x] trees
 - [x] mountains
 - [x] rivers
@@ -18,7 +18,7 @@
 - [ ] dungeons (caves)
 - [ ] towns
 - [ ] ruins
-- [ ] ores
+- [x] ores
 - [x] animals
 
 ## Game mechanics
