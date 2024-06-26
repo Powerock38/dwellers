@@ -13,6 +13,7 @@ use crate::{
 };
 
 const CLIMATE_NOISE_SCALE: f64 = 0.01;
+const MOBS_SPAWN_NOISE_SCALE: f64 = 0.1;
 const MOUNTAIN_NOISE_SCALE: f64 = 0.004;
 const ORES_NOISE_SCALE: f64 = 0.1;
 const VEGETATION_NOISE_SCALE: f64 = 0.5;
@@ -120,7 +121,11 @@ pub fn load_chunks(
 
             debug!("Generating chunk {}", chunk_index);
 
-            if noise_climate.get([chunk_index.x as f64, chunk_index.y as f64]) > 0.7 {
+            if noise_climate.get([
+                chunk_index.x as f64 * MOBS_SPAWN_NOISE_SCALE,
+                chunk_index.y as f64 * MOBS_SPAWN_NOISE_SCALE,
+            ]) > 0.0
+            {
                 ev_spawn_mobs.send(SpawnMobsOnChunk(*chunk_index));
             }
 

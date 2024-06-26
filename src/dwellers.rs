@@ -37,14 +37,12 @@ pub fn spawn_dwellers(
     let tilemap_data = extract_ok!(q_tilemap.get_single());
 
     for SpawnDwellersOnChunk(chunk_index) in ev_spawn.read() {
-        let Some(spawn_pos) =
-            TilemapData::find_from_center(IVec2::splat(CHUNK_SIZE as i32 / 2), |index| {
+        let Some(spawn_pos) = TilemapData::find_from_center(
+            TilemapData::local_index_to_global(*chunk_index, IVec2::splat(CHUNK_SIZE as i32 / 2)),
+            |index| {
                 for dx in -1..=1 {
                     for dy in -1..=1 {
-                        let index = TilemapData::local_index_to_global(
-                            *chunk_index,
-                            index + IVec2::new(dx, dy),
-                        );
+                        let index = index + IVec2::new(dx, dy);
 
                         let Some(tile) = tilemap_data.get(index) else {
                             return false;
@@ -56,8 +54,8 @@ pub fn spawn_dwellers(
                     }
                 }
                 true
-            })
-        else {
+            },
+        ) else {
             error!("No valid spawn position found for dwellers");
             return;
         };
