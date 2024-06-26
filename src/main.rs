@@ -47,6 +47,7 @@ fn main() {
         .add_systems(
             Update,
             (
+                init_font,
                 update_ui_buttons,
                 update_camera,
                 toggle_state,

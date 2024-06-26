@@ -8,6 +8,14 @@ use crate::{
 mod actions_ui;
 pub use actions_ui::*;
 
+pub fn init_font(asset_server: Res<AssetServer>, mut query: Query<&mut Text, Added<Text>>) {
+    for mut text in &mut query {
+        for section in &mut text.sections {
+            section.style.font = asset_server.load("alagard.ttf");
+        }
+    }
+}
+
 #[derive(Component)]
 pub enum UiButton {
     Action(ActionKind),
@@ -19,6 +27,34 @@ impl UiButton {
     pub const NORMAL: Color = Color::rgb(0.15, 0.15, 0.15);
     pub const HOVERED: Color = Color::rgb(0.25, 0.25, 0.25);
     pub const PRESSED: Color = Color::rgb(0.35, 0.75, 0.35);
+}
+
+pub fn build_ui_button(c: &mut ChildBuilder, ui_button: UiButton, text: impl Into<String>) {
+    c.spawn((
+        ui_button,
+        ButtonBundle {
+            style: Style {
+                padding: UiRect::all(Val::Px(5.0)),
+                border: UiRect::all(Val::Px(2.0)),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            border_color: BorderColor(Color::BLACK),
+            background_color: UiButton::NORMAL.into(),
+            ..default()
+        },
+    ))
+    .with_children(|c| {
+        c.spawn(TextBundle::from_section(
+            text,
+            TextStyle {
+                font_size: 20.0,
+                color: Color::rgb(0.9, 0.9, 0.9),
+                ..default()
+            },
+        ));
+    });
 }
 
 #[derive(Component)]

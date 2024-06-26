@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::{data::BUILD_RECIPES, ActionKind, TaskKind, TaskNeeds, UiButton};
+use crate::{build_ui_button, data::BUILD_RECIPES, ActionKind, TaskKind, TaskNeeds, UiButton};
 
 pub fn spawn_ui(mut commands: Commands) {
     commands
@@ -28,12 +28,12 @@ pub fn spawn_ui(mut commands: Commands) {
             })
             .with_children(|c| {
                 for (name, result, cost) in BUILD_RECIPES {
-                    build_button_text(
+                    build_ui_button(
                         c,
-                        ActionKind::TaskWithNeeds(
+                        UiButton::Action(ActionKind::TaskWithNeeds(
                             TaskKind::Build { result: *result },
                             TaskNeeds::Objects(cost.to_vec()),
-                        ),
+                        )),
                         format!("Build {name}"),
                     );
                 }
@@ -65,32 +65,5 @@ pub fn spawn_ui(mut commands: Commands) {
 
 fn build_button(c: &mut ChildBuilder, kind: ActionKind) {
     let text = kind.to_string();
-    build_button_text(c, kind, text);
-}
-
-fn build_button_text(c: &mut ChildBuilder, kind: ActionKind, text: String) {
-    c.spawn((
-        UiButton::Action(kind),
-        ButtonBundle {
-            style: Style {
-                border: UiRect::all(Val::Px(5.0)),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                ..default()
-            },
-            border_color: BorderColor(Color::BLACK),
-            background_color: UiButton::NORMAL.into(),
-            ..default()
-        },
-    ))
-    .with_children(|c| {
-        c.spawn(TextBundle::from_section(
-            text,
-            TextStyle {
-                font_size: 20.0,
-                color: Color::rgb(0.9, 0.9, 0.9),
-                ..default()
-            },
-        ));
-    });
+    build_ui_button(c, UiButton::Action(kind), text);
 }
