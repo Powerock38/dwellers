@@ -19,10 +19,10 @@ pub struct SpriteLoaderBundle {
 }
 
 impl SpriteLoaderBundle {
-    pub fn new(texture_path: &str, x: f32, y: f32, z: f32) -> Self {
+    pub fn new(texture_path: impl Into<String>, x: f32, y: f32, z: f32) -> Self {
         Self {
             loader: SpriteLoader {
-                texture_path: texture_path.to_string(),
+                texture_path: texture_path.into(),
             },
             transform: Transform::from_xyz(x, y, z),
             ..default()

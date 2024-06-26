@@ -6,7 +6,6 @@ use crate::{
     mobs::Mob,
     tasks::{Task, TaskBundle, TaskKind, TaskNeeds},
     tilemap::{TilemapData, TILE_SIZE},
-    SpriteLoaderBundle,
 };
 
 #[derive(PartialEq, Clone, Debug)]
@@ -242,20 +241,12 @@ pub fn click_terrain(
                                     })
                                 {
                                     commands.entity(entity_mob).with_children(|c| {
-                                        c.spawn(TaskBundle {
-                                            task: Task::new(
-                                                index,
-                                                *task_kind,
-                                                TaskNeeds::Nothing,
-                                                tilemap_data,
-                                            ),
-                                            sprite: SpriteLoaderBundle::new(
-                                                "sprites/hunt.png",
-                                                0.,
-                                                0.,
-                                                1.,
-                                            ),
-                                        });
+                                        c.spawn(TaskBundle::new_as_child(Task::new(
+                                            index,
+                                            *task_kind,
+                                            TaskNeeds::Nothing,
+                                            tilemap_data,
+                                        )));
                                     });
 
                                     debug!("Hunting task at {index:?}");

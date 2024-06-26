@@ -103,11 +103,19 @@ impl TaskBundle {
         let x = task.pos.x as f32 * TILE_SIZE;
         let y = task.pos.y as f32 * TILE_SIZE;
 
-        let texture_path = format!("sprites/{}.png", task.kind.id());
+        Self::new_inner(task, x, y)
+    }
+
+    pub fn new_as_child(task: Task) -> Self {
+        Self::new_inner(task, 0.0, 0.0)
+    }
+
+    fn new_inner(task: Task, x: f32, y: f32) -> Self {
+        let texture_path = format!("tasks/{}.png", task.kind.id());
 
         Self {
             task,
-            sprite: SpriteLoaderBundle::new(texture_path.as_str(), x, y, 1.),
+            sprite: SpriteLoaderBundle::new(texture_path, x, y, 1.),
         }
     }
 }
