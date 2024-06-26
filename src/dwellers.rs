@@ -6,7 +6,7 @@ use crate::{
     extract_ok,
     tasks::{BuildResult, Task, TaskCompletionEvent, TaskKind, TaskNeeds},
     tilemap::{TilemapData, TILE_SIZE},
-    LoadChunk, SpawnEntitiesOnChunk, SpriteLoaderBundle, UnloadChunk, CHUNK_SIZE,
+    LoadChunk, SpawnDwellersOnChunk, SpriteLoaderBundle, UnloadChunk, CHUNK_SIZE,
 };
 
 const LOAD_CHUNKS_RADIUS: i32 = 1;
@@ -32,11 +32,11 @@ pub struct DwellerBundle {
 pub fn spawn_dwellers(
     mut commands: Commands,
     q_tilemap: Query<&TilemapData>,
-    mut ev_spawn_entities_on_chunk: EventReader<SpawnEntitiesOnChunk>,
+    mut ev_spawn: EventReader<SpawnDwellersOnChunk>,
 ) {
     let tilemap_data = extract_ok!(q_tilemap.get_single());
 
-    for SpawnEntitiesOnChunk(chunk_index) in ev_spawn_entities_on_chunk.read() {
+    for SpawnDwellersOnChunk(chunk_index) in ev_spawn.read() {
         let Some(spawn_pos) =
             TilemapData::find_from_center(IVec2::splat(CHUNK_SIZE as i32 / 2), |index| {
                 for dx in -1..=1 {

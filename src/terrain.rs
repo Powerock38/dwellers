@@ -25,7 +25,10 @@ pub struct LoadChunk(pub IVec2);
 pub struct UnloadChunk(pub IVec2);
 
 #[derive(Event)]
-pub struct SpawnEntitiesOnChunk(pub IVec2);
+pub struct SpawnDwellersOnChunk(pub IVec2);
+
+#[derive(Event)]
+pub struct SpawnMobsOnChunk(pub IVec2);
 
 pub fn spawn_new_terrain(
     commands: Commands,
@@ -33,7 +36,7 @@ pub fn spawn_new_terrain(
     materials: ResMut<Assets<StandardTilemapMaterial>>,
     textures: ResMut<Assets<TilemapTextures>>,
     mut ev_load_chunk: EventWriter<LoadChunk>,
-    mut ev_spawn_entities_on_chunk: EventWriter<SpawnEntitiesOnChunk>,
+    mut ev_spawn_dwellers: EventWriter<SpawnDwellersOnChunk>,
     save_name: Res<SaveName>,
 ) {
     init_tilemap(commands, asset_server, materials, textures);
@@ -42,7 +45,7 @@ pub fn spawn_new_terrain(
     std::fs::create_dir(save_folder).expect("Error while creating save folder");
 
     ev_load_chunk.send(LoadChunk(IVec2::ZERO));
-    ev_spawn_entities_on_chunk.send(SpawnEntitiesOnChunk(IVec2::ZERO));
+    ev_spawn_dwellers.send(SpawnDwellersOnChunk(IVec2::ZERO));
 }
 
 pub fn load_chunks(
@@ -51,6 +54,7 @@ pub fn load_chunks(
     mut ev_unload: EventReader<UnloadChunk>,
     mut q_tilemap: Query<(&mut TilemapStorage, &mut TilemapData)>,
     save_name: Res<SaveName>,
+    mut ev_spawn_mobs: EventWriter<SpawnMobsOnChunk>,
 ) {
     let (mut tilemap, mut tilemap_data) = extract_ok!(q_tilemap.get_single_mut());
 
@@ -115,6 +119,10 @@ pub fn load_chunks(
             // If the chunk is not in the save, generate it
 
             debug!("Generating chunk {}", chunk_index);
+
+            if noise_climate.get([chunk_index.x as f64, chunk_index.y as f64]) > 0.7 {
+                ev_spawn_mobs.send(SpawnMobsOnChunk(*chunk_index));
+            }
 
             for x in 0..CHUNK_SIZE {
                 for y in 0..CHUNK_SIZE {

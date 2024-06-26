@@ -41,7 +41,7 @@ fn main() {
         .add_event::<LoadChunk>()
         .add_event::<UnloadChunk>()
         .add_event::<TaskCompletionEvent>()
-        .add_event::<SpawnEntitiesOnChunk>()
+        .add_event::<SpawnMobsOnChunk>()
         .configure_sets(Update, GameplaySet.run_if(in_state(GameState::Running)))
         .add_systems(Startup, (spawn_camera, spawn_new_terrain, spawn_ui))
         .add_systems(

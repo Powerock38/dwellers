@@ -5,7 +5,7 @@ use crate::{
     data::ObjectId,
     extract_ok,
     tilemap::{TilemapData, TILE_SIZE},
-    SpawnEntitiesOnChunk, SpriteLoaderBundle, CHUNK_SIZE,
+    SpawnMobsOnChunk, SpriteLoaderBundle, CHUNK_SIZE,
 };
 
 const Z_INDEX: f32 = 11.0;
@@ -46,11 +46,11 @@ impl MobBundle {
 pub fn spawn_mobs(
     mut commands: Commands,
     q_tilemap: Query<&TilemapData>,
-    mut ev_spawn_entities_on_chunk: EventReader<SpawnEntitiesOnChunk>,
+    mut ev_spawn: EventReader<SpawnMobsOnChunk>,
 ) {
     let tilemap_data = extract_ok!(q_tilemap.get_single());
 
-    for SpawnEntitiesOnChunk(chunk_index) in ev_spawn_entities_on_chunk.read() {
+    for SpawnMobsOnChunk(chunk_index) in ev_spawn.read() {
         let Some(spawn_pos) =
             TilemapData::find_from_center(IVec2::splat(CHUNK_SIZE as i32 / 2), |index| {
                 for dx in -1..=1 {
