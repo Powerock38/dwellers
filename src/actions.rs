@@ -6,6 +6,7 @@ use crate::{
     mobs::Mob,
     tasks::{Task, TaskBundle, TaskKind, TaskNeeds},
     tilemap::{TilemapData, TILE_SIZE},
+    Dweller,
 };
 
 #[derive(PartialEq, Clone, Debug)]
@@ -20,7 +21,11 @@ impl std::fmt::Display for ActionKind {
         match self {
             Self::Cancel => write!(f, "{self:?}"),
             Self::Task(task_kind) | Self::TaskWithNeeds(task_kind, _) => {
-                write!(f, "{}", task_kind.id())
+                write!(
+                    f,
+                    "{}",
+                    format!("{task_kind:?}").split_whitespace().next().unwrap()
+                )
             }
         }
     }
@@ -57,6 +62,7 @@ pub fn click_terrain(
     q_tilemap: Query<&TilemapData>,
     q_tasks: Query<(Entity, &Task)>,
     q_mobs: Query<(Entity, &Transform), With<Mob>>,
+    q_dwellers: Query<&Dweller>,
 ) {
     if let Some(mut current_action) = current_action {
         if mouse_input.just_pressed(MouseButton::Right) {
@@ -103,8 +109,10 @@ pub fn click_terrain(
             let index_min = IVec2::new(index_start.x.min(index.x), index_start.y.min(index.y));
             let index_max = IVec2::new(index_start.x.max(index.x), index_start.y.max(index.y));
 
-            for x in index_min.x..=index_max.x {
-                for y in index_min.y..=index_max.y {
+            let mut max_walk_tasks = q_dwellers.iter().len();
+
+            for y in index_min.y..=index_max.y {
+                for x in index_min.x..=index_max.x {
                     let index = IVec2::new(x, y);
 
                     // Make sure there is a tile at this position
@@ -272,7 +280,13 @@ pub fn click_terrain(
                                 debug!("Stockpiling task at {index:?}");
                             }
 
-                            TaskKind::GoThere => {
+                            TaskKind::Walk => {
+                                if max_walk_tasks == 0 {
+                                    continue;
+                                }
+
+                                max_walk_tasks = max_walk_tasks.saturating_sub(1);
+
                                 let mut task =
                                     Task::new(index, *task_kind, TaskNeeds::Nothing, tilemap_data);
 

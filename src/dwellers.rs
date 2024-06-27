@@ -1,9 +1,10 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, sprite::Anchor};
 use rand::seq::SliceRandom;
 
 use crate::{
     data::ObjectId,
     extract_ok,
+    random_text::{generate_word, NAMES},
     tasks::{BuildResult, Task, TaskCompletionEvent, TaskKind, TaskNeeds},
     tilemap::{TilemapData, TILE_SIZE},
     LoadChunk, SpawnDwellersOnChunk, SpriteLoaderBundle, UnloadChunk, CHUNK_SIZE,
@@ -60,21 +61,44 @@ pub fn spawn_dwellers(
             return;
         };
 
-        for name in ["Alice", "Bob", "Charlie", "Dave", "Eve"] {
-            commands.spawn(DwellerBundle {
-                sprite: SpriteLoaderBundle::new(
-                    "sprites/dweller.png",
-                    spawn_pos.x as f32 * TILE_SIZE,
-                    spawn_pos.y as f32 * TILE_SIZE,
-                    Z_INDEX,
-                ),
-                dweller: Dweller {
-                    name: name.to_string(),
-                    speed: SPEED,
-                    move_queue: vec![],
-                    object: None,
-                },
-            });
+        let nb_dwellers = 10;
+        let mut rng = rand::thread_rng();
+
+        for _ in 0..nb_dwellers {
+            let mut name = generate_word(&NAMES, &mut rng);
+            name.get_mut(0..1).unwrap().make_ascii_uppercase();
+
+            commands
+                .spawn(DwellerBundle {
+                    sprite: SpriteLoaderBundle::new(
+                        "sprites/dweller.png",
+                        spawn_pos.x as f32 * TILE_SIZE,
+                        spawn_pos.y as f32 * TILE_SIZE,
+                        Z_INDEX,
+                    ),
+                    dweller: Dweller {
+                        name: name.to_string(),
+                        speed: SPEED,
+                        move_queue: vec![],
+                        object: None,
+                    },
+                })
+                .with_children(|c| {
+                    c.spawn(Text2dBundle {
+                        text: Text::from_section(
+                            name,
+                            TextStyle {
+                                font_size: 16.0,
+                                color: Color::WHITE,
+                                ..default()
+                            },
+                        ),
+                        text_anchor: Anchor::BottomCenter,
+                        transform: Transform::from_scale(Vec3::splat(0.5))
+                            .with_translation(Vec3::new(TILE_SIZE / 2.0, TILE_SIZE, 1.0)),
+                        ..default()
+                    });
+                });
         }
     }
 }

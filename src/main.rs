@@ -14,6 +14,7 @@ mod camera;
 mod data;
 mod dwellers;
 mod mobs;
+mod random_text;
 mod save_load;
 mod state;
 mod tasks;

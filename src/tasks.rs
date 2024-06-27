@@ -31,7 +31,7 @@ pub enum TaskKind {
         result: BuildResult,
     },
     Workstation,
-    GoThere,
+    Walk,
 }
 
 impl TaskKind {
@@ -72,7 +72,7 @@ impl TaskKind {
             TaskKind::Workstation => tile
                 .object
                 .map_or(false, |object| WORKSTATIONS.contains_key(&object)),
-            TaskKind::GoThere => !tile.is_blocking(),
+            TaskKind::Walk => !tile.is_blocking(),
         }
     }
 
@@ -538,7 +538,7 @@ pub fn event_task_completion(
                 }
             }
 
-            TaskKind::GoThere => {
+            TaskKind::Walk => {
                 success = true;
             }
         }

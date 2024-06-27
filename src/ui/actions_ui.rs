@@ -56,7 +56,7 @@ pub fn spawn_ui(mut commands: Commands) {
                 build_button(c, ActionKind::Task(TaskKind::Hunt));
                 build_button(c, ActionKind::Task(TaskKind::Pickup));
                 build_button(c, ActionKind::Task(TaskKind::Stockpile));
-                build_button(c, ActionKind::Task(TaskKind::GoThere));
+                build_button(c, ActionKind::Task(TaskKind::Walk));
 
                 build_button(c, ActionKind::Cancel);
             });

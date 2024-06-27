@@ -14,7 +14,8 @@ use crate::{
 
 const CLIMATE_NOISE_SCALE: f64 = 0.01;
 const MOBS_SPAWN_NOISE_SCALE: f64 = 0.1;
-const MOUNTAIN_NOISE_SCALE: f64 = 0.004;
+const MOUNTAINS_NOISE_SCALE: f64 = 0.004;
+const RIVERS_NOISE_SCALE: f64 = 0.006;
 const ORES_NOISE_SCALE: f64 = 0.1;
 const VEGETATION_NOISE_SCALE: f64 = 0.5;
 const VEGETATION_ZONES_NOISE_SCALE: f64 = 0.05;
@@ -61,7 +62,8 @@ pub fn load_chunks(
 
     // Seed is based on the save name
     let seed = save_name.0.as_bytes().iter().map(|b| *b as u32).sum();
-    let noise = RidgedMulti::<Simplex>::new(seed);
+    let noise_mountains = RidgedMulti::<Simplex>::new(seed);
+    let noise_rivers = RidgedMulti::<Simplex>::new(seed + 1);
     let noise_climate = Simplex::new(seed);
     let noise_ores = Perlin::new(seed);
     let noise_vegetation = Worley::new(seed);
@@ -144,9 +146,9 @@ pub fn load_chunks(
 
                     // Mountains
                     let mountain_noise_value =
-                        noise.get([u * MOUNTAIN_NOISE_SCALE, v * MOUNTAIN_NOISE_SCALE]);
+                        noise_mountains.get([u * MOUNTAINS_NOISE_SCALE, v * MOUNTAINS_NOISE_SCALE]);
 
-                    if mountain_noise_value < -0.4 {
+                    if mountain_noise_value > 0.0 {
                         let tile = if mountain_noise_value < -0.55 {
                             let ores_noise_value =
                                 noise_ores.get([u * ORES_NOISE_SCALE, v * ORES_NOISE_SCALE]);
@@ -166,7 +168,10 @@ pub fn load_chunks(
                     }
 
                     // Rivers
-                    if mountain_noise_value > 0.5 {
+                    let river_noise_value =
+                        noise_rivers.get([u * RIVERS_NOISE_SCALE, v * RIVERS_NOISE_SCALE]);
+
+                    if river_noise_value > 0.3 {
                         TileId::Water.empty().set_at(
                             index,
                             &mut commands,
