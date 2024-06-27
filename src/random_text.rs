@@ -25,10 +25,6 @@ impl ProbabilityTable {
         assert!(accuracy >= 1);
         generate_table(add_space(reader, accuracy), accuracy)
     }
-
-    pub fn generate_words(&self, amount: u32) -> Vec<String> {
-        generate_multiple_words(self, amount)
-    }
 }
 
 // Replace each new line characters by a series of space of length
@@ -90,14 +86,14 @@ pub fn generate_word(table: &ProbabilityTable, rng: &mut ThreadRng) -> String {
     out.trim().to_string()
 }
 
-fn generate_multiple_words(matrix: &ProbabilityTable, number: u32) -> Vec<String> {
-    let mut vec_string = Vec::new();
-    let mut rng = thread_rng();
-    for _ in 0..number {
-        vec_string.push(generate_word(matrix, &mut rng));
-    }
-    vec_string
-}
+// fn generate_multiple_words(matrix: &ProbabilityTable, number: u32) -> Vec<String> {
+//     let mut vec_string = Vec::new();
+//     let mut rng = thread_rng();
+//     for _ in 0..number {
+//         vec_string.push(generate_word(matrix, &mut rng));
+//     }
+//     vec_string
+// }
 
 // pub fn generate_words<T: BufRead>(reader: T, accuracy: usize, amout: u32) -> Vec<String> {
 //     let mut out = generate_multiple_words(

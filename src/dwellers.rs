@@ -1,5 +1,5 @@
 use bevy::{prelude::*, sprite::Anchor};
-use rand::seq::SliceRandom;
+use rand::{seq::SliceRandom, Rng};
 
 use crate::{
     data::ObjectId,
@@ -68,10 +68,12 @@ pub fn spawn_dwellers(
             let mut name = generate_word(&NAMES, &mut rng);
             name.get_mut(0..1).unwrap().make_ascii_uppercase();
 
+            let sprite_i = rng.gen_range(1..=4);
+
             commands
                 .spawn(DwellerBundle {
                     sprite: SpriteLoaderBundle::new(
-                        "sprites/dweller.png",
+                        format!("sprites/dweller{sprite_i}.png"),
                         spawn_pos.x as f32 * TILE_SIZE,
                         spawn_pos.y as f32 * TILE_SIZE,
                         Z_INDEX,
