@@ -12,7 +12,7 @@ use crate::{
 
 const LOAD_CHUNKS_RADIUS: i32 = 1;
 
-const SPEED: f32 = 80.0;
+const SPEED: f32 = 100.0;
 const Z_INDEX: f32 = 10.0;
 
 #[derive(Component, Reflect, Default)]
@@ -152,8 +152,11 @@ pub fn update_dwellers(
         // FIXME: dwellers first in the loop can "steal" a task far away from them from a dweller that is closer
         let task_path = q_tasks
             .iter_mut()
-            .filter_map(|(_, task)| {
-                if task.dweller.is_none() && !task.reachable_positions.is_empty() {
+            .filter_map(|(_, mut task)| {
+                if task.dweller.is_none()
+                    && !task.reachable_positions.is_empty()
+                    && task.reachable_pathfinding
+                {
                     match &task.needs {
                         TaskNeeds::Nothing => {}
                         TaskNeeds::EmptyHands => {
@@ -191,6 +194,8 @@ pub fn update_dwellers(
                     if let Some(path) = path {
                         return Some((task, path));
                     }
+
+                    task.reachable_pathfinding = false;
                 }
 
                 None

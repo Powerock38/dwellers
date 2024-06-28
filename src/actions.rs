@@ -9,6 +9,8 @@ use crate::{
     Dweller,
 };
 
+const MAX_ACTIONS: usize = 64;
+
 #[derive(PartialEq, Clone, Debug)]
 pub enum ActionKind {
     Cancel,
@@ -109,11 +111,18 @@ pub fn click_terrain(
             let index_min = IVec2::new(index_start.x.min(index.x), index_start.y.min(index.y));
             let index_max = IVec2::new(index_start.x.max(index.x), index_start.y.max(index.y));
 
-            let mut max_walk_tasks = q_dwellers.iter().len();
+            let mut max_tasks = match current_action.kind {
+                ActionKind::Task(TaskKind::Walk) => q_dwellers.iter().len(),
+                _ => MAX_ACTIONS,
+            };
 
-            for y in index_min.y..=index_max.y {
+            'index: for y in index_min.y..=index_max.y {
                 for x in index_min.x..=index_max.x {
                     let index = IVec2::new(x, y);
+
+                    if max_tasks == 0 {
+                        break 'index;
+                    }
 
                     // Make sure there is a tile at this position
                     let Some(tile) = tilemap_data.get(index) else {
@@ -189,6 +198,7 @@ pub fn click_terrain(
                                     tilemap_data,
                                 )));
 
+                                max_tasks = max_tasks.saturating_sub(1);
                                 debug!("Digging task at {index:?}");
                             }
 
@@ -199,6 +209,7 @@ pub fn click_terrain(
                                 if !task.reachable_positions.is_empty() {
                                     commands.spawn(TaskBundle::new(task));
 
+                                    max_tasks = max_tasks.saturating_sub(1);
                                     debug!("Smoothening task at {index:?}");
                                 }
                             }
@@ -214,6 +225,7 @@ pub fn click_terrain(
                                     tilemap_data,
                                 )));
 
+                                max_tasks = max_tasks.saturating_sub(1);
                                 debug!("Harvesting task at {index:?}");
                             }
 
@@ -225,6 +237,7 @@ pub fn click_terrain(
                                     tilemap_data,
                                 )));
 
+                                max_tasks = max_tasks.saturating_sub(1);
                                 debug!("Building bridge task at {index:?}");
                             }
 
@@ -236,6 +249,7 @@ pub fn click_terrain(
                                     tilemap_data,
                                 )));
 
+                                max_tasks = max_tasks.saturating_sub(1);
                                 debug!("Picking up task at {index:?}");
                             }
 
@@ -257,6 +271,7 @@ pub fn click_terrain(
                                         )));
                                     });
 
+                                    max_tasks = max_tasks.saturating_sub(1);
                                     debug!("Hunting task at {index:?}");
                                 }
                             }
@@ -277,16 +292,11 @@ pub fn click_terrain(
 
                                 commands.spawn(TaskBundle::new(task));
 
+                                max_tasks = max_tasks.saturating_sub(1);
                                 debug!("Stockpiling task at {index:?}");
                             }
 
                             TaskKind::Walk => {
-                                if max_walk_tasks == 0 {
-                                    continue;
-                                }
-
-                                max_walk_tasks = max_walk_tasks.saturating_sub(1);
-
                                 let mut task =
                                     Task::new(index, *task_kind, TaskNeeds::Nothing, tilemap_data);
 
@@ -294,6 +304,7 @@ pub fn click_terrain(
 
                                 commands.spawn(TaskBundle::new(task));
 
+                                max_tasks = max_tasks.saturating_sub(1);
                                 debug!("Going there task at {index:?}");
                             }
 
@@ -309,6 +320,7 @@ pub fn click_terrain(
                                     tilemap_data,
                                 )));
 
+                                max_tasks = max_tasks.saturating_sub(1);
                                 debug!("Building task at {index:?}");
                             }
 

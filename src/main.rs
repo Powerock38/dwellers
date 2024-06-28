@@ -67,6 +67,8 @@ fn main() {
                     update_dwellers_movement,
                     update_mobs_movement,
                     update_unreachable_tasks,
+                    update_unreachable_pathfinding_tasks
+                        .run_if(on_timer(Duration::from_millis(5000))),
                     update_pickups,
                     event_task_completion,
                 )

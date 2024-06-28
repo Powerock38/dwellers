@@ -13,7 +13,6 @@ use crate::{
     mobs::Mob,
     tilemap::{TilemapData, TILE_SIZE},
     tiles::TilePlaced,
-    utils::manhattan_distance,
     SpriteLoaderBundle,
 };
 
@@ -135,6 +134,7 @@ pub enum TaskNeeds {
 pub struct Task {
     pub kind: TaskKind,
     pub pos: IVec2,
+    pub reachable_pathfinding: bool,
     pub reachable_positions: Vec<IVec2>,
     pub dweller: Option<Entity>,
     pub needs: TaskNeeds,
@@ -154,6 +154,7 @@ impl Task {
         let mut task = Self {
             kind,
             pos,
+            reachable_pathfinding: true,
             reachable_positions: vec![],
             dweller: None,
             priority: 0,
@@ -207,7 +208,7 @@ impl Task {
                             .into_iter()
                             .map(|p| (p, 1))
                     },
-                    |p| manhattan_distance(*p, dweller_pos),
+                    |p| (p.x - dweller_pos.x).abs() + (p.y - dweller_pos.y).abs(),
                     |p| *p == dweller_pos,
                 )
             })
@@ -224,6 +225,15 @@ pub fn update_unreachable_tasks(
     for mut task in &mut q_tasks {
         if task.reachable_positions.is_empty() || task.dweller.is_none() {
             task.recompute_reachable_positions(tilemap_data);
+        }
+    }
+}
+
+//TODO: spread in time to avoid lag
+pub fn update_unreachable_pathfinding_tasks(mut q_tasks: Query<&mut Task>) {
+    for mut task in &mut q_tasks {
+        if !task.reachable_pathfinding {
+            task.reachable_pathfinding = true;
         }
     }
 }
