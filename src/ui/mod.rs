@@ -24,9 +24,9 @@ pub enum UiButton {
 }
 
 impl UiButton {
-    pub const NORMAL: Color = Color::rgb(0.15, 0.15, 0.15);
-    pub const HOVERED: Color = Color::rgb(0.25, 0.25, 0.25);
-    pub const PRESSED: Color = Color::rgb(0.35, 0.75, 0.35);
+    pub const NORMAL: Color = Color::srgb(0.15, 0.15, 0.15);
+    pub const HOVERED: Color = Color::srgb(0.25, 0.25, 0.25);
+    pub const PRESSED: Color = Color::srgb(0.35, 0.75, 0.35);
 }
 
 pub fn build_ui_button(c: &mut ChildBuilder, ui_button: UiButton, text: impl Into<String>) {
@@ -50,7 +50,7 @@ pub fn build_ui_button(c: &mut ChildBuilder, ui_button: UiButton, text: impl Int
             text,
             TextStyle {
                 font_size: 20.0,
-                color: Color::rgb(0.9, 0.9, 0.9),
+                color: Color::srgb(0.9, 0.9, 0.9),
                 ..default()
             },
         ));
@@ -78,7 +78,7 @@ impl Default for UiWindowBundle {
                     padding: UiRect::all(Val::Px(10.)),
                     ..default()
                 },
-                background_color: Color::rgba(0.1, 0.1, 0.1, 0.5).into(),
+                background_color: Color::srgba(0.1, 0.1, 0.1, 0.5).into(),
                 ..default()
             },
         }
@@ -109,7 +109,7 @@ pub fn update_ui_buttons(
             match *interaction {
                 Interaction::Pressed => {
                     *color = UiButton::PRESSED.into();
-                    border_color.0 = Color::RED;
+                    border_color.0 = bevy::color::palettes::css::RED.into();
 
                     match ui_button {
                         UiButton::Action(action) => {
@@ -162,7 +162,7 @@ pub fn update_ui_buttons(
                 *current_action_existed = true;
 
                 if current_action.kind == *action {
-                    border_color.0 = Color::RED;
+                    border_color.0 = bevy::color::palettes::css::RED.into();
 
                     continue;
                 }

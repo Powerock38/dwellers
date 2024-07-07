@@ -81,7 +81,7 @@ impl TilePlaced {
                 commands,
                 index,
                 TileUpdater {
-                    tint: Some(tint),
+                    tint: Some(tint.into()),
                     ..default()
                 },
             );

@@ -4,9 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-bevy = "0.13.2"
-bevy-inspector-egui = "0.24.0"
-bevy_entitiles = { version = "0.9.0", features = ["multi-threaded"] }
+bevy = "0.14.0"
+bevy-inspector-egui = "0.25.0"
+bevy_entitiles = { version = "0.10.0", features = ["multi-threaded"] }
 bitcode = "0.6.0"
 noise = "0.9.0"
 pathfinding = "4.9.1"

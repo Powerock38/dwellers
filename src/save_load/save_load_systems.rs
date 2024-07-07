@@ -78,7 +78,8 @@ pub fn save_world(
                 .remove_empty_entities()
                 .build();
 
-            match scene.serialize_ron(&app_type_registry) {
+            let type_registry = app_type_registry.read();
+            match scene.serialize(&type_registry) {
                 Ok(serialized) => {
                     let save_folder = format!("assets/{SAVE_DIR}/{}", save_name.0);
 
