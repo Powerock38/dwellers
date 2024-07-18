@@ -1,4 +1,4 @@
-use bevy::{prelude::*, sprite::Anchor};
+use bevy::{prelude::*, sprite::Anchor, utils::HashMap};
 use rand::{seq::SliceRandom, Rng};
 
 use crate::{
@@ -262,6 +262,7 @@ pub fn update_dwellers_load_chunks(
     q_tilemap: Query<&TilemapData>,
     mut ev_load_chunk: EventWriter<LoadChunk>,
     mut ev_unload_chunk: EventWriter<UnloadChunk>,
+    mut chunks_ttl: Local<HashMap<IVec2, u32>>,
 ) {
     let tilemap_data = extract_ok!(q_tilemap.get_single());
 
@@ -283,6 +284,7 @@ pub fn update_dwellers_load_chunks(
                 if !sent_event_for.contains(&chunk_index) {
                     ev_load_chunk.send(LoadChunk(chunk_index));
                     sent_event_for.push(chunk_index);
+                    chunks_ttl.insert(chunk_index, 10);
                 }
             }
         }
@@ -297,8 +299,17 @@ pub fn update_dwellers_load_chunks(
         .data
         .chunks
         .keys()
-        .filter(|chunk_index| !sent_event_for.contains(chunk_index))
+        .filter(|chunk_index| {
+            !sent_event_for.contains(chunk_index) && !chunks_ttl.contains_key(*chunk_index)
+        })
         .for_each(|chunk_index| {
             ev_unload_chunk.send(UnloadChunk(*chunk_index));
         });
+
+    // Decrease chunk TTL
+    for ttl in chunks_ttl.values_mut() {
+        *ttl -= 1;
+    }
+
+    chunks_ttl.retain(|_, ttl| *ttl > 0);
 }
