@@ -1,24 +1,24 @@
 use bevy::prelude::*;
 
-use crate::{build_ui_button, GameState, UiButton, UiWindow, UiWindowBundle, SAVE_DIR};
+use crate::{build_ui_button, GameState, SaveName, UiButton, UiWindow, UiWindowBundle, SAVE_DIR};
 
 pub fn spawn_load_save_ui(
     mut commands: Commands,
     mut next_state: ResMut<NextState<GameState>>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     q_windows: Query<Entity, With<UiWindow>>,
+    save_name: Res<SaveName>,
 ) {
     if keyboard_input.just_pressed(KeyCode::KeyM) {
         if let Some(window) = q_windows.iter().next() {
             commands.entity(window).despawn_recursive();
-
             next_state.set(GameState::Running);
         } else {
             commands
-                .spawn(UiWindowBundle::default())
+                .spawn(UiWindowBundle::default().with_row_gap(Val::Px(10.0)))
                 .with_children(|c| {
                     // Save button
-                    build_ui_button(c, UiButton::SaveGame, "Save");
+                    build_ui_button(c, UiButton::SaveGame, format!("Save {}", save_name.0));
 
                     // Saves list
                     if let Ok(save_files) =

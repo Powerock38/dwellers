@@ -9,7 +9,7 @@ use crate::{
     Dweller,
 };
 
-const MAX_ACTIONS: usize = 64;
+const MAX_ACTIONS: usize = 256;
 
 #[derive(PartialEq, Clone, Debug)]
 pub enum ActionKind {

@@ -66,6 +66,13 @@ pub struct UiWindowBundle {
     node: NodeBundle,
 }
 
+impl UiWindowBundle {
+    pub fn with_row_gap(mut self, val: Val) -> Self {
+        self.node.style.row_gap = val;
+        self
+    }
+}
+
 impl Default for UiWindowBundle {
     fn default() -> Self {
         Self {
