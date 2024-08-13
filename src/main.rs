@@ -60,6 +60,7 @@ fn main() {
                     keyboard_current_action,
                     focus_any_dweller,
                     click_terrain,
+                    update_dwellers_selected,
                     // Game logic
                     (update_dwellers, update_mobs).run_if(on_timer(Duration::from_millis(200))),
                     (update_dwellers_load_chunks).run_if(on_timer(Duration::from_millis(1000))),
@@ -83,5 +84,7 @@ fn main() {
                 .map(char::from)
                 .collect()
         }))
+        .init_resource::<CurrentAction>()
+        .init_resource::<DwellersSelected>()
         .run();
 }

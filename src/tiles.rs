@@ -15,7 +15,7 @@ pub struct TilePlaced {
 
 impl TilePlaced {
     pub fn is_blocking(self) -> bool {
-        TileId::data(&self.id).wall
+        self.id.data().is_wall()
             || self
                 .object
                 .map_or(false, |o| ObjectId::data(&o).is_blocking())
@@ -67,9 +67,7 @@ impl TilePlaced {
                     .neighbours(index)
                     .iter()
                     .all(|(_, TilePlaced { id: tile, .. })| {
-                        *tile == TileId::StoneWall
-                            || *tile == TileId::DirtWall
-                            || *tile == TileId::DungeonWall
+                        tile.data().is_wall() && *tile != TileId::Water
                     })
                 {
                     Color::BLACK

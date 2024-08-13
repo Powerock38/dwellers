@@ -1,4 +1,8 @@
-use bevy::{prelude::*, sprite::Anchor, utils::HashMap};
+use bevy::{
+    prelude::*,
+    sprite::Anchor,
+    utils::{HashMap, HashSet},
+};
 use rand::{seq::SliceRandom, Rng};
 
 use crate::{
@@ -29,6 +33,9 @@ pub struct DwellerBundle {
     dweller: Dweller,
     sprite: SpriteLoaderBundle,
 }
+
+#[derive(Resource, Default)]
+pub struct DwellersSelected(pub HashSet<Entity>);
 
 pub fn spawn_dwellers(
     mut commands: Commands,
@@ -150,6 +157,7 @@ pub fn update_dwellers(
 
         // Get a new task
         // FIXME: dwellers first in the loop can "steal" a task far away from them from a dweller that is closer
+        // TODO: use DwellersSelected
         let task_path = q_tasks
             .iter_mut()
             .filter_map(|(_, mut task)| {

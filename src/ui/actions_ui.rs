@@ -1,6 +1,12 @@
 use bevy::prelude::*;
 
-use crate::{build_ui_button, data::BUILD_RECIPES, ActionKind, TaskKind, TaskNeeds, UiButton};
+use crate::{
+    build_ui_button, data::BUILD_RECIPES, extract_ok, ActionKind, Dweller, DwellersSelected,
+    TaskKind, TaskNeeds, UiButton,
+};
+
+#[derive(Component)]
+pub struct DwellersSelectedUi;
 
 pub fn spawn_ui(mut commands: Commands) {
     commands
@@ -17,6 +23,18 @@ pub fn spawn_ui(mut commands: Commands) {
             ..default()
         })
         .with_children(|c| {
+            c.spawn((
+                DwellersSelectedUi,
+                TextBundle::from_section(
+                    "",
+                    TextStyle {
+                        font_size: 20.0,
+                        color: Color::srgb(0.9, 0.9, 0.9),
+                        ..default()
+                    },
+                ),
+            ));
+
             c.spawn(NodeBundle {
                 style: Style {
                     align_items: AlignItems::Center,
@@ -66,4 +84,21 @@ pub fn spawn_ui(mut commands: Commands) {
 fn build_button(c: &mut ChildBuilder, kind: ActionKind) {
     let text = kind.to_string();
     build_ui_button(c, UiButton::Action(kind), text);
+}
+
+pub fn update_dwellers_selected(
+    dwellers_selected: Res<DwellersSelected>,
+    q_dwellers: Query<&Dweller>,
+    mut q_dwellers_selected_ui: Query<&mut Text, With<DwellersSelectedUi>>,
+) {
+    if dwellers_selected.is_changed() {
+        let mut dwellers_selected_ui = extract_ok!(q_dwellers_selected_ui.get_single_mut());
+
+        dwellers_selected_ui.sections[0].value = dwellers_selected
+            .0
+            .iter()
+            .filter_map(|e| q_dwellers.get(*e).ok().map(|d| d.name.clone()))
+            .collect::<Vec<String>>()
+            .join(", ");
+    }
 }
