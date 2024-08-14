@@ -43,7 +43,7 @@ pub fn keyboard_current_action(
 ) {
     if keyboard_input.just_pressed(KeyCode::Escape) {
         if matches!(current_action.kind, ActionKind::Select) {
-            dwellers_selected.0.clear();
+            dwellers_selected.reset();
         }
         commands.insert_resource(CurrentAction::default());
     }
@@ -128,12 +128,18 @@ pub fn click_terrain(
         let index_max = IVec2::new(index_start.x.max(index.x), index_start.y.max(index.y));
 
         let mut max_tasks = match current_action.kind {
-            ActionKind::Task(TaskKind::Walk) => q_dwellers.iter().len(),
+            ActionKind::Task(TaskKind::Walk) => {
+                if dwellers_selected.list().is_empty() {
+                    q_dwellers.iter().len()
+                } else {
+                    dwellers_selected.list().len()
+                }
+            }
             _ => MAX_ACTIONS,
         };
 
         if matches!(current_action.kind, ActionKind::Select) {
-            dwellers_selected.0.clear();
+            dwellers_selected.reset();
         }
 
         'index: for y in index_min.y..=index_max.y {
@@ -181,6 +187,8 @@ pub fn click_terrain(
                     }
                 }
 
+                let dweller = dwellers_selected.next();
+
                 match &current_action.kind {
                     ActionKind::Task(task_kind) => match task_kind {
                         TaskKind::Dig => {
@@ -188,6 +196,7 @@ pub fn click_terrain(
                                 index,
                                 *task_kind,
                                 TaskNeeds::Nothing,
+                                dweller,
                                 tilemap_data,
                             )));
 
@@ -196,8 +205,13 @@ pub fn click_terrain(
                         }
 
                         TaskKind::Smoothen => {
-                            let task =
-                                Task::new(index, *task_kind, TaskNeeds::Nothing, tilemap_data);
+                            let task = Task::new(
+                                index,
+                                *task_kind,
+                                TaskNeeds::Nothing,
+                                dweller,
+                                tilemap_data,
+                            );
 
                             if !task.reachable_positions.is_empty() {
                                 commands.spawn(TaskBundle::new(task));
@@ -215,6 +229,7 @@ pub fn click_terrain(
                                     Some(ObjectId::WheatPlant) => TaskNeeds::EmptyHands,
                                     _ => TaskNeeds::Nothing,
                                 },
+                                dweller,
                                 tilemap_data,
                             )));
 
@@ -227,6 +242,7 @@ pub fn click_terrain(
                                 index,
                                 *task_kind,
                                 TaskNeeds::Objects(vec![ObjectId::Wood]),
+                                dweller,
                                 tilemap_data,
                             )));
 
@@ -239,6 +255,7 @@ pub fn click_terrain(
                                 index,
                                 *task_kind,
                                 TaskNeeds::EmptyHands,
+                                dweller,
                                 tilemap_data,
                             )));
 
@@ -259,6 +276,7 @@ pub fn click_terrain(
                                         index,
                                         *task_kind,
                                         TaskNeeds::Nothing,
+                                        dweller,
                                         tilemap_data,
                                     )));
                                 });
@@ -277,6 +295,7 @@ pub fn click_terrain(
                                 } else {
                                     TaskNeeds::Impossible
                                 },
+                                dweller,
                                 tilemap_data,
                             );
 
@@ -289,8 +308,13 @@ pub fn click_terrain(
                         }
 
                         TaskKind::Walk => {
-                            let mut task =
-                                Task::new(index, *task_kind, TaskNeeds::Nothing, tilemap_data);
+                            let mut task = Task::new(
+                                index,
+                                *task_kind,
+                                TaskNeeds::Nothing,
+                                dweller,
+                                tilemap_data,
+                            );
 
                             task.priority(-1);
 
@@ -309,6 +333,7 @@ pub fn click_terrain(
                                 index,
                                 *task_kind,
                                 needs.clone(),
+                                dweller,
                                 tilemap_data,
                             )));
 
@@ -336,6 +361,7 @@ pub fn click_terrain(
                                     index,
                                     TaskKind::Pickup,
                                     TaskNeeds::EmptyHands,
+                                    dweller,
                                     tilemap_data,
                                 )));
 
@@ -351,7 +377,7 @@ pub fn click_terrain(
                             if index.x == (transform.translation.x / TILE_SIZE) as i32
                                 && index.y == (transform.translation.y / TILE_SIZE) as i32
                             {
-                                dwellers_selected.0.insert(entity);
+                                dwellers_selected.add(entity);
                             }
                         }
                     }

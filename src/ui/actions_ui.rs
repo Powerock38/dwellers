@@ -95,7 +95,7 @@ pub fn update_dwellers_selected(
         let mut dwellers_selected_ui = extract_ok!(q_dwellers_selected_ui.get_single_mut());
 
         dwellers_selected_ui.sections[0].value = dwellers_selected
-            .0
+            .list()
             .iter()
             .filter_map(|e| q_dwellers.get(*e).ok().map(|d| d.name.clone()))
             .collect::<Vec<String>>()

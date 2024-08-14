@@ -1,8 +1,4 @@
-use bevy::{
-    prelude::*,
-    sprite::Anchor,
-    utils::{HashMap, HashSet},
-};
+use bevy::{prelude::*, sprite::Anchor, utils::HashMap};
 use rand::{seq::SliceRandom, Rng};
 
 use crate::{
@@ -35,7 +31,38 @@ pub struct DwellerBundle {
 }
 
 #[derive(Resource, Default)]
-pub struct DwellersSelected(pub HashSet<Entity>);
+pub struct DwellersSelected {
+    list: Vec<Entity>,
+    i: usize,
+}
+
+impl DwellersSelected {
+    pub fn next(&mut self) -> Option<Entity> {
+        if self.list.is_empty() {
+            return None;
+        }
+
+        let entity = self.list[self.i];
+        self.i = (self.i + 1) % self.list.len();
+
+        Some(entity)
+    }
+
+    pub fn reset(&mut self) {
+        self.list.clear();
+        self.i = 0;
+    }
+
+    pub fn add(&mut self, entity: Entity) {
+        if !self.list.contains(&entity) {
+            self.list.push(entity);
+        }
+    }
+
+    pub fn list(&self) -> &[Entity] {
+        &self.list
+    }
+}
 
 pub fn spawn_dwellers(
     mut commands: Commands,
@@ -133,6 +160,7 @@ pub fn update_dwellers(
         // Check if dweller has a task assigned in all tasks
         let task = q_tasks
             .iter_mut()
+            .sort::<&Task>()
             .find(|(_, task)| task.dweller == Some(entity));
 
         if let Some((entity_task, mut task)) = task {
@@ -157,7 +185,6 @@ pub fn update_dwellers(
 
         // Get a new task
         // FIXME: dwellers first in the loop can "steal" a task far away from them from a dweller that is closer
-        // TODO: use DwellersSelected
         let task_path = q_tasks
             .iter_mut()
             .filter_map(|(_, mut task)| {

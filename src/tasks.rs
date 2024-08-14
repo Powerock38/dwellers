@@ -1,3 +1,5 @@
+use std::time::{SystemTime, UNIX_EPOCH};
+
 use bevy::{
     ecs::{entity::MapEntities, reflect::ReflectMapEntities},
     prelude::*,
@@ -132,6 +134,7 @@ pub enum TaskNeeds {
 #[derive(Component, Reflect, Default, Debug)]
 #[reflect(Component, MapEntities)]
 pub struct Task {
+    id: u128,
     pub kind: TaskKind,
     pub pos: IVec2,
     pub reachable_pathfinding: bool,
@@ -149,14 +152,44 @@ impl MapEntities for Task {
     }
 }
 
+impl Ord for Task {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.id.cmp(&other.id)
+    }
+}
+
+impl PartialOrd for Task {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl PartialEq for Task {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Eq for Task {}
+
 impl Task {
-    pub fn new(pos: IVec2, kind: TaskKind, needs: TaskNeeds, tilemap_data: &TilemapData) -> Self {
+    pub fn new(
+        pos: IVec2,
+        kind: TaskKind,
+        needs: TaskNeeds,
+        dweller: Option<Entity>,
+        tilemap_data: &TilemapData,
+    ) -> Self {
         let mut task = Self {
+            id: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos(),
             kind,
             pos,
             reachable_pathfinding: true,
             reachable_positions: vec![],
-            dweller: None,
+            dweller,
             priority: 0,
             needs,
         };
@@ -297,6 +330,7 @@ pub fn event_task_completion(
                         task.pos,
                         TaskKind::Pickup,
                         TaskNeeds::EmptyHands,
+                        None,
                         &tilemap_data,
                     )));
 
@@ -362,6 +396,7 @@ pub fn event_task_completion(
                                 task.pos,
                                 TaskKind::Pickup,
                                 TaskNeeds::EmptyHands,
+                                None,
                                 &tilemap_data,
                             )));
                         }
@@ -437,6 +472,7 @@ pub fn event_task_completion(
                                     task.pos,
                                     TaskKind::Workstation,
                                     TaskNeeds::Objects(workstation.1.clone()),
+                                    None,
                                     &tilemap_data,
                                 )));
                             }
@@ -482,6 +518,7 @@ pub fn event_task_completion(
                                         mob_pos,
                                         TaskKind::Pickup,
                                         TaskNeeds::EmptyHands,
+                                        None,
                                         &tilemap_data,
                                     )));
                                 }
@@ -535,6 +572,7 @@ pub fn event_task_completion(
                                         pos,
                                         TaskKind::Pickup,
                                         TaskNeeds::EmptyHands,
+                                        None,
                                         &tilemap_data,
                                     )));
                                 }
@@ -751,6 +789,7 @@ pub fn update_pickups(
                     index,
                     TaskKind::Pickup,
                     TaskNeeds::EmptyHands,
+                    None,
                     tilemap_data,
                 )));
 
