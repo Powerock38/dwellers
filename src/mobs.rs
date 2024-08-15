@@ -2,30 +2,39 @@ use bevy::prelude::*;
 use rand::prelude::*;
 
 use crate::{
-    data::ObjectId,
+    data::{MobId, ObjectId},
     extract_ok,
     tilemap::{TilemapData, TILE_SIZE},
-    SpawnMobsOnChunk, SpriteLoaderBundle, CHUNK_SIZE,
+    SpriteLoaderBundle, CHUNK_SIZE,
 };
 
 const Z_INDEX: f32 = 11.0;
+
+#[derive(Event)]
+pub struct SpawnMobsOnChunk(pub IVec2);
+
+pub struct MobData {
+    sprite_name: &'static str,
+    speed: f32,
+    loot: ObjectId,
+}
+
+impl MobData {
+    pub fn new(sprite_name: &'static str, speed: f32, loot: ObjectId) -> Self {
+        MobData {
+            sprite_name,
+            speed,
+            loot,
+        }
+    }
+}
 
 #[derive(Component, Reflect, Default)]
 #[reflect(Component)]
 pub struct Mob {
     speed: f32,
-    move_queue: Vec<IVec2>, // next move is at the end
     pub loot: ObjectId,
-}
-
-impl Mob {
-    pub fn new(speed: f32, loot: ObjectId) -> Self {
-        Mob {
-            speed,
-            move_queue: Vec::new(),
-            loot,
-        }
-    }
+    move_queue: Vec<IVec2>, // next move is at the end
 }
 
 #[derive(Bundle)]
@@ -35,10 +44,19 @@ pub struct MobBundle {
 }
 
 impl MobBundle {
-    pub fn new(mob: Mob, texture_path: &str, position: Vec2) -> Self {
+    pub fn new(id: MobId, index: IVec2) -> Self {
         MobBundle {
-            mob,
-            sprite: SpriteLoaderBundle::new(texture_path, position.x, position.y, Z_INDEX),
+            mob: Mob {
+                speed: id.data().speed,
+                loot: id.data().loot,
+                move_queue: Vec::new(),
+            },
+            sprite: SpriteLoaderBundle::new(
+                format!("sprites/{}.png", id.data().sprite_name),
+                index.x as f32 * TILE_SIZE,
+                index.y as f32 * TILE_SIZE,
+                Z_INDEX,
+            ),
         }
     }
 }
@@ -53,7 +71,7 @@ pub fn spawn_mobs(
     let mut rng = rand::thread_rng();
 
     for SpawnMobsOnChunk(chunk_index) in ev_spawn.read() {
-        let Some(spawn_pos) = TilemapData::find_from_center(
+        let Some(index) = TilemapData::find_from_center(
             TilemapData::local_index_to_global(
                 *chunk_index,
                 IVec2::new(
@@ -86,25 +104,11 @@ pub fn spawn_mobs(
         let nb_boars = rng.gen_range(1..=5);
 
         for _ in 0..nb_sheeps {
-            commands.spawn(MobBundle::new(
-                Mob::new(60.0, ObjectId::Rug),
-                "sprites/sheep.png",
-                Vec2::new(
-                    spawn_pos.x as f32 * TILE_SIZE,
-                    spawn_pos.y as f32 * TILE_SIZE,
-                ),
-            ));
+            commands.spawn(MobBundle::new(MobId::Sheep, index));
         }
 
         for _ in 0..nb_boars {
-            commands.spawn(MobBundle::new(
-                Mob::new(50.0, ObjectId::Rug),
-                "sprites/boar.png",
-                Vec2::new(
-                    spawn_pos.x as f32 * TILE_SIZE,
-                    spawn_pos.y as f32 * TILE_SIZE,
-                ),
-            ));
+            commands.spawn(MobBundle::new(MobId::Boar, index));
         }
     }
 }
@@ -125,10 +129,12 @@ pub fn update_mobs(mut q_mobs: Query<(&mut Mob, &Transform)>, mut q_tilemap: Que
         // Wander around
         let mut rng = rand::thread_rng();
 
-        let directions = tilemap_data.non_blocking_neighbours_pos(index, true);
+        if rng.gen_bool(0.2) {
+            let directions = tilemap_data.non_blocking_neighbours_pos(index, true);
 
-        if let Some(direction) = directions.choose(&mut rng) {
-            mob.move_queue.push(*direction);
+            if let Some(direction) = directions.choose(&mut rng) {
+                mob.move_queue.push(*direction);
+            }
         }
     }
 }

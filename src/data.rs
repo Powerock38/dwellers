@@ -3,7 +3,7 @@ use std::sync::LazyLock;
 use bevy::{prelude::*, utils::hashbrown::HashMap};
 use bitcode::{Decode, Encode};
 
-use crate::{enum_map, BuildResult, ObjectData, TileData};
+use crate::{enum_map, structures::StructureData, BuildResult, MobData, ObjectData, TileData};
 
 enum_map! {
     ObjectId => ObjectData {
@@ -41,6 +41,13 @@ enum_map! {
         StoneWall = TileData::wall(1),
         DungeonWall = TileData::wall(2),
         Water = TileData::wall(3),
+    }
+}
+
+enum_map! {
+    MobId => MobData {
+        Sheep = MobData::new("sheep", 60.0, ObjectId::Rug),
+        Boar = MobData::new("boar", 50.0, ObjectId::Rug),
     }
 }
 
@@ -85,3 +92,16 @@ pub static WORKSTATIONS: LazyLock<HashMap<ObjectId, (ObjectId, Vec<ObjectId>)>> 
             (ObjectId::Bread, vec![ObjectId::Wheat, ObjectId::Wood]),
         )])
     });
+
+enum_map! {
+    StructureId => StructureData {
+        SmallHouse = StructureData::new(vec![
+                vec![TileId::DungeonWall.place(), TileId::DungeonWall.place(),               TileId::DungeonWall.place(),              TileId::DungeonWall.place()],
+                vec![TileId::DungeonWall.place(), TileId::DungeonFloor.place(),              TileId::DungeonFloor.with(ObjectId::Bed), TileId::DungeonWall.place()],
+                vec![TileId::DungeonWall.place(), TileId::DungeonFloor.place(),              TileId::DungeonFloor.place(),             TileId::DungeonWall.place()],
+                vec![TileId::DungeonWall.place(), TileId::DungeonFloor.with(ObjectId::Door), TileId::DungeonWall.place(),              TileId::DungeonWall.place()],
+            ],
+            vec![(IVec2::new(1, 1), MobId::Sheep)],
+        ),
+    }
+}

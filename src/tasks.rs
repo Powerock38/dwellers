@@ -336,7 +336,7 @@ pub fn event_task_completion(
 
                     TileId::StoneFloor.with(object)
                 } else {
-                    TileId::StoneFloor.empty()
+                    TileId::StoneFloor.place()
                 };
 
                 tile.set_at(task.pos, &mut commands, &mut tilemap, &mut tilemap_data);
@@ -348,11 +348,11 @@ pub fn event_task_completion(
 
             TaskKind::Smoothen => {
                 let tile = if tile.id.data().is_wall() {
-                    TileId::DungeonWall.empty()
+                    TileId::DungeonWall.place()
                 } else if let Some(object) = tile.object {
                     TileId::DungeonFloor.with(object)
                 } else {
-                    TileId::DungeonFloor.empty()
+                    TileId::DungeonFloor.place()
                 };
 
                 tile.set_at(task.pos, &mut commands, &mut tilemap, &mut tilemap_data);
@@ -401,7 +401,7 @@ pub fn event_task_completion(
                             )));
                         }
                     } else {
-                        tile.id.empty().set_at(
+                        tile.id.place().set_at(
                             task.pos,
                             &mut commands,
                             &mut tilemap,
@@ -417,7 +417,7 @@ pub fn event_task_completion(
             },
 
             TaskKind::Bridge => {
-                TileId::BridgeFloor.empty().set_at(
+                TileId::BridgeFloor.place().set_at(
                     task.pos,
                     &mut commands,
                     &mut tilemap,
@@ -431,7 +431,7 @@ pub fn event_task_completion(
 
             TaskKind::Pickup => {
                 if let Some(object) = tile.object {
-                    tile.id.empty().set_at(
+                    tile.id.place().set_at(
                         task.pos,
                         &mut commands,
                         &mut tilemap,
@@ -478,7 +478,7 @@ pub fn event_task_completion(
                             }
                         }
                         BuildResult::Tile(tile) => {
-                            tile.empty().set_at(
+                            tile.place().set_at(
                                 task.pos,
                                 &mut commands,
                                 &mut tilemap,

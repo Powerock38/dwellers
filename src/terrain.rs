@@ -3,19 +3,19 @@ use bevy_entitiles::{
     prelude::*, render::material::StandardTilemapMaterial, tilemap::map::TilemapTextures,
 };
 use noise::{NoiseFn, Perlin, RidgedMulti, Simplex, Worley};
-use rand::Rng;
+use rand::{rngs::StdRng, Rng, SeedableRng};
 
 use crate::{
-    data::{ObjectId, TileId},
+    data::{ObjectId, StructureId, TileId},
     extract_ok, init_tilemap,
     tiles::TilePlaced,
-    SaveName, TilemapData, CHUNK_SIZE, SAVE_DIR,
+    MobBundle, SaveName, SpawnDwellersOnChunk, SpawnMobsOnChunk, TilemapData, CHUNK_SIZE, SAVE_DIR,
 };
 
 const CLIMATE_NOISE_SCALE: f64 = 0.01;
 const MOBS_SPAWN_NOISE_SCALE: f64 = 0.1;
+const STRUCTURES_NOISE_SCALE: f64 = 0.2;
 const MOUNTAINS_NOISE_SCALE: f64 = 0.004;
-const RIVERS_NOISE_SCALE: f64 = 0.006;
 const ORES_NOISE_SCALE: f64 = 0.1;
 const VEGETATION_NOISE_SCALE: f64 = 0.5;
 const VEGETATION_ZONES_NOISE_SCALE: f64 = 0.05;
@@ -25,12 +25,6 @@ pub struct LoadChunk(pub IVec2);
 
 #[derive(Event)]
 pub struct UnloadChunk(pub IVec2);
-
-#[derive(Event)]
-pub struct SpawnDwellersOnChunk(pub IVec2);
-
-#[derive(Event)]
-pub struct SpawnMobsOnChunk(pub IVec2);
 
 pub fn spawn_new_terrain(
     commands: Commands,
@@ -62,9 +56,9 @@ pub fn load_chunks(
 
     // Seed is based on the save name
     let seed = save_name.0.as_bytes().iter().map(|b| *b as u32).sum();
-    let noise_mountains = RidgedMulti::<Simplex>::new(seed);
-    let noise_rivers = RidgedMulti::<Simplex>::new(seed + 1);
+    let noise_mountains = RidgedMulti::<Perlin>::new(seed);
     let noise_climate = Simplex::new(seed);
+    let noise_structures = Simplex::new(seed + 1);
     let noise_ores = Perlin::new(seed);
     let noise_vegetation = Worley::new(seed);
     let noise_vegetation_zones = Perlin::new(seed + 1);
@@ -123,6 +117,7 @@ pub fn load_chunks(
 
             debug!("Generating chunk {}", chunk_index);
 
+            // Generate mobs
             if noise_climate.get([
                 chunk_index.x as f64 * MOBS_SPAWN_NOISE_SCALE,
                 chunk_index.y as f64 * MOBS_SPAWN_NOISE_SCALE,
@@ -131,6 +126,7 @@ pub fn load_chunks(
                 ev_spawn_mobs.send(SpawnMobsOnChunk(*chunk_index));
             }
 
+            // Generate tiles
             for x in 0..CHUNK_SIZE {
                 for y in 0..CHUNK_SIZE {
                     let index = TilemapData::local_index_to_global(
@@ -148,18 +144,18 @@ pub fn load_chunks(
                     let mountain_noise_value =
                         noise_mountains.get([u * MOUNTAINS_NOISE_SCALE, v * MOUNTAINS_NOISE_SCALE]);
 
-                    if mountain_noise_value > 0.0 {
-                        let tile = if mountain_noise_value < -0.55 {
+                    if mountain_noise_value < -0.2 {
+                        let tile = if mountain_noise_value < -0.3 {
                             let ores_noise_value =
                                 noise_ores.get([u * ORES_NOISE_SCALE, v * ORES_NOISE_SCALE]);
 
                             if ores_noise_value > 0.5 {
                                 TileId::StoneWall.with(ObjectId::CopperOre)
                             } else {
-                                TileId::StoneWall.empty()
+                                TileId::StoneWall.place()
                             }
                         } else {
-                            TileId::DirtWall.empty()
+                            TileId::DirtWall.place()
                         };
 
                         tile.set_at(index, &mut commands, &mut tilemap, &mut tilemap_data);
@@ -168,11 +164,20 @@ pub fn load_chunks(
                     }
 
                     // Rivers
-                    let river_noise_value =
-                        noise_rivers.get([u * RIVERS_NOISE_SCALE, v * RIVERS_NOISE_SCALE]);
+                    if mountain_noise_value > 0.5 {
+                        TileId::Water.place().set_at(
+                            index,
+                            &mut commands,
+                            &mut tilemap,
+                            &mut tilemap_data,
+                        );
 
-                    if river_noise_value > 0.3 {
-                        TileId::Water.empty().set_at(
+                        continue;
+                    }
+
+                    // River shores
+                    if mountain_noise_value > 0.45 {
+                        TileId::SandFloor.place().set_at(
                             index,
                             &mut commands,
                             &mut tilemap,
@@ -212,9 +217,9 @@ pub fn load_chunks(
                     };
 
                     let mut ground_tile = if climate_noise_value > 0.5 {
-                        TileId::SandFloor.empty()
+                        TileId::SandFloor.place()
                     } else {
-                        TileId::GrassFloor.empty()
+                        TileId::GrassFloor.place()
                     };
 
                     if let Some(object) = vegetation {
@@ -222,6 +227,51 @@ pub fn load_chunks(
                     }
 
                     ground_tile.set_at(index, &mut commands, &mut tilemap, &mut tilemap_data);
+                }
+            }
+
+            // Generate structures
+            let structure_noise_value = noise_structures.get([
+                chunk_index.x as f64 * STRUCTURES_NOISE_SCALE,
+                chunk_index.y as f64 * STRUCTURES_NOISE_SCALE,
+            ]);
+
+            if structure_noise_value > 0.0 {
+                let structure = StructureId::SmallHouse.data(); //TODO: random structure
+
+                let mut rng: StdRng = SeedableRng::seed_from_u64(
+                    (seed as i32 + chunk_index.x + chunk_index.y) as u64,
+                );
+
+                let structure_local_pos = IVec2::new(
+                    rng.gen_range(0..CHUNK_SIZE as i32 - structure.x_size() as i32),
+                    rng.gen_range(0..CHUNK_SIZE as i32 - structure.y_size() as i32),
+                );
+
+                let structure_pos =
+                    TilemapData::local_index_to_global(*chunk_index, structure_local_pos);
+
+                for x in 0..structure.x_size() {
+                    for y in 0..structure.y_size() {
+                        let index = structure_pos + IVec2::new(x as i32, y as i32);
+
+                        if let Some(tile) = structure.get_tile(x, y) {
+                            tile.set_at(index, &mut commands, &mut tilemap, &mut tilemap_data);
+                        }
+                    }
+                }
+
+                // Add mobs to the structure
+                for (pos, mob) in structure.mobs() {
+                    let index = structure_pos + *pos;
+
+                    if let Some(tile) = tilemap_data.get(index) {
+                        if tile.is_blocking() {
+                            error!("Can't spawn mob on blocking tile {:?}", index);
+                        } else {
+                            commands.spawn(MobBundle::new(*mob, index));
+                        }
+                    }
                 }
             }
         }

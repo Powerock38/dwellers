@@ -7,13 +7,16 @@ use crate::{
     random_text::{generate_word, NAMES},
     tasks::{BuildResult, Task, TaskCompletionEvent, TaskKind, TaskNeeds},
     tilemap::{TilemapData, TILE_SIZE},
-    LoadChunk, SpawnDwellersOnChunk, SpriteLoaderBundle, UnloadChunk, CHUNK_SIZE,
+    LoadChunk, SpriteLoaderBundle, UnloadChunk, CHUNK_SIZE,
 };
 
 const LOAD_CHUNKS_RADIUS: i32 = 1;
 
 const SPEED: f32 = 100.0;
 const Z_INDEX: f32 = 10.0;
+
+#[derive(Event)]
+pub struct SpawnDwellersOnChunk(pub IVec2);
 
 #[derive(Component, Reflect, Default)]
 #[reflect(Component)]
@@ -254,10 +257,12 @@ pub fn update_dwellers(
         // Wander around
         let mut rng = rand::thread_rng();
 
-        let directions = tilemap_data.non_blocking_neighbours_pos(index, true);
+        if rng.gen_bool(0.2) {
+            let directions = tilemap_data.non_blocking_neighbours_pos(index, true);
 
-        if let Some(direction) = directions.choose(&mut rng) {
-            dweller.move_queue.push(*direction);
+            if let Some(direction) = directions.choose(&mut rng) {
+                dweller.move_queue.push(*direction);
+            }
         }
     }
 }

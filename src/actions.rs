@@ -37,15 +37,19 @@ impl std::fmt::Display for ActionKind {
 
 pub fn keyboard_current_action(
     mut commands: Commands,
-    current_action: Res<CurrentAction>,
+    mut current_action: ResMut<CurrentAction>,
     mut dwellers_selected: ResMut<DwellersSelected>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
 ) {
     if keyboard_input.just_pressed(KeyCode::Escape) {
-        if matches!(current_action.kind, ActionKind::Select) {
-            dwellers_selected.reset();
+        if current_action.index_start.is_some() {
+            current_action.index_start = None;
+        } else {
+            if matches!(current_action.kind, ActionKind::Select) {
+                dwellers_selected.reset();
+            }
+            commands.insert_resource(CurrentAction::default());
         }
-        commands.insert_resource(CurrentAction::default());
     }
 }
 
@@ -83,15 +87,6 @@ pub fn click_terrain(
     q_mobs: Query<(Entity, &Transform), With<Mob>>,
     q_dwellers: Query<(Entity, &Transform), With<Dweller>>,
 ) {
-    if mouse_input.just_pressed(MouseButton::Right) {
-        if current_action.index_start.is_some() {
-            current_action.index_start = None;
-        } else {
-            commands.insert_resource(CurrentAction::default());
-        }
-        return;
-    }
-
     let (camera, camera_transform) = extract_ok!(q_camera.get_single());
     let window = extract_ok!(q_windows.get_single());
     let cursor_position = extract_some!(window.cursor_position());
@@ -142,7 +137,7 @@ pub fn click_terrain(
             dwellers_selected.reset();
         }
 
-        'index: for y in index_min.y..=index_max.y {
+        'index: for y in (index_min.y..=index_max.y).rev() {
             for x in index_min.x..=index_max.x {
                 let index = IVec2::new(x, y);
 
