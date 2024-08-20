@@ -224,12 +224,26 @@ impl TilemapFiles {
     pub const fn atlas_index(&self, file: TF, atlas_index: i32) -> i32 {
         let mut i = 0;
         while i < N_TF {
-            // Can't compare strings directly, dirty workaround
-            if self.files[i].name.len() == file.0.len() {
+            if TilemapFiles::const_bytes_equal(self.files[i].name.as_bytes(), file.0.as_bytes()) {
                 return self.files[i].start_atlas_index + atlas_index;
             }
             i += 1;
         }
         0
+    }
+
+    // Can't compare strings directly, dirty workaround
+    const fn const_bytes_equal(lhs: &[u8], rhs: &[u8]) -> bool {
+        if lhs.len() != rhs.len() {
+            return false;
+        }
+        let mut i = 0;
+        while i < lhs.len() {
+            if lhs[i] != rhs[i] {
+                return false;
+            }
+            i += 1;
+        }
+        true
     }
 }
