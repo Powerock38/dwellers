@@ -236,8 +236,10 @@ pub fn load_chunks(
                 chunk_index.y as f64 * STRUCTURES_NOISE_SCALE,
             ]);
 
+            let mut forbidden_positions: Vec<(IVec2, IVec2)> = vec![];
+
             if structure_noise_value > 0.0 {
-                let structure = StructureId::SmallHouse.data(); //TODO: random structure
+                let structure = StructureId::SmallOutpost.data(); //TODO: random structure
 
                 let mut rng: StdRng = SeedableRng::seed_from_u64(
                     (seed as i32 + chunk_index.x + chunk_index.y) as u64,
@@ -255,11 +257,22 @@ pub fn load_chunks(
                     for y in 0..structure.y_size() {
                         let index = structure_pos + IVec2::new(x as i32, y as i32);
 
+                        if forbidden_positions.iter().any(|(start, end)| {
+                            index.x >= start.x
+                                && index.x <= end.x
+                                && index.y >= start.y
+                                && index.y <= end.y
+                        }) {
+                            continue;
+                        }
+
                         if let Some(tile) = structure.get_tile(x, y) {
                             tile.set_at(index, &mut commands, &mut tilemap, &mut tilemap_data);
                         }
                     }
                 }
+
+                forbidden_positions.push((structure_pos, structure_pos + structure.size() - 1));
 
                 // Add mobs to the structure
                 for (pos, mob) in structure.mobs() {

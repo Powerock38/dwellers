@@ -41,6 +41,7 @@ enum_map! {
         StoneWall = TileData::wall(1),
         DungeonWall = TileData::wall(2),
         Water = TileData::wall(3),
+        WoodWall = TileData::wall(4),
     }
 }
 
@@ -48,6 +49,7 @@ enum_map! {
     MobId => MobData {
         Sheep = MobData::new("sheep", 60.0, ObjectId::Rug),
         Boar = MobData::new("boar", 50.0, ObjectId::Rug),
+        Undead = MobData::new("undead", 40.0, ObjectId::CopperIngot),
     }
 }
 
@@ -96,12 +98,25 @@ pub static WORKSTATIONS: LazyLock<HashMap<ObjectId, (ObjectId, Vec<ObjectId>)>> 
 enum_map! {
     StructureId => StructureData {
         SmallHouse = StructureData::new(vec![
-                vec![TileId::DungeonWall.place(), TileId::DungeonWall.place(),               TileId::DungeonWall.place(),              TileId::DungeonWall.place()],
-                vec![TileId::DungeonWall.place(), TileId::DungeonFloor.place(),              TileId::DungeonFloor.with(ObjectId::Bed), TileId::DungeonWall.place()],
-                vec![TileId::DungeonWall.place(), TileId::DungeonFloor.place(),              TileId::DungeonFloor.place(),             TileId::DungeonWall.place()],
-                vec![TileId::DungeonWall.place(), TileId::DungeonFloor.with(ObjectId::Door), TileId::DungeonWall.place(),              TileId::DungeonWall.place()],
+                vec![TileId::DungeonWall.s(), TileId::DungeonWall.s(),               TileId::DungeonWall.s(),              TileId::DungeonWall.s()],
+                vec![TileId::DungeonWall.s(), TileId::DungeonFloor.s(),              TileId::DungeonFloor.i(ObjectId::Bed), TileId::DungeonWall.s()],
+                vec![TileId::DungeonWall.s(), TileId::DungeonFloor.s(),              TileId::DungeonFloor.s(),             TileId::DungeonWall.s()],
+                vec![TileId::DungeonWall.s(), TileId::DungeonFloor.i(ObjectId::Door), TileId::DungeonWall.s(),              TileId::DungeonWall.s()],
             ],
-            vec![(IVec2::new(1, 1), MobId::Sheep)],
+            vec![((1,1), MobId::Sheep)],
+        ),
+
+        SmallOutpost = StructureData::new(vec![
+                vec![None,                 None,                     TileId::WoodWall.s(),     TileId::WoodWall.s(),     TileId::WoodWall.s(),                       TileId::WoodWall.s(),     TileId::WoodWall.s()],
+                vec![None,                 TileId::WoodWall.s(),     TileId::DungeonFloor.s(), TileId::DungeonFloor.s(), TileId::DungeonFloor.s(),                   TileId::DungeonFloor.s(), TileId::DungeonFloor.s(), TileId::WoodWall.s()],
+                vec![TileId::WoodWall.s(), TileId::DungeonFloor.s(), TileId::DungeonFloor.s(), TileId::DungeonFloor.s(), TileId::DungeonFloor.s(),                   TileId::DungeonFloor.s(), TileId::DungeonFloor.s(), TileId::DungeonFloor.s(), TileId::WoodWall.s()],
+                vec![TileId::WoodWall.s(), TileId::DungeonFloor.s(), TileId::DungeonFloor.s(), TileId::DungeonFloor.s(), TileId::DungeonFloor.s(),                   TileId::DungeonFloor.s(), TileId::DungeonFloor.s(), TileId::DungeonFloor.s(), TileId::WoodWall.s()],
+                vec![TileId::WoodWall.s(), TileId::DungeonFloor.s(), TileId::DungeonFloor.s(), TileId::DungeonFloor.s(), TileId::DungeonFloor.s(),                   TileId::DungeonFloor.s(), TileId::DungeonFloor.s(), TileId::DungeonFloor.s(), TileId::WoodWall.s()],
+                vec![TileId::WoodWall.s(), TileId::DungeonFloor.s(), TileId::DungeonFloor.s(), TileId::DungeonFloor.s(), TileId::DungeonFloor.s(),                   TileId::DungeonFloor.s(), TileId::DungeonFloor.s(), TileId::DungeonFloor.s(), TileId::WoodWall.s()],
+                vec![None,                 TileId::WoodWall.s(),     TileId::DungeonFloor.s(), TileId::DungeonFloor.s(), TileId::DungeonFloor.s(),                   TileId::DungeonFloor.s(), TileId::DungeonFloor.s(), TileId::WoodWall.s()],
+                vec![None,                 None,                     TileId::WoodWall.s(),     TileId::WoodWall.s(),     TileId::DungeonFloor.i(ObjectId::Door),     TileId::WoodWall.s(),     TileId::WoodWall.s()],
+            ],
+            vec![((4,4), MobId::Undead)],
         ),
     }
 }

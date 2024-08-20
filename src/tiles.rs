@@ -126,6 +126,14 @@ impl TileId {
             object: None,
         }
     }
+
+    pub fn s(self) -> Option<TilePlaced> {
+        Some(self.place())
+    }
+
+    pub fn i(self, object_id: ObjectId) -> Option<TilePlaced> {
+        Some(self.with(object_id))
+    }
 }
 
 pub struct ObjectData {

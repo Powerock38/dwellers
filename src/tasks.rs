@@ -37,17 +37,16 @@ pub enum TaskKind {
 
 impl TaskKind {
     pub fn is_valid_on_tile(self, tile: TilePlaced) -> bool {
-        let tile_id = tile.id;
         match self {
             TaskKind::Dig => {
-                tile_id == TileId::DirtWall
-                    || tile_id == TileId::StoneWall
-                    || tile_id == TileId::DungeonWall
+                tile.id == TileId::DirtWall
+                    || tile.id == TileId::StoneWall
+                    || tile.id == TileId::DungeonWall
             }
             TaskKind::Smoothen => {
-                tile_id == TileId::DirtWall
-                    || tile_id == TileId::StoneWall
-                    || tile_id == TileId::StoneFloor
+                tile.id == TileId::DirtWall
+                    || tile.id == TileId::StoneWall
+                    || tile.id == TileId::StoneFloor
             }
             TaskKind::Harvest => {
                 matches!(
@@ -55,17 +54,17 @@ impl TaskKind {
                     Some(ObjectId::Tree | ObjectId::TallGrass | ObjectId::WheatPlant)
                 )
             }
-            TaskKind::Bridge => tile_id == TileId::Water,
-            TaskKind::Build { .. } => tile.object.is_none(),
+            TaskKind::Bridge => tile.id == TileId::Water,
+            TaskKind::Build { .. } => !tile.id.data().is_wall() && tile.object.is_none(),
             TaskKind::Pickup => {
-                !tile_id.data().is_wall()
+                !tile.id.data().is_wall()
                     && tile
                         .object
                         .map_or(false, |object| object.data().is_carriable())
             }
             TaskKind::Hunt => true,
             TaskKind::Stockpile => {
-                !tile_id.data().is_wall()
+                !tile.id.data().is_wall()
                     && tile
                         .object
                         .map_or(true, |object| object.data().is_carriable())
@@ -719,81 +718,64 @@ pub fn update_pickups(
             continue;
         }
 
-        let (specific_objects, needs_objects) = match &task.needs {
-            TaskNeeds::Objects(objects) => (Some(objects), true),
-            TaskNeeds::AnyObject => (None, true),
-            _ => (None, false),
-        };
-
-        if needs_objects {
-            // check if it needs a new Pickup task: check for already existing Pickup tasks for the required object
-            if q_tasks.iter().any(|t| {
-                t.kind == TaskKind::Pickup
-                && t.dweller.is_none() // not being worked on
-                    && tilemap_data.get(t.pos).is_some_and(|tile| {
-                        if let Some(object) = tile.object {
-                            if let Some(objects) = specific_objects {
-                                return objects.iter().any(|o| object == *o);
+        if let TaskNeeds::Objects(needs_objects) = &task.needs {
+            for needs_object in needs_objects {
+                // check if it needs a new Pickup task: check for already existing Pickup tasks for the required object
+                if q_tasks.iter().any(|t| {
+                        t.kind == TaskKind::Pickup
+                        && t.dweller.is_none() // not being worked on
+                        && tilemap_data.get(t.pos).is_some_and(|tile| {
+                            if let Some(object) = tile.object {
+                                return *needs_object == object;
                             }
 
-                            return true;
-                        }
+                            error!("SHOULD NEVER HAPPEN: Pickup task at {:?} has no object", t.pos);
+                            false
+                        })
+                    }) || // or Dwellers with the required object
+                    q_dwellers.iter().any(|(entity_dweller, dweller)| {
+                        let has_object = dweller.object.is_some_and(|dweller_object| dweller_object == *needs_object);
 
-                        error!("SHOULD NEVER HAPPEN: Pickup task at {:?} has no object", t.pos);
-                        false
-                    })
-            }) || // or Dwellers with the required object
-            q_dwellers.iter().any(|(entity_dweller, dweller)| {
-                let has_object = match (specific_objects, dweller.object) {
-                    (Some(objects), Some(dweller_object)) => objects.iter().any(|object| *object == dweller_object),
-                    (None, _) => true,
-                    _ => false,
-                };
+                        let not_working_on_task_that_needs_it =
+                        !q_tasks.iter().any(|t| {
+                            t.dweller == Some(entity_dweller) && matches!(&t.needs, TaskNeeds::Objects(objects) if objects.iter().any(|object| dweller.object.map_or(false, |dweller_object| dweller_object == *object) ))
+                        });
 
-                let not_working_on_task_that_needs_it =
-                    !q_tasks.iter().any(|t| {
-                        t.dweller == Some(entity_dweller) && matches!(&t.needs, TaskNeeds::Objects(objects) if objects.iter().any(|object| dweller.object.map_or(false, |dweller_object| dweller_object == *object) ))
-                    });
-
-                has_object && not_working_on_task_that_needs_it
-            }) {
-                continue;
-            }
-
-            // Find object: search around task.pos
-            let index = TilemapData::find_from_center(task.pos, |index| {
-                if let Some(tile) = tilemap_data.get(index) {
-                    if let Some(object) = tile.object {
-                        let has_object = match (specific_objects, object) {
-                            (Some(objects), object) => objects.iter().any(|o| *o == object),
-                            (None, _) => true,
-                        };
-
-                        return has_object
-                            && TaskKind::Pickup.is_valid_on_tile(tile)
-                            && !task_indexes.contains(&index)
-                            // make sure there's no task here already (excluding Stockpile tasks)
-                            && !q_tasks
-                                .iter()
-                                .any(|t| !matches!(t.kind, TaskKind::Stockpile) && t.pos == index);
-                    }
+                        has_object && not_working_on_task_that_needs_it
+                    }) {
+                        continue;
                 }
 
-                false
-            });
+                // Find object: search around task.pos
+                let index = TilemapData::find_from_center(task.pos, |index| {
+                    if let Some(tile) = tilemap_data.get(index) {
+                        if let Some(object) = tile.object {
+                            return object == *needs_object
+                                && TaskKind::Pickup.is_valid_on_tile(tile)
+                                && !task_indexes.contains(&index)
+                                // make sure there's no task here already (excluding Stockpile tasks)
+                                && !q_tasks
+                                    .iter()
+                                    .any(|t| !matches!(t.kind, TaskKind::Stockpile) && t.pos == index);
+                        }
+                    }
 
-            if let Some(index) = index {
-                info!("Found object at {index:?} for {task:?}");
+                    false
+                });
 
-                commands.spawn(TaskBundle::new(Task::new(
-                    index,
-                    TaskKind::Pickup,
-                    TaskNeeds::EmptyHands,
-                    None,
-                    tilemap_data,
-                )));
+                if let Some(index) = index {
+                    info!("Found object at {index:?} for {task:?}");
 
-                task_indexes.push(index);
+                    commands.spawn(TaskBundle::new(Task::new(
+                        index,
+                        TaskKind::Pickup,
+                        TaskNeeds::EmptyHands,
+                        None,
+                        tilemap_data,
+                    )));
+
+                    task_indexes.push(index);
+                }
             }
         }
     }
