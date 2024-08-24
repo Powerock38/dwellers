@@ -51,7 +51,13 @@ impl TaskKind {
             TaskKind::Harvest => {
                 matches!(
                     tile.object,
-                    Some(ObjectId::Tree | ObjectId::TallGrass | ObjectId::WheatPlant)
+                    Some(
+                        ObjectId::Tree
+                            | ObjectId::PalmTree
+                            | ObjectId::Cactus
+                            | ObjectId::TallGrass
+                            | ObjectId::WheatPlant
+                    )
                 )
             }
             TaskKind::Bridge => tile.id == TileId::Water,
@@ -133,7 +139,7 @@ pub enum TaskNeeds {
 #[derive(Component, Reflect, Default, Debug)]
 #[reflect(Component, MapEntities)]
 pub struct Task {
-    id: u128,
+    id: u64,
     pub kind: TaskKind,
     pub pos: IVec2,
     pub reachable_pathfinding: bool,
@@ -183,7 +189,7 @@ impl Task {
             id: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
-                .as_nanos(),
+                .as_nanos() as u64,
             kind,
             pos,
             reachable_pathfinding: true,
@@ -363,7 +369,7 @@ pub fn event_task_completion(
             TaskKind::Harvest => match tile.object {
                 Some(object) => {
                     let drop_object = match object {
-                        ObjectId::Tree => {
+                        ObjectId::Tree | ObjectId::PalmTree | ObjectId::Cactus => {
                             if rng.gen_bool(0.3) {
                                 Some(ObjectId::Wood)
                             } else {
