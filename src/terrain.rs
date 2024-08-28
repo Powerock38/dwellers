@@ -74,7 +74,7 @@ pub fn load_chunks(
 
         loaded.push(*chunk_index);
 
-        if tilemap_data.data.chunks.contains_key(chunk_index) {
+        if tilemap_data.chunks.contains_key(chunk_index) {
             continue;
         }
 
@@ -90,28 +90,6 @@ pub fn load_chunks(
 
             // Load in TilemapData
             tilemap_data.set_chunk(*chunk_index, chunk_data);
-
-            // Load in TilemapStorage
-            for x in 0..CHUNK_SIZE {
-                for y in 0..CHUNK_SIZE {
-                    let index = TilemapData::local_index_to_global(
-                        *chunk_index,
-                        IVec2::new(x as i32, y as i32),
-                    );
-
-                    if let Some(tile) = tilemap_data.get(index) {
-                        tilemap.set(&mut commands, index, tile.tile_builder());
-
-                        TilePlaced::update_light_level(
-                            index,
-                            &mut commands,
-                            &mut tilemap,
-                            &tilemap_data,
-                        );
-                    }
-                }
-            }
-            //TODO update light level of surrounding chunks?
         } else {
             // If the chunk is not in the save, generate it
 
@@ -158,31 +136,21 @@ pub fn load_chunks(
                             TileId::DirtWall.place()
                         };
 
-                        tile.set_at(index, &mut commands, &mut tilemap, &mut tilemap_data);
+                        tilemap_data.set(index, tile);
 
                         continue;
                     }
 
                     // Rivers
                     if mountain_noise_value > 0.5 {
-                        TileId::Water.place().set_at(
-                            index,
-                            &mut commands,
-                            &mut tilemap,
-                            &mut tilemap_data,
-                        );
+                        tilemap_data.set(index, TileId::Water.place());
 
                         continue;
                     }
 
                     // River shores
                     if mountain_noise_value > 0.45 {
-                        TileId::SandFloor.place().set_at(
-                            index,
-                            &mut commands,
-                            &mut tilemap,
-                            &mut tilemap_data,
-                        );
+                        tilemap_data.set(index, TileId::SandFloor.place());
 
                         continue;
                     }
@@ -226,7 +194,7 @@ pub fn load_chunks(
                         ground_tile = ground_tile.id.with(object);
                     }
 
-                    ground_tile.set_at(index, &mut commands, &mut tilemap, &mut tilemap_data);
+                    tilemap_data.set(index, ground_tile);
                 }
             }
 
@@ -267,7 +235,7 @@ pub fn load_chunks(
                         }
 
                         if let Some(tile) = structure.get_tile(x, y) {
-                            tile.set_at(index, &mut commands, &mut tilemap, &mut tilemap_data);
+                            tilemap_data.set(index, *tile);
                         }
                     }
                 }
@@ -291,7 +259,7 @@ pub fn load_chunks(
     }
 
     for UnloadChunk(chunk_index) in ev_unload.read() {
-        let Some(chunk) = tilemap_data.data.chunks.get(chunk_index) else {
+        let Some(chunk) = tilemap_data.chunks.get(chunk_index) else {
             continue;
         };
 
@@ -311,18 +279,15 @@ pub fn load_chunks(
                     .expect("Error while writing terrain to file");
             })
             .detach();
-        tilemap_data.data.remove_chunk(*chunk_index);
+        tilemap_data.remove_chunk(*chunk_index);
         tilemap.remove_chunk(&mut commands, *chunk_index);
     }
 }
 
-pub fn update_terrain(
-    mut commands: Commands,
-    mut q_tilemap: Query<(&mut TilemapStorage, &mut TilemapData)>,
-) {
-    let (mut tilemap, mut tilemap_data) = extract_ok!(q_tilemap.get_single_mut());
+pub fn update_terrain(mut q_tilemap: Query<&mut TilemapData>) {
+    let mut tilemap_data = extract_ok!(q_tilemap.get_single_mut());
 
-    let chunks = &tilemap_data.data.chunks.clone(); // FIXME: clone
+    let chunks = &tilemap_data.chunks.clone(); // FIXME: clone
 
     for (chunk_index, _chunk) in chunks {
         for x in 0..CHUNK_SIZE {
@@ -338,12 +303,7 @@ pub fn update_terrain(
                             let mut rng = rand::thread_rng();
 
                             if rng.gen_bool(0.01) {
-                                tile.id.with(ObjectId::WheatPlant).set_at(
-                                    index,
-                                    &mut commands,
-                                    &mut tilemap,
-                                    &mut tilemap_data,
-                                );
+                                tilemap_data.set(index, tile.id.with(ObjectId::WheatPlant));
                             }
                         }
 

@@ -4,7 +4,7 @@ use bitcode::{Decode, Encode};
 
 use crate::{
     data::{ObjectId, TileId},
-    tilemap::{TilemapData, TilemapFiles, TF},
+    tilemap::{TilemapFiles, TF},
 };
 
 #[derive(Clone, Copy, Encode, Decode, Reflect, Default, Debug)]
@@ -34,56 +34,6 @@ impl TilePlaced {
         }
 
         tb
-    }
-
-    pub fn set_at(
-        self,
-        index: IVec2,
-        commands: &mut Commands,
-        tilemap: &mut TilemapStorage,
-        tilemap_data: &mut TilemapData,
-    ) {
-        tilemap.set(commands, index, self.tile_builder());
-
-        tilemap_data.set(index, self);
-
-        Self::update_light_level(index, commands, tilemap, tilemap_data);
-    }
-
-    pub fn update_light_level(
-        index: IVec2,
-        commands: &mut Commands,
-        tilemap: &mut TilemapStorage,
-        tilemap_data: &TilemapData,
-    ) {
-        for index in tilemap_data
-            .neighbours(index)
-            .iter()
-            .map(|n| n.0)
-            .chain([index])
-        {
-            let tint =
-                if tilemap_data
-                    .neighbours(index)
-                    .iter()
-                    .all(|(_, TilePlaced { id: tile, .. })| {
-                        tile.data().is_wall() && *tile != TileId::Water
-                    })
-                {
-                    Color::BLACK
-                } else {
-                    Color::WHITE
-                };
-
-            tilemap.update(
-                commands,
-                index,
-                TileUpdater {
-                    tint: Some(tint.into()),
-                    ..default()
-                },
-            );
-        }
     }
 }
 

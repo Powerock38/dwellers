@@ -4,7 +4,6 @@ use bevy::{
     ecs::{entity::MapEntities, reflect::ReflectMapEntities},
     prelude::*,
 };
-use bevy_entitiles::tilemap::map::TilemapStorage;
 use pathfinding::directed::astar::astar;
 use rand::Rng;
 
@@ -284,12 +283,12 @@ pub struct TaskCompletionEvent {
 pub fn event_task_completion(
     mut commands: Commands,
     mut events: EventReader<TaskCompletionEvent>,
-    mut q_tilemap: Query<(&mut TilemapStorage, &mut TilemapData)>,
+    mut q_tilemap: Query<&mut TilemapData>,
     q_mobs: Query<(Entity, &Mob, &Transform)>,
     mut q_dwellers: Query<(&mut Dweller, &Transform)>,
     mut q_tasks: Query<(Entity, &mut Task, Option<&Parent>)>,
 ) {
-    let (mut tilemap, mut tilemap_data) = extract_ok!(q_tilemap.get_single_mut());
+    let mut tilemap_data = extract_ok!(q_tilemap.get_single_mut());
 
     let mut update_tasks_pos = false;
     let mut update_stockpiles = false;
@@ -344,7 +343,7 @@ pub fn event_task_completion(
                     TileId::StoneFloor.place()
                 };
 
-                tile.set_at(task.pos, &mut commands, &mut tilemap, &mut tilemap_data);
+                tilemap_data.set(task.pos, tile);
 
                 debug!("Dug tile at {:?}", task.pos);
                 update_tasks_pos = true;
@@ -360,7 +359,7 @@ pub fn event_task_completion(
                     TileId::DungeonFloor.place()
                 };
 
-                tile.set_at(task.pos, &mut commands, &mut tilemap, &mut tilemap_data);
+                tilemap_data.set(task.pos, tile);
 
                 debug!("Smoothened tile at {:?}", task.pos);
                 success = true;
@@ -389,12 +388,7 @@ pub fn event_task_completion(
                     };
 
                     if let Some(object) = drop_object {
-                        tile.id.with(object).set_at(
-                            task.pos,
-                            &mut commands,
-                            &mut tilemap,
-                            &mut tilemap_data,
-                        );
+                        tilemap_data.set(task.pos, tile.id.with(object));
 
                         if object.data().is_carriable() {
                             commands.spawn(TaskBundle::new(Task::new(
@@ -406,12 +400,7 @@ pub fn event_task_completion(
                             )));
                         }
                     } else {
-                        tile.id.place().set_at(
-                            task.pos,
-                            &mut commands,
-                            &mut tilemap,
-                            &mut tilemap_data,
-                        );
+                        tilemap_data.set(task.pos, tile.id.place());
                     }
 
                     debug!("Harvested object at {:?}", task.pos);
@@ -422,12 +411,7 @@ pub fn event_task_completion(
             },
 
             TaskKind::Bridge => {
-                TileId::BridgeFloor.place().set_at(
-                    task.pos,
-                    &mut commands,
-                    &mut tilemap,
-                    &mut tilemap_data,
-                );
+                tilemap_data.set(task.pos, TileId::BridgeFloor.place());
 
                 debug!("Bridged tile at {:?}", task.pos);
                 update_tasks_pos = true;
@@ -436,12 +420,7 @@ pub fn event_task_completion(
 
             TaskKind::Pickup => {
                 if let Some(object) = tile.object {
-                    tile.id.place().set_at(
-                        task.pos,
-                        &mut commands,
-                        &mut tilemap,
-                        &mut tilemap_data,
-                    );
+                    tilemap_data.set(task.pos, tile.id.place());
 
                     dweller.object = Some(object);
 
@@ -465,12 +444,7 @@ pub fn event_task_completion(
 
                     _ => match result {
                         BuildResult::Object(object) => {
-                            tile.id.with(object).set_at(
-                                task.pos,
-                                &mut commands,
-                                &mut tilemap,
-                                &mut tilemap_data,
-                            );
+                            tilemap_data.set(task.pos, tile.id.with(object));
 
                             if let Some(workstation) = WORKSTATIONS.get(&object) {
                                 commands.spawn(TaskBundle::new(Task::new(
@@ -483,12 +457,7 @@ pub fn event_task_completion(
                             }
                         }
                         BuildResult::Tile(tile) => {
-                            tile.place().set_at(
-                                task.pos,
-                                &mut commands,
-                                &mut tilemap,
-                                &mut tilemap_data,
-                            );
+                            tilemap_data.set(task.pos, tile.place());
                         }
                     },
                 }
@@ -512,12 +481,7 @@ pub fn event_task_completion(
                         {
                             if let Some(loot_tile) = tilemap_data.get(mob_pos) {
                                 if loot_tile.object.is_none() {
-                                    loot_tile.id.with(mob.loot).set_at(
-                                        mob_pos,
-                                        &mut commands,
-                                        &mut tilemap,
-                                        &mut tilemap_data,
-                                    );
+                                    tilemap_data.set(mob_pos, loot_tile.id.with(mob.loot));
 
                                     commands.spawn(TaskBundle::new(Task::new(
                                         mob_pos,
@@ -544,12 +508,7 @@ pub fn event_task_completion(
             TaskKind::Stockpile => {
                 if tile.object.is_none() {
                     if let Some(object) = dweller.object {
-                        tile.id.with(object).set_at(
-                            task.pos,
-                            &mut commands,
-                            &mut tilemap,
-                            &mut tilemap_data,
-                        );
+                        tilemap_data.set(task.pos, tile.id.with(object));
 
                         debug!("Stockpiled object at {:?}", task.pos);
                         update_tasks_pos = true;
@@ -565,12 +524,7 @@ pub fn event_task_completion(
                             if tile.is_floor_free() {
                                 // TODO: ensure there is no task at pos
 
-                                tile.id.with(recipe.0).set_at(
-                                    pos,
-                                    &mut commands,
-                                    &mut tilemap,
-                                    &mut tilemap_data,
-                                );
+                                tilemap_data.set(pos, tile.id.with(recipe.0));
 
                                 if recipe.0.data().is_carriable() {
                                     commands.spawn(TaskBundle::new(Task::new(

@@ -1,11 +1,9 @@
-use bevy::{prelude::*, render::render_resource::FilterMode};
+use bevy::{prelude::*, render::render_resource::FilterMode, utils::HashMap};
 use bevy_entitiles::{
-    prelude::*,
-    render::material::StandardTilemapMaterial,
-    tilemap::{chunking::storage::ChunkedStorage, map::TilemapTextures},
+    prelude::*, render::material::StandardTilemapMaterial, tilemap::map::TilemapTextures,
 };
 
-use crate::TilePlaced;
+use crate::{data::TileId, extract_ok, utils::div_to_floor, TilePlaced};
 
 pub const TILE_SIZE_U: u32 = 16;
 pub const TILE_SIZE: f32 = TILE_SIZE_U as f32;
@@ -13,27 +11,65 @@ pub const CHUNK_SIZE: u32 = 64;
 
 #[derive(Component)]
 pub struct TilemapData {
-    pub data: ChunkedStorage<TilePlaced>,
+    pub chunks: HashMap<IVec2, Vec<Option<TilePlaced>>>,
+    pub to_spawn: Vec<(IVec2, TilePlaced)>,
 }
 
 impl TilemapData {
     pub fn new() -> Self {
         Self {
-            data: ChunkedStorage::new(CHUNK_SIZE),
+            chunks: HashMap::new(),
+            to_spawn: Vec::new(),
         }
     }
 
+    pub fn index_to_chunk(index: IVec2) -> (IVec2, usize) {
+        let isize = IVec2::splat(CHUNK_SIZE as i32);
+        let c = div_to_floor(index, isize);
+        let idx = index - c * isize;
+        (c, (idx.y * isize.x + idx.x) as usize)
+    }
+
+    pub fn chunk_to_index(chunk_index: IVec2, local_index: usize) -> IVec2 {
+        chunk_index * CHUNK_SIZE as i32
+            + IVec2::new(
+                local_index as i32 % CHUNK_SIZE as i32,
+                local_index as i32 / CHUNK_SIZE as i32,
+            )
+    }
+
     pub fn set(&mut self, index: IVec2, tile: TilePlaced) {
-        self.data.set_elem(index, tile);
+        self.to_spawn.push((index, tile));
+
+        let idx = Self::index_to_chunk(index);
+        self.chunks
+            .entry(idx.0)
+            .or_insert_with(|| vec![None; (CHUNK_SIZE * CHUNK_SIZE) as usize])[idx.1] = Some(tile);
     }
 
     pub fn get(&self, index: IVec2) -> Option<TilePlaced> {
-        self.data.get_elem(index).copied()
+        let idx = Self::index_to_chunk(index);
+        self.chunks
+            .get(&idx.0)
+            .and_then(|c| c.get(idx.1))
+            .copied()
+            .flatten()
     }
 
-    pub fn set_chunk(&mut self, index: IVec2, chunk_data: Vec<TilePlaced>) {
-        self.data
-            .set_chunk(index, chunk_data.into_iter().map(Some).collect());
+    pub fn set_chunk(&mut self, chunk_index: IVec2, chunk_data: Vec<TilePlaced>) {
+        self.to_spawn.extend(
+            chunk_data
+                .iter()
+                .enumerate()
+                .map(|(i, tile)| (Self::chunk_to_index(chunk_index, i), *tile)),
+        );
+
+        self.chunks
+            .insert(chunk_index, chunk_data.into_iter().map(Some).collect());
+    }
+
+    pub fn remove_chunk(&mut self, index: IVec2) -> Option<Vec<Option<TilePlaced>>> {
+        self.chunks.remove(&index)
     }
 
     pub fn local_index_to_global(chunk_index: IVec2, local_index: IVec2) -> IVec2 {
@@ -173,6 +209,49 @@ pub fn init_tilemap(
     let tilemap_data = TilemapData::new();
 
     commands.entity(entity).insert((tilemap, tilemap_data));
+}
+
+pub fn update_tilemap_from_data(
+    mut commands: Commands,
+    mut q_tilemap: Query<(&mut TilemapStorage, &mut TilemapData)>,
+) {
+    let (mut tilemap, mut tilemap_data) = extract_ok!(q_tilemap.get_single_mut());
+
+    let tiles_to_spawn = tilemap_data.to_spawn.drain(..).collect::<Vec<_>>();
+
+    for (index, tile) in tiles_to_spawn {
+        tilemap.set(&mut commands, index, tile.tile_builder());
+
+        // Update light level
+        for index in tilemap_data
+            .neighbours(index)
+            .iter()
+            .map(|n| n.0)
+            .chain([index])
+        {
+            let tint =
+                if tilemap_data
+                    .neighbours(index)
+                    .iter()
+                    .all(|(_, TilePlaced { id: tile, .. })| {
+                        tile.data().is_wall() && *tile != TileId::Water
+                    })
+                {
+                    Color::BLACK
+                } else {
+                    Color::WHITE
+                };
+
+            tilemap.update(
+                &mut commands,
+                index,
+                TileUpdater {
+                    tint: Some(tint.into()),
+                    ..default()
+                },
+            );
+        }
+    }
 }
 
 const N_TF: usize = 3;

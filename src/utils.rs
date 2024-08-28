@@ -1,3 +1,5 @@
+use bevy::math::IVec2;
+
 #[macro_export]
 macro_rules! extract_ok {
     ( $e:expr ) => {
@@ -45,4 +47,15 @@ macro_rules! enum_map {
             }
         }
     }
+}
+
+pub fn div_to_floor(a: IVec2, b: IVec2) -> IVec2 {
+    let mut result = a / b;
+    if a.x % b.x != 0 && a.x < 0 {
+        result.x -= 1;
+    }
+    if a.y % b.y != 0 && a.y < 0 {
+        result.y -= 1;
+    }
+    result
 }

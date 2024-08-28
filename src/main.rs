@@ -63,6 +63,7 @@ fn main() {
                     click_terrain,
                     update_dwellers_selected,
                     // Game logic
+                    //TODO: FixedUpdate
                     (update_dwellers, update_mobs).run_if(on_timer(Duration::from_millis(200))),
                     (update_dwellers_load_chunks).run_if(on_timer(Duration::from_millis(1000))),
                     (update_terrain).run_if(on_timer(Duration::from_millis(800))),
@@ -73,6 +74,7 @@ fn main() {
                         .run_if(on_timer(Duration::from_millis(5000))),
                     update_pickups,
                     event_task_completion,
+                    update_tilemap_from_data,
                 )
                     .in_set(GameplaySet),
             ),

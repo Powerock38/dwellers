@@ -124,7 +124,7 @@ pub fn update_ui_buttons(
                                 .as_ref()
                                 .is_some_and(|current_action| current_action.kind == *action)
                             {
-                                commands.remove_resource::<CurrentAction>();
+                                commands.insert_resource(CurrentAction::default());
                             } else {
                                 commands.insert_resource(CurrentAction::new(action.clone()));
                             }

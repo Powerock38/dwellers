@@ -33,7 +33,7 @@ pub fn save_world_before(
         if save_game.is_added() {
             let tilemap_data = q_tilemap_data.single();
 
-            for chunk_index in tilemap_data.data.chunks.keys() {
+            for chunk_index in tilemap_data.chunks.keys() {
                 ev_unload_w.send(UnloadChunk(*chunk_index));
             }
         }
@@ -55,7 +55,7 @@ pub fn save_world(
 
         info!("Saving scene: unloading all chunks...");
 
-        if tilemap_data.data.chunks.is_empty() {
+        if tilemap_data.chunks.is_empty() {
             commands.remove_resource::<SaveGame>();
             info!("Saving scene: serializing...");
 

@@ -315,7 +315,7 @@ pub fn update_dwellers_load_chunks(
         );
 
         // Load new chunks if needed
-        let (chunk_index, _) = tilemap_data.data.transform_index(index);
+        let (chunk_index, _) = TilemapData::index_to_chunk(index);
 
         for dx in -LOAD_CHUNKS_RADIUS..=LOAD_CHUNKS_RADIUS {
             for dy in -LOAD_CHUNKS_RADIUS..=LOAD_CHUNKS_RADIUS {
@@ -336,7 +336,6 @@ pub fn update_dwellers_load_chunks(
 
     // Unload chunks without dwellers
     tilemap_data
-        .data
         .chunks
         .keys()
         .filter(|chunk_index| {
