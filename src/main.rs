@@ -46,6 +46,10 @@ fn main() {
         .add_event::<SpawnDwellersOnChunk>()
         .add_event::<SpawnMobsOnChunk>()
         .configure_sets(Update, GameplaySet.run_if(in_state(GameState::Running)))
+        .configure_sets(
+            FixedUpdate,
+            GameplaySet.run_if(in_state(GameState::Running)),
+        )
         .add_systems(Startup, (spawn_camera, spawn_new_terrain, spawn_ui))
         .add_systems(
             Update,
@@ -62,22 +66,26 @@ fn main() {
                     focus_any_dweller,
                     click_terrain,
                     update_dwellers_selected,
-                    // Game logic
-                    //TODO: FixedUpdate
-                    (update_dwellers, update_mobs).run_if(on_timer(Duration::from_millis(200))),
-                    (update_dwellers_load_chunks).run_if(on_timer(Duration::from_millis(1000))),
-                    (update_terrain).run_if(on_timer(Duration::from_millis(800))),
-                    update_dwellers_movement,
-                    update_mobs_movement,
-                    update_unreachable_tasks,
-                    update_unreachable_pathfinding_tasks
-                        .run_if(on_timer(Duration::from_millis(5000))),
-                    update_pickups,
-                    event_task_completion,
-                    update_tilemap_from_data,
                 )
                     .in_set(GameplaySet),
             ),
+        )
+        .add_systems(
+            FixedUpdate,
+            (
+                // Game logic
+                (update_dwellers, update_mobs).run_if(on_timer(Duration::from_millis(200))),
+                (update_dwellers_load_chunks).run_if(on_timer(Duration::from_millis(1000))),
+                (update_terrain).run_if(on_timer(Duration::from_millis(800))),
+                update_dwellers_movement,
+                update_mobs_movement,
+                update_unreachable_tasks,
+                update_unreachable_pathfinding_tasks.run_if(on_timer(Duration::from_millis(5000))),
+                update_pickups,
+                event_task_completion,
+                update_tilemap_from_data,
+            )
+                .in_set(GameplaySet),
         )
         .init_state::<GameState>()
         .insert_resource(SaveName({
