@@ -10,12 +10,13 @@ use rand::Rng;
 use crate::{
     data::{ObjectId, TileId, WORKSTATIONS},
     dwellers::Dweller,
-    extract_ok,
     mobs::Mob,
     tilemap::{TilemapData, TILE_SIZE},
     tiles::TilePlaced,
     SpriteLoaderBundle,
 };
+
+const Z_INDEX: f32 = 2.0;
 
 #[derive(PartialEq, Clone, Copy, Reflect, Default, Debug)]
 pub enum TaskKind {
@@ -120,7 +121,7 @@ impl TaskBundle {
 
         Self {
             task,
-            sprite: SpriteLoaderBundle::new(texture_path, x, y, 1.),
+            sprite: SpriteLoaderBundle::new(texture_path, x, y, Z_INDEX),
         }
     }
 }
@@ -253,15 +254,12 @@ impl Task {
     }
 }
 
-pub fn update_unreachable_tasks(
-    q_tilemap: Query<&TilemapData, Changed<TilemapData>>,
-    mut q_tasks: Query<&mut Task>,
-) {
-    let tilemap_data = extract_ok!(q_tilemap.get_single());
-
-    for mut task in &mut q_tasks {
-        if task.reachable_positions.is_empty() || task.dweller.is_none() {
-            task.recompute_reachable_positions(tilemap_data);
+pub fn update_unreachable_tasks(tilemap_data: Res<TilemapData>, mut q_tasks: Query<&mut Task>) {
+    if tilemap_data.is_changed() {
+        for mut task in &mut q_tasks {
+            if task.reachable_positions.is_empty() || task.dweller.is_none() {
+                task.recompute_reachable_positions(&tilemap_data);
+            }
         }
     }
 }
@@ -283,13 +281,11 @@ pub struct TaskCompletionEvent {
 pub fn event_task_completion(
     mut commands: Commands,
     mut events: EventReader<TaskCompletionEvent>,
-    mut q_tilemap: Query<&mut TilemapData>,
+    mut tilemap_data: ResMut<TilemapData>,
     q_mobs: Query<(Entity, &Mob, &Transform)>,
     mut q_dwellers: Query<(&mut Dweller, &Transform)>,
     mut q_tasks: Query<(Entity, &mut Task, Option<&Parent>)>,
 ) {
-    let mut tilemap_data = extract_ok!(q_tilemap.get_single_mut());
-
     let mut update_tasks_pos = false;
     let mut update_stockpiles = false;
     let mut update_workstations = false;
@@ -664,13 +660,11 @@ pub fn event_task_completion(
 
 pub fn update_pickups(
     mut commands: Commands,
-    q_tilemap: Query<&TilemapData>,
+    tilemap_data: Res<TilemapData>,
     q_new_tasks: Query<&Task, Added<Task>>,
     q_tasks: Query<&Task>, // Without<Added<Task>> ?
     q_dwellers: Query<(Entity, &Dweller)>,
 ) {
-    let tilemap_data = extract_ok!(q_tilemap.get_single());
-
     let mut task_indexes = vec![];
 
     for task in &q_new_tasks {
@@ -731,7 +725,7 @@ pub fn update_pickups(
                         TaskKind::Pickup,
                         TaskNeeds::EmptyHands,
                         None,
-                        tilemap_data,
+                        &tilemap_data,
                     )));
 
                     task_indexes.push(index);

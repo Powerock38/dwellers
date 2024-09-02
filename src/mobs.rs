@@ -3,7 +3,6 @@ use rand::prelude::*;
 
 use crate::{
     data::{MobId, ObjectId},
-    extract_ok,
     tilemap::{TilemapData, TILE_SIZE},
     SpriteLoaderBundle, CHUNK_SIZE,
 };
@@ -63,11 +62,9 @@ impl MobBundle {
 
 pub fn spawn_mobs(
     mut commands: Commands,
-    q_tilemap: Query<&TilemapData>,
+    tilemap_data: Res<TilemapData>,
     mut ev_spawn: EventReader<SpawnMobsOnChunk>,
 ) {
-    let tilemap_data = extract_ok!(q_tilemap.get_single());
-
     let mut rng = rand::thread_rng();
 
     for SpawnMobsOnChunk(chunk_index) in ev_spawn.read() {
@@ -113,9 +110,7 @@ pub fn spawn_mobs(
     }
 }
 
-pub fn update_mobs(mut q_mobs: Query<(&mut Mob, &Transform)>, mut q_tilemap: Query<&TilemapData>) {
-    let tilemap_data = extract_ok!(q_tilemap.get_single_mut());
-
+pub fn update_mobs(mut q_mobs: Query<(&mut Mob, &Transform)>, tilemap_data: Res<TilemapData>) {
     for (mut mob, transform) in &mut q_mobs {
         if !mob.move_queue.is_empty() {
             continue;

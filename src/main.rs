@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use bevy::{log::LogPlugin, prelude::*, time::common_conditions::on_timer};
-use bevy_entitiles::EntiTilesPlugin;
+use bevy_ecs_tilemap::TilemapPlugin;
 use rand::{distributions::Alphanumeric, Rng};
 
 use crate::{
@@ -34,8 +34,8 @@ fn main() {
                     filter: "wgpu=error,naga=warn,dungeons=debug".into(),
                     ..default()
                 }),
-            EntiTilesPlugin,
             // bevy_inspector_egui::quick::WorldInspectorPlugin::default(),
+            TilemapPlugin,
             SaveLoadPlugin,
         ))
         .insert_resource(ClearColor(Color::BLACK))
@@ -83,7 +83,8 @@ fn main() {
                 update_unreachable_pathfinding_tasks.run_if(on_timer(Duration::from_millis(5000))),
                 update_pickups,
                 event_task_completion,
-                update_tilemap_from_data,
+                manage_chunks,
+                update_tilemap_from_data.after(manage_chunks),
             )
                 .in_set(GameplaySet),
         )

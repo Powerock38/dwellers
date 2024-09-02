@@ -1,11 +1,7 @@
 use bevy::prelude::*;
-use bevy_entitiles::prelude::*;
 use bitcode::{Decode, Encode};
 
-use crate::{
-    data::{ObjectId, TileId},
-    tilemap::{TilemapFiles, TF},
-};
+use crate::data::{ObjectId, TileId};
 
 #[derive(Clone, Copy, Encode, Decode, Reflect, Default, Debug)]
 pub struct TilePlaced {
@@ -24,41 +20,34 @@ impl TilePlaced {
     pub fn is_floor_free(self) -> bool {
         !self.is_blocking() && self.object.is_none()
     }
-
-    pub fn tile_builder(self) -> TileBuilder {
-        let mut tb =
-            TileBuilder::new().with_layer(0, TileLayer::no_flip(self.id.data().atlas_index));
-
-        if let Some(object) = self.object {
-            tb = tb.with_layer(1, TileLayer::no_flip(object.data().atlas_index));
-        }
-
-        tb
-    }
 }
 
 pub struct TileData {
-    atlas_index: i32,
+    filename: &'static str,
     wall: bool,
 }
 
 impl TileData {
-    pub const fn floor(atlas_index: i32) -> Self {
-        Self::new(TilemapFiles::FLOORS, atlas_index, false)
+    const fn new(filename: &'static str, wall: bool) -> Self {
+        Self { filename, wall }
     }
 
-    pub const fn wall(atlas_index: i32) -> Self {
-        Self::new(TilemapFiles::WALLS, atlas_index, true)
+    pub const fn floor(filename: &'static str) -> Self {
+        Self::new(filename, false)
     }
 
-    pub const fn new(tf: TF, atlas_index: i32, wall: bool) -> Self {
-        let atlas_index = TilemapFiles::T.atlas_index(tf, atlas_index);
-        Self { atlas_index, wall }
+    pub const fn wall(filename: &'static str) -> Self {
+        Self::new(filename, true)
     }
 
     #[inline]
     pub fn is_wall(&self) -> bool {
         self.wall
+    }
+
+    #[inline]
+    pub fn filename(&self) -> &'static str {
+        self.filename
     }
 }
 
@@ -87,26 +76,34 @@ impl TileId {
 }
 
 pub struct ObjectData {
-    atlas_index: i32,
+    filename: &'static str,
     blocking: bool,
     carriable: bool,
 }
 
 impl ObjectData {
-    pub const fn passable(atlas_index: i32) -> Self {
-        Self::new(atlas_index, false, true)
+    const fn new(filename: &'static str, blocking: bool, carriable: bool) -> Self {
+        Self {
+            filename,
+            blocking,
+            carriable,
+        }
     }
 
-    pub const fn blocking(atlas_index: i32) -> Self {
-        Self::new(atlas_index, true, true)
+    pub const fn passable(filename: &'static str) -> Self {
+        Self::new(filename, false, true)
     }
 
-    pub const fn passable_non_carriable(atlas_index: i32) -> Self {
-        Self::new(atlas_index, false, false)
+    pub const fn blocking(filename: &'static str) -> Self {
+        Self::new(filename, true, true)
     }
 
-    pub const fn blocking_non_carriable(atlas_index: i32) -> Self {
-        Self::new(atlas_index, true, false)
+    pub const fn passable_non_carriable(filename: &'static str) -> Self {
+        Self::new(filename, false, false)
+    }
+
+    pub const fn blocking_non_carriable(filename: &'static str) -> Self {
+        Self::new(filename, true, false)
     }
 
     #[inline]
@@ -119,12 +116,8 @@ impl ObjectData {
         self.blocking
     }
 
-    const fn new(atlas_index: i32, blocking: bool, carriable: bool) -> Self {
-        let atlas_index = TilemapFiles::T.atlas_index(TilemapFiles::OBJECTS, atlas_index);
-        Self {
-            atlas_index,
-            blocking,
-            carriable,
-        }
+    #[inline]
+    pub fn filename(&self) -> &'static str {
+        self.filename
     }
 }

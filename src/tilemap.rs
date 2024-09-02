@@ -1,28 +1,29 @@
-use bevy::{prelude::*, render::render_resource::FilterMode, utils::HashMap};
-use bevy_entitiles::{
-    prelude::*, render::material::StandardTilemapMaterial, tilemap::map::TilemapTextures,
+use bevy::{prelude::*, utils::HashMap};
+use bevy_ecs_tilemap::{
+    map::{
+        TilemapGridSize, TilemapId, TilemapRenderSettings, TilemapSize, TilemapTexture,
+        TilemapTileSize,
+    },
+    tiles::{TileBundle, TilePos, TileStorage, TileTextureIndex},
+    TilemapBundle,
 };
 
-use crate::{data::TileId, extract_ok, utils::div_to_floor, TilePlaced};
+use crate::{utils::div_to_floor, ObjectData, TileData, TilePlaced};
 
 pub const TILE_SIZE_U: u32 = 16;
 pub const TILE_SIZE: f32 = TILE_SIZE_U as f32;
 pub const CHUNK_SIZE: u32 = 64;
+const RENDER_CHUNK_SIZE: u32 = CHUNK_SIZE * 2;
 
-#[derive(Component)]
+#[derive(Resource, Default)]
 pub struct TilemapData {
     pub chunks: HashMap<IVec2, Vec<Option<TilePlaced>>>,
-    pub to_spawn: Vec<(IVec2, TilePlaced)>,
+    pub tiles_to_spawn: Vec<(IVec2, TilePlaced)>,
+    pub chunks_to_remove: Vec<IVec2>,
 }
 
 impl TilemapData {
-    pub fn new() -> Self {
-        Self {
-            chunks: HashMap::new(),
-            to_spawn: Vec::new(),
-        }
-    }
-
+    #[inline]
     pub fn index_to_chunk(index: IVec2) -> (IVec2, usize) {
         let isize = IVec2::splat(CHUNK_SIZE as i32);
         let c = div_to_floor(index, isize);
@@ -30,6 +31,7 @@ impl TilemapData {
         (c, (idx.y * isize.x + idx.x) as usize)
     }
 
+    #[inline]
     pub fn chunk_to_index(chunk_index: IVec2, local_index: usize) -> IVec2 {
         chunk_index * CHUNK_SIZE as i32
             + IVec2::new(
@@ -39,7 +41,7 @@ impl TilemapData {
     }
 
     pub fn set(&mut self, index: IVec2, tile: TilePlaced) {
-        self.to_spawn.push((index, tile));
+        self.tiles_to_spawn.push((index, tile));
 
         let idx = Self::index_to_chunk(index);
         self.chunks
@@ -57,7 +59,7 @@ impl TilemapData {
     }
 
     pub fn set_chunk(&mut self, chunk_index: IVec2, chunk_data: Vec<TilePlaced>) {
-        self.to_spawn.extend(
+        self.tiles_to_spawn.extend(
             chunk_data
                 .iter()
                 .enumerate()
@@ -69,6 +71,7 @@ impl TilemapData {
     }
 
     pub fn remove_chunk(&mut self, index: IVec2) -> Option<Vec<Option<TilePlaced>>> {
+        self.chunks_to_remove.push(index);
         self.chunks.remove(&index)
     }
 
@@ -172,157 +175,292 @@ impl TilemapData {
     }
 }
 
-pub fn init_tilemap(
+#[derive(Component)]
+pub struct ChunkTileLayer;
+
+#[derive(Component)]
+pub struct ChunkObjectLayer;
+
+pub fn init_tilemap(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands.insert_resource(TilemapData::default());
+
+    let mut textures = Vec::new();
+    for dirname in &["objects", "walls", "floors"] {
+        for entry in std::fs::read_dir(format!("assets/tiles/{dirname}")).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_file() && path.extension().unwrap() == "png" {
+                let path = path.strip_prefix("assets/").unwrap().to_owned();
+                textures.push(asset_server.load(path));
+            }
+        }
+    }
+
+    commands.insert_resource(TilemapTextures::new(TilemapTexture::Vector(textures)));
+}
+
+pub fn manage_chunks(
     mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut materials: ResMut<Assets<StandardTilemapMaterial>>,
-    mut textures: ResMut<Assets<TilemapTextures>>,
+    q_chunks_tile_layer: Query<
+        (Entity, &Transform),
+        (With<ChunkTileLayer>, Without<ChunkObjectLayer>),
+    >,
+    q_chunks_object_layer: Query<
+        (Entity, &Transform),
+        (With<ChunkObjectLayer>, Without<ChunkTileLayer>),
+    >,
+    mut tilemap_data: ResMut<TilemapData>,
+    tilemap_textures: Res<TilemapTextures>,
 ) {
-    let entity = commands.spawn_empty().id();
+    let mut created_chunks = Vec::new();
 
-    let tilemap = StandardTilemapBundle {
-        name: TilemapName("terrain".to_string()),
-        tile_render_size: TileRenderSize(Vec2::splat(TILE_SIZE)),
-        slot_size: TilemapSlotSize(Vec2::splat(TILE_SIZE)),
-        ty: TilemapType::Square,
-        storage: TilemapStorage::new(CHUNK_SIZE, entity),
-        material: materials.add(StandardTilemapMaterial::default()),
-        textures: textures.add(TilemapTextures::new(
-            TilemapFiles::T
-                .files
-                .iter()
-                .map(|file| {
-                    TilemapTexture::new(
-                        asset_server.load(format!("tilemaps/{}.png", file.name)),
-                        TilemapTextureDescriptor::new(
-                            file.size * TILE_SIZE_U,
-                            UVec2::splat(TILE_SIZE_U),
-                        ),
-                    )
-                })
-                .collect(),
-            FilterMode::Nearest,
-        )),
+    for (index, _) in &tilemap_data.tiles_to_spawn {
+        let chunk_index = TilemapData::index_to_chunk(*index).0;
+
+        if created_chunks.contains(&chunk_index) {
+            continue;
+        }
+
+        // Check if the bevy_ecs_tilemap chunk exists
+        if q_chunks_tile_layer
+            .iter()
+            .any(|(_, t)| chunk_index_is_translation(chunk_index, t.translation))
+        {
+            continue;
+        }
+
+        // If the chunk doesn't exist, create it
+
+        let pos = Vec2::new(
+            chunk_index.x as f32 * CHUNK_SIZE as f32 * TILE_SIZE,
+            chunk_index.y as f32 * CHUNK_SIZE as f32 * TILE_SIZE,
+        ) + TILE_SIZE / 2.0;
+
+        // Tile layer
+        let tile_layer_entity = commands.spawn_empty().id();
+
+        let mut tile_storage = TileStorage::empty(TilemapSize::new(CHUNK_SIZE, CHUNK_SIZE));
+
+        for x in 0..CHUNK_SIZE {
+            for y in 0..CHUNK_SIZE {
+                let tile_pos = TilePos { x, y };
+                let tile_entity = commands
+                    .spawn(TileBundle {
+                        position: tile_pos,
+                        tilemap_id: TilemapId(tile_layer_entity),
+                        ..default()
+                    })
+                    .id();
+                commands.entity(tile_layer_entity).add_child(tile_entity);
+                tile_storage.set(&tile_pos, tile_entity);
+            }
+        }
+
+        commands.entity(tile_layer_entity).insert((
+            ChunkTileLayer,
+            new_tilemap(
+                tilemap_textures.textures.clone(),
+                tile_storage,
+                pos.extend(0.0),
+            ),
+        ));
+
+        // Object layer
+        let tile_object_entity = commands.spawn_empty().id();
+
+        let tile_storage = TileStorage::empty(TilemapSize::new(CHUNK_SIZE, CHUNK_SIZE));
+
+        commands.entity(tile_object_entity).insert((
+            ChunkObjectLayer,
+            new_tilemap(
+                tilemap_textures.textures.clone(),
+                tile_storage,
+                pos.extend(1.0),
+            ),
+        ));
+
+        created_chunks.push(chunk_index);
+    }
+
+    let chunks_to_remove = tilemap_data.chunks_to_remove.drain(..).collect::<Vec<_>>();
+
+    for chunk_index in chunks_to_remove {
+        if let Some((entity, _)) = q_chunks_tile_layer
+            .iter()
+            .find(|(_, t)| chunk_index_is_translation(chunk_index, t.translation))
+        {
+            commands.entity(entity).despawn_recursive();
+        }
+
+        if let Some((entity, _)) = q_chunks_object_layer
+            .iter()
+            .find(|(_, t)| chunk_index_is_translation(chunk_index, t.translation))
+        {
+            commands.entity(entity).despawn_recursive();
+        }
+    }
+}
+
+fn new_tilemap(texture: TilemapTexture, tile_storage: TileStorage, pos: Vec3) -> TilemapBundle {
+    TilemapBundle {
+        grid_size: TilemapGridSize::new(TILE_SIZE, TILE_SIZE),
+        size: TilemapSize::new(CHUNK_SIZE, CHUNK_SIZE),
+        storage: tile_storage,
+        texture,
+        tile_size: TilemapTileSize::new(TILE_SIZE, TILE_SIZE),
+        transform: Transform::from_translation(pos),
+        render_settings: TilemapRenderSettings {
+            render_chunk_size: UVec2::splat(RENDER_CHUNK_SIZE),
+            ..default()
+        },
         ..default()
-    };
+    }
+}
 
-    let tilemap_data = TilemapData::new();
-
-    commands.entity(entity).insert((tilemap, tilemap_data));
+fn chunk_index_is_translation(chunk_index: IVec2, translation: Vec3) -> bool {
+    ((translation.truncate() - TILE_SIZE / 2.) / (CHUNK_SIZE as f32 * TILE_SIZE)).as_ivec2()
+        == chunk_index
 }
 
 pub fn update_tilemap_from_data(
     mut commands: Commands,
-    mut q_tilemap: Query<(&mut TilemapStorage, &mut TilemapData)>,
+    q_chunks_tile_layer: Query<
+        (&TileStorage, &Transform),
+        (With<ChunkTileLayer>, Without<ChunkObjectLayer>),
+    >,
+    mut q_chunks_object_layer: Query<
+        (Entity, &mut TileStorage, &Transform),
+        (With<ChunkObjectLayer>, Without<ChunkTileLayer>),
+    >,
+    mut tilemap_data: ResMut<TilemapData>,
+    tilemap_textures: Res<TilemapTextures>,
 ) {
-    let (mut tilemap, mut tilemap_data) = extract_ok!(q_tilemap.get_single_mut());
-
-    let tiles_to_spawn = tilemap_data.to_spawn.drain(..).collect::<Vec<_>>();
+    let tiles_to_spawn = tilemap_data.tiles_to_spawn.drain(..).collect::<Vec<_>>();
 
     for (index, tile) in tiles_to_spawn {
-        tilemap.set(&mut commands, index, tile.tile_builder());
+        let chunk_index = TilemapData::index_to_chunk(index).0;
 
-        // Update light level
-        for index in tilemap_data
-            .neighbours(index)
+        // Tile layer
+        let Some((tile_layer_chunk_storage, _)) = q_chunks_tile_layer
             .iter()
-            .map(|n| n.0)
-            .chain([index])
-        {
-            let tint =
-                if tilemap_data
-                    .neighbours(index)
-                    .iter()
-                    .all(|(_, TilePlaced { id: tile, .. })| {
-                        tile.data().is_wall() && *tile != TileId::Water
+            .find(|(_, t)| chunk_index_is_translation(chunk_index, t.translation))
+        else {
+            error!("Chunk not found for tile at index {:?}", index);
+            continue;
+        };
+
+        let Some(tile_entity) = tile_layer_chunk_storage.get(&TilePos {
+            x: index.x as u32 % CHUNK_SIZE,
+            y: index.y as u32 % CHUNK_SIZE,
+        }) else {
+            error!("Tile entity not found for tile at index {:?}", index);
+            continue;
+        };
+
+        commands
+            .entity(tile_entity)
+            .insert(tilemap_textures.get_atlas_index_tile(tile.id.data()));
+
+        // Object layer
+        let tile_pos = TilePos {
+            x: index.x as u32 % CHUNK_SIZE,
+            y: index.y as u32 % CHUNK_SIZE,
+        };
+
+        let Some((object_layer_entity, mut object_layer_chunk_storage, _)) = q_chunks_object_layer
+            .iter_mut()
+            .find(|(_, _, t)| chunk_index_is_translation(chunk_index, t.translation))
+        else {
+            error!("Chunk not found for object at index {:?}", index);
+            continue;
+        };
+
+        if let Some(object) = tile.object {
+            if let Some(object_entity) = object_layer_chunk_storage.get(&tile_pos) {
+                commands
+                    .entity(object_entity)
+                    .insert(tilemap_textures.get_atlas_index_object(object.data()));
+            } else {
+                let tile_entity = commands
+                    .spawn(TileBundle {
+                        position: tile_pos,
+                        tilemap_id: TilemapId(object_layer_entity),
+                        texture_index: tilemap_textures.get_atlas_index_object(object.data()),
+                        ..default()
                     })
-                {
-                    Color::BLACK
-                } else {
-                    Color::WHITE
-                };
+                    .id();
 
-            tilemap.update(
-                &mut commands,
-                index,
-                TileUpdater {
-                    tint: Some(tint.into()),
-                    ..default()
-                },
-            );
-        }
-    }
-}
-
-const N_TF: usize = 3;
-pub type TF = (&'static str, UVec2);
-
-#[derive(Clone, Copy)]
-pub struct TilemapFile {
-    name: &'static str,
-    size: UVec2,
-    start_atlas_index: i32,
-}
-
-pub struct TilemapFiles {
-    files: [TilemapFile; N_TF],
-}
-
-impl TilemapFiles {
-    pub const T: Self = Self::new();
-
-    pub const FLOORS: TF = ("floors", UVec2::splat(8));
-    pub const WALLS: TF = ("walls", UVec2::splat(8));
-    pub const OBJECTS: TF = ("objects", UVec2::splat(8));
-
-    pub const fn new() -> Self {
-        let tilemaps = [Self::FLOORS, Self::WALLS, Self::OBJECTS];
-
-        let mut files = [TilemapFile {
-            name: "",
-            size: UVec2::ZERO,
-            start_atlas_index: 0,
-        }; N_TF];
-
-        let mut i = 0;
-        let mut atlas_index = 0;
-
-        while i < N_TF {
-            files[i] = TilemapFile {
-                name: tilemaps[i].0,
-                size: tilemaps[i].1,
-                start_atlas_index: atlas_index,
+                commands.entity(object_layer_entity).add_child(tile_entity);
+                object_layer_chunk_storage.set(&tile_pos, tile_entity);
             };
-            atlas_index += (tilemaps[i].1.x * tilemaps[i].1.y) as i32;
-            i += 1;
+        } else if let Some(object_entity) = object_layer_chunk_storage.get(&tile_pos) {
+            commands.entity(object_entity).despawn_recursive();
+            object_layer_chunk_storage.remove(&tile_pos);
         }
 
-        Self { files }
+        // TODO Update light level
+        // for index in tilemap_data
+        //     .neighbours(index)
+        //     .iter()
+        //     .map(|n| n.0)
+        //     .chain([index])
+        // {
+        //     let tint =
+        //         if tilemap_data
+        //             .neighbours(index)
+        //             .iter()
+        //             .all(|(_, TilePlaced { id: tile, .. })| {
+        //                 tile.data().is_wall() && *tile != TileId::Water
+        //             })
+        //         {
+        //             Color::BLACK
+        //         } else {
+        //             Color::WHITE
+        //         };
+
+        //     tilemap.update(
+        //         &mut commands,
+        //         index,
+        //         TileUpdater {
+        //             tint: Some(tint.into()),
+        //             ..default()
+        //         },
+        //     );
+        // }
+    }
+}
+
+#[derive(Resource)]
+pub struct TilemapTextures {
+    pub textures: TilemapTexture,
+}
+
+impl TilemapTextures {
+    pub fn new(textures: TilemapTexture) -> Self {
+        Self { textures }
     }
 
-    pub const fn atlas_index(&self, file: TF, atlas_index: i32) -> i32 {
-        let mut i = 0;
-        while i < N_TF {
-            if TilemapFiles::const_bytes_equal(self.files[i].name.as_bytes(), file.0.as_bytes()) {
-                return self.files[i].start_atlas_index + atlas_index;
-            }
-            i += 1;
-        }
-        0
+    pub fn get_atlas_index_tile(&self, tile: TileData) -> TileTextureIndex {
+        let folder = if tile.is_wall() { "walls" } else { "floors" };
+        self.get_atlas_index(folder, tile.filename())
     }
 
-    // Can't compare strings directly, dirty workaround
-    const fn const_bytes_equal(lhs: &[u8], rhs: &[u8]) -> bool {
-        if lhs.len() != rhs.len() {
-            return false;
-        }
-        let mut i = 0;
-        while i < lhs.len() {
-            if lhs[i] != rhs[i] {
-                return false;
-            }
-            i += 1;
-        }
-        true
+    pub fn get_atlas_index_object(&self, object: ObjectData) -> TileTextureIndex {
+        self.get_atlas_index("objects", object.filename())
+    }
+
+    fn get_atlas_index(&self, folder: &'static str, filename: &'static str) -> TileTextureIndex {
+        TileTextureIndex(match &self.textures {
+            TilemapTexture::Vector(textures) => textures
+                .iter()
+                .position(|t| {
+                    t.path()
+                        .unwrap()
+                        .to_string()
+                        .ends_with(format!("{folder}/{filename}.png").as_str())
+                })
+                .unwrap_or(0) as u32,
+
+            _ => 0,
+        })
     }
 }

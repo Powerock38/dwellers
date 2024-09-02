@@ -3,7 +3,6 @@ use rand::{seq::SliceRandom, Rng};
 
 use crate::{
     data::ObjectId,
-    extract_ok,
     random_text::{generate_word, NAMES},
     tasks::{BuildResult, Task, TaskCompletionEvent, TaskKind, TaskNeeds},
     tilemap::{TilemapData, TILE_SIZE},
@@ -69,11 +68,9 @@ impl DwellersSelected {
 
 pub fn spawn_dwellers(
     mut commands: Commands,
-    q_tilemap: Query<&TilemapData>,
+    tilemap_data: Res<TilemapData>,
     mut ev_spawn: EventReader<SpawnDwellersOnChunk>,
 ) {
-    let tilemap_data = extract_ok!(q_tilemap.get_single());
-
     for SpawnDwellersOnChunk(chunk_index) in ev_spawn.read() {
         let Some(spawn_pos) = TilemapData::find_from_center(
             TilemapData::local_index_to_global(*chunk_index, IVec2::splat(CHUNK_SIZE as i32 / 2)),
@@ -144,12 +141,10 @@ pub fn spawn_dwellers(
 
 pub fn update_dwellers(
     mut q_dwellers: Query<(Entity, &mut Dweller, &Transform)>,
-    mut q_tilemap: Query<&TilemapData>,
+    tilemap_data: Res<TilemapData>,
     mut q_tasks: Query<(Entity, &mut Task)>,
     mut ev_task_completion: EventWriter<TaskCompletionEvent>,
 ) {
-    let tilemap_data = extract_ok!(q_tilemap.get_single_mut());
-
     for (entity, mut dweller, transform) in &mut q_dwellers {
         if !dweller.move_queue.is_empty() {
             continue;
@@ -172,7 +167,7 @@ pub fn update_dwellers(
                 ev_task_completion.send(TaskCompletionEvent { task: entity_task });
             } else {
                 // Task moved, try to pathfind again
-                let path = task.pathfind(index, tilemap_data);
+                let path = task.pathfind(index, &tilemap_data);
 
                 if let Some(path) = path {
                     info!("Dweller {} can re-pathfind to {:?}", dweller.name, task);
@@ -227,7 +222,7 @@ pub fn update_dwellers(
                     }
 
                     // Try pathfinding to task
-                    let path = task.pathfind(index, tilemap_data);
+                    let path = task.pathfind(index, &tilemap_data);
 
                     if let Some(path) = path {
                         return Some((task, path));
@@ -299,13 +294,11 @@ pub fn update_dwellers_movement(
 
 pub fn update_dwellers_load_chunks(
     q_dwellers: Query<&Transform, With<Dweller>>,
-    q_tilemap: Query<&TilemapData>,
+    tilemap_data: Res<TilemapData>,
     mut ev_load_chunk: EventWriter<LoadChunk>,
     mut ev_unload_chunk: EventWriter<UnloadChunk>,
     mut chunks_ttl: Local<HashMap<IVec2, u32>>,
 ) {
-    let tilemap_data = extract_ok!(q_tilemap.get_single());
-
     let mut sent_event_for = vec![];
 
     for transform in &q_dwellers {

@@ -49,6 +49,7 @@ macro_rules! enum_map {
     }
 }
 
+#[inline]
 pub fn div_to_floor(a: IVec2, b: IVec2) -> IVec2 {
     let mut result = a / b;
     if a.x % b.x != 0 && a.x < 0 {

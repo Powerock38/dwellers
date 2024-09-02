@@ -82,7 +82,7 @@ pub fn click_terrain(
     q_windows: Query<&Window, With<PrimaryWindow>>,
     mut current_action: ResMut<CurrentAction>,
     mut dwellers_selected: ResMut<DwellersSelected>,
-    q_tilemap: Query<&TilemapData>,
+    tilemap_data: Res<TilemapData>,
     q_tasks: Query<(Entity, &Task)>,
     q_mobs: Query<(Entity, &Transform), With<Mob>>,
     q_dwellers: Query<(Entity, &Transform), With<Dweller>>,
@@ -92,8 +92,6 @@ pub fn click_terrain(
     let cursor_position = extract_some!(window.cursor_position());
     let world_position =
         extract_some!(camera.viewport_to_world_2d(camera_transform, cursor_position));
-
-    let tilemap_data = extract_ok!(q_tilemap.get_single());
 
     let index = IVec2::new(
         (world_position.x / TILE_SIZE) as i32,
@@ -192,7 +190,7 @@ pub fn click_terrain(
                                 *task_kind,
                                 TaskNeeds::Nothing,
                                 dweller,
-                                tilemap_data,
+                                &tilemap_data,
                             )));
 
                             max_tasks = max_tasks.saturating_sub(1);
@@ -205,7 +203,7 @@ pub fn click_terrain(
                                 *task_kind,
                                 TaskNeeds::Nothing,
                                 dweller,
-                                tilemap_data,
+                                &tilemap_data,
                             );
 
                             if !task.reachable_positions.is_empty() {
@@ -225,7 +223,7 @@ pub fn click_terrain(
                                     _ => TaskNeeds::Nothing,
                                 },
                                 dweller,
-                                tilemap_data,
+                                &tilemap_data,
                             )));
 
                             max_tasks = max_tasks.saturating_sub(1);
@@ -238,7 +236,7 @@ pub fn click_terrain(
                                 *task_kind,
                                 TaskNeeds::Objects(vec![ObjectId::Wood]),
                                 dweller,
-                                tilemap_data,
+                                &tilemap_data,
                             )));
 
                             max_tasks = max_tasks.saturating_sub(1);
@@ -251,7 +249,7 @@ pub fn click_terrain(
                                 *task_kind,
                                 TaskNeeds::EmptyHands,
                                 dweller,
-                                tilemap_data,
+                                &tilemap_data,
                             )));
 
                             max_tasks = max_tasks.saturating_sub(1);
@@ -272,7 +270,7 @@ pub fn click_terrain(
                                         *task_kind,
                                         TaskNeeds::Nothing,
                                         dweller,
-                                        tilemap_data,
+                                        &tilemap_data,
                                     )));
                                 });
 
@@ -291,7 +289,7 @@ pub fn click_terrain(
                                     TaskNeeds::Impossible
                                 },
                                 dweller,
-                                tilemap_data,
+                                &tilemap_data,
                             );
 
                             task.priority(-1);
@@ -308,7 +306,7 @@ pub fn click_terrain(
                                 *task_kind,
                                 TaskNeeds::Nothing,
                                 dweller,
-                                tilemap_data,
+                                &tilemap_data,
                             );
 
                             task.priority(-1);
@@ -329,7 +327,7 @@ pub fn click_terrain(
                                 *task_kind,
                                 needs.clone(),
                                 dweller,
-                                tilemap_data,
+                                &tilemap_data,
                             )));
 
                             max_tasks = max_tasks.saturating_sub(1);
@@ -357,7 +355,7 @@ pub fn click_terrain(
                                     TaskKind::Pickup,
                                     TaskNeeds::EmptyHands,
                                     dweller,
-                                    tilemap_data,
+                                    &tilemap_data,
                                 )));
 
                                 debug!("Removing stockpile at {index:?}");

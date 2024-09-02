@@ -1,13 +1,10 @@
 use bevy::{prelude::*, tasks::IoTaskPool};
-use bevy_entitiles::{
-    prelude::*, render::material::StandardTilemapMaterial, tilemap::map::TilemapTextures,
-};
 use noise::{NoiseFn, Perlin, RidgedMulti, Simplex, Worley};
 use rand::{rngs::StdRng, Rng, SeedableRng};
 
 use crate::{
     data::{ObjectId, StructureId, TileId},
-    extract_ok, init_tilemap,
+    init_tilemap,
     tiles::TilePlaced,
     MobBundle, SaveName, SpawnDwellersOnChunk, SpawnMobsOnChunk, TilemapData, CHUNK_SIZE, SAVE_DIR,
 };
@@ -29,13 +26,11 @@ pub struct UnloadChunk(pub IVec2);
 pub fn spawn_new_terrain(
     commands: Commands,
     asset_server: Res<AssetServer>,
-    materials: ResMut<Assets<StandardTilemapMaterial>>,
-    textures: ResMut<Assets<TilemapTextures>>,
     mut ev_load_chunk: EventWriter<LoadChunk>,
     mut ev_spawn_dwellers: EventWriter<SpawnDwellersOnChunk>,
     save_name: Res<SaveName>,
 ) {
-    init_tilemap(commands, asset_server, materials, textures);
+    init_tilemap(commands, asset_server);
 
     let save_folder = format!("assets/{SAVE_DIR}/{}", save_name.0);
     std::fs::create_dir(save_folder).expect("Error while creating save folder");
@@ -48,12 +43,10 @@ pub fn load_chunks(
     mut commands: Commands,
     mut ev_load: EventReader<LoadChunk>,
     mut ev_unload: EventReader<UnloadChunk>,
-    mut q_tilemap: Query<(&mut TilemapStorage, &mut TilemapData)>,
+    mut tilemap_data: ResMut<TilemapData>,
     save_name: Res<SaveName>,
     mut ev_spawn_mobs: EventWriter<SpawnMobsOnChunk>,
 ) {
-    let (mut tilemap, mut tilemap_data) = extract_ok!(q_tilemap.get_single_mut());
-
     // Seed is based on the save name
     let seed = save_name.0.as_bytes().iter().map(|b| *b as u32).sum();
     let noise_mountains = RidgedMulti::<Perlin>::new(seed);
@@ -280,13 +273,10 @@ pub fn load_chunks(
             })
             .detach();
         tilemap_data.remove_chunk(*chunk_index);
-        tilemap.remove_chunk(&mut commands, *chunk_index);
     }
 }
 
-pub fn update_terrain(mut q_tilemap: Query<&mut TilemapData>) {
-    let mut tilemap_data = extract_ok!(q_tilemap.get_single_mut());
-
+pub fn update_terrain(mut tilemap_data: ResMut<TilemapData>) {
     let chunks = &tilemap_data.chunks.clone(); // FIXME: clone
 
     for (chunk_index, _chunk) in chunks {
