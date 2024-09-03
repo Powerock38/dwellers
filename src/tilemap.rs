@@ -293,12 +293,12 @@ impl TilemapTextures {
             TilemapTexture::Vector(textures) => textures
                 .iter()
                 .position(|t| {
-                    t.path()
-                        .unwrap()
-                        .to_string()
-                        .ends_with(format!("{folder}/{filename}.png").as_str())
+                    let paths_string = t.path().unwrap().to_string();
+
+                    paths_string.ends_with(format!("{folder}/{filename}.png").as_str())
+                        || paths_string.ends_with(format!("{folder}\\{filename}.png").as_str())
                 })
-                .unwrap_or(0) as u32,
+                .unwrap() as u32,
 
             _ => 0,
         })
