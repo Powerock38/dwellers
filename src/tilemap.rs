@@ -55,7 +55,7 @@ pub fn init_tilemap(
         }
     }
 
-    let material = materials.add(TilemapMaterial { brightness: 0.5 });
+    let material = materials.add(TilemapMaterial { brightness: 1.0 });
 
     commands.insert_resource(TilemapTextures::new(
         TilemapTexture::Vector(textures),
@@ -324,6 +324,7 @@ impl TilemapTextures {
     }
 
     fn get_atlas_index(&self, folder: &'static str, filename: &'static str) -> TileTextureIndex {
+        //TODO: memoize this
         TileTextureIndex(match &self.textures {
             TilemapTexture::Vector(textures) => textures
                 .iter()
