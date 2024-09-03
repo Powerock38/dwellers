@@ -1,11 +1,15 @@
-use bevy::prelude::*;
+use bevy::{
+    prelude::*,
+    render::render_resource::{AsBindGroup, ShaderRef},
+};
 use bevy_ecs_tilemap::{
     map::{
         TilemapGridSize, TilemapId, TilemapRenderSettings, TilemapSize, TilemapTexture,
         TilemapTileSize,
     },
+    prelude::MaterialTilemap,
     tiles::{TileBundle, TilePos, TileStorage, TileTextureIndex},
-    TilemapBundle,
+    MaterialTilemapBundle, TilemapBundle,
 };
 
 use crate::{tilemap_data::TilemapData, ObjectData, TileData};
@@ -15,13 +19,29 @@ pub const TILE_SIZE: f32 = TILE_SIZE_U as f32;
 pub const CHUNK_SIZE: u32 = 64;
 const RENDER_CHUNK_SIZE: u32 = CHUNK_SIZE * 2;
 
+#[derive(AsBindGroup, TypePath, Debug, Clone, Default, Asset)]
+pub struct TilemapMaterial {
+    #[uniform(0)]
+    brightness: f32,
+}
+
+impl MaterialTilemap for TilemapMaterial {
+    fn fragment_shader() -> ShaderRef {
+        "tilemap.wgsl".into()
+    }
+}
+
 #[derive(Component)]
 pub struct ChunkTileLayer;
 
 #[derive(Component)]
 pub struct ChunkObjectLayer;
 
-pub fn init_tilemap(mut commands: Commands, asset_server: Res<AssetServer>) {
+pub fn init_tilemap(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut materials: ResMut<Assets<TilemapMaterial>>,
+) {
     commands.insert_resource(TilemapData::default());
 
     let mut textures = Vec::new();
@@ -35,7 +55,12 @@ pub fn init_tilemap(mut commands: Commands, asset_server: Res<AssetServer>) {
         }
     }
 
-    commands.insert_resource(TilemapTextures::new(TilemapTexture::Vector(textures)));
+    let material = materials.add(TilemapMaterial { brightness: 0.5 });
+
+    commands.insert_resource(TilemapTextures::new(
+        TilemapTexture::Vector(textures),
+        material,
+    ));
 }
 
 pub fn manage_chunks(
@@ -97,11 +122,20 @@ pub fn manage_chunks(
 
         commands.entity(tile_layer_entity).insert((
             ChunkTileLayer,
-            new_tilemap(
-                tilemap_textures.textures.clone(),
-                tile_storage,
-                pos.extend(0.0),
-            ),
+            MaterialTilemapBundle {
+                material: tilemap_textures.material.clone(),
+                grid_size: TilemapGridSize::new(TILE_SIZE, TILE_SIZE),
+                size: TilemapSize::new(CHUNK_SIZE, CHUNK_SIZE),
+                storage: tile_storage,
+                texture: tilemap_textures.textures.clone(),
+                tile_size: TilemapTileSize::new(TILE_SIZE, TILE_SIZE),
+                transform: Transform::from_translation(pos.extend(0.0)),
+                render_settings: TilemapRenderSettings {
+                    render_chunk_size: UVec2::splat(RENDER_CHUNK_SIZE),
+                    ..default()
+                },
+                ..default()
+            },
         ));
 
         // Object layer
@@ -272,11 +306,12 @@ pub fn update_tilemap_from_data(
 #[derive(Resource)]
 pub struct TilemapTextures {
     pub textures: TilemapTexture,
+    pub material: Handle<TilemapMaterial>,
 }
 
 impl TilemapTextures {
-    pub fn new(textures: TilemapTexture) -> Self {
-        Self { textures }
+    pub fn new(textures: TilemapTexture, material: Handle<TilemapMaterial>) -> Self {
+        Self { textures, material }
     }
 
     pub fn get_atlas_index_tile(&self, tile: TileData) -> TileTextureIndex {

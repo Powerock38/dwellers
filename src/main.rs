@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use bevy::{log::LogPlugin, prelude::*, time::common_conditions::on_timer};
-use bevy_ecs_tilemap::TilemapPlugin;
+use bevy_ecs_tilemap::{prelude::MaterialTilemapPlugin, TilemapPlugin};
 use rand::{distributions::Alphanumeric, Rng};
 
 use crate::{
@@ -99,5 +99,6 @@ fn main() {
         }))
         .init_resource::<CurrentAction>()
         .init_resource::<DwellersSelected>()
+        .add_plugins(MaterialTilemapPlugin::<TilemapMaterial>::default())
         .run();
 }
