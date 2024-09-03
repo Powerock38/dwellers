@@ -11,7 +11,8 @@ use crate::{
     data::{ObjectId, TileId, WORKSTATIONS},
     dwellers::Dweller,
     mobs::Mob,
-    tilemap::{TilemapData, TILE_SIZE},
+    tilemap::TILE_SIZE,
+    tilemap_data::TilemapData,
     tiles::TilePlaced,
     SpriteLoaderBundle,
 };

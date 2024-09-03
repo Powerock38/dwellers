@@ -7,8 +7,8 @@ use bevy::{
 };
 
 use crate::{
-    init_tilemap, tilemap::TilemapData, ChunkObjectLayer, ChunkTileLayer, Dweller, GameState, Mob,
-    Task, UnloadChunk,
+    init_tilemap, tilemap_data::TilemapData, ChunkObjectLayer, ChunkTileLayer, Dweller, GameState,
+    Mob, Task, UnloadChunk,
 };
 
 pub const SAVE_DIR: &str = "saves";

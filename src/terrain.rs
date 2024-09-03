@@ -5,8 +5,9 @@ use rand::{rngs::StdRng, Rng, SeedableRng};
 use crate::{
     data::{ObjectId, StructureId, TileId},
     init_tilemap,
+    tilemap_data::TilemapData,
     tiles::TilePlaced,
-    MobBundle, SaveName, SpawnDwellersOnChunk, SpawnMobsOnChunk, TilemapData, CHUNK_SIZE, SAVE_DIR,
+    MobBundle, SaveName, SpawnDwellersOnChunk, SpawnMobsOnChunk, CHUNK_SIZE, SAVE_DIR,
 };
 
 const CLIMATE_NOISE_SCALE: f64 = 0.01;

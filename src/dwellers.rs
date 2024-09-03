@@ -5,7 +5,8 @@ use crate::{
     data::ObjectId,
     random_text::{generate_word, NAMES},
     tasks::{BuildResult, Task, TaskCompletionEvent, TaskKind, TaskNeeds},
-    tilemap::{TilemapData, TILE_SIZE},
+    tilemap::TILE_SIZE,
+    tilemap_data::TilemapData,
     LoadChunk, SpriteLoaderBundle, UnloadChunk, CHUNK_SIZE,
 };
 

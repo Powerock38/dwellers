@@ -21,6 +21,7 @@ mod structures;
 mod tasks;
 mod terrain;
 mod tilemap;
+mod tilemap_data;
 mod tiles;
 mod ui;
 mod utils;

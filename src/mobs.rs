@@ -3,7 +3,8 @@ use rand::prelude::*;
 
 use crate::{
     data::{MobId, ObjectId},
-    tilemap::{TilemapData, TILE_SIZE},
+    tilemap::TILE_SIZE,
+    tilemap_data::TilemapData,
     SpriteLoaderBundle, CHUNK_SIZE,
 };
 

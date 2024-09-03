@@ -5,7 +5,8 @@ use crate::{
     extract_ok, extract_some,
     mobs::Mob,
     tasks::{Task, TaskBundle, TaskKind, TaskNeeds},
-    tilemap::{TilemapData, TILE_SIZE},
+    tilemap_data::TilemapData,
+    tilemap::TILE_SIZE,
     Dweller, DwellersSelected,
 };
 
