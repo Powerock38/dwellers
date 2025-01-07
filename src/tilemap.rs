@@ -123,7 +123,7 @@ pub fn manage_chunks(
         commands.entity(tile_layer_entity).insert((
             ChunkTileLayer,
             MaterialTilemapBundle {
-                material: tilemap_textures.material.clone(),
+                material: tilemap_textures.material.clone().into(),
                 grid_size: TilemapGridSize::new(TILE_SIZE, TILE_SIZE),
                 size: TilemapSize::new(CHUNK_SIZE, CHUNK_SIZE),
                 storage: tile_storage,

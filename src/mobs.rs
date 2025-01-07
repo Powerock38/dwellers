@@ -5,7 +5,7 @@ use crate::{
     data::{MobId, ObjectId},
     tilemap::TILE_SIZE,
     tilemap_data::TilemapData,
-    SpriteLoaderBundle, CHUNK_SIZE,
+    SpriteLoader, CHUNK_SIZE,
 };
 
 const Z_INDEX: f32 = 11.0;
@@ -40,7 +40,8 @@ pub struct Mob {
 #[derive(Bundle)]
 pub struct MobBundle {
     mob: Mob,
-    sprite: SpriteLoaderBundle,
+    sprite: SpriteLoader,
+    transform: Transform,
 }
 
 impl MobBundle {
@@ -51,8 +52,10 @@ impl MobBundle {
                 loot: id.data().loot,
                 move_queue: Vec::new(),
             },
-            sprite: SpriteLoaderBundle::new(
-                format!("sprites/{}.png", id.data().sprite_name),
+            sprite: SpriteLoader {
+                texture_path: format!("sprites/{}.png", id.data().sprite_name),
+            },
+            transform: Transform::from_xyz(
                 index.x as f32 * TILE_SIZE,
                 index.y as f32 * TILE_SIZE,
                 Z_INDEX,
@@ -150,14 +153,14 @@ pub fn update_mobs_movement(
 
             let direction = target - transform.translation.truncate();
 
-            if direction.length() < mob.speed * time.delta_seconds() {
+            if direction.length() < mob.speed * time.delta_secs() {
                 transform.translation.x = target.x;
                 transform.translation.y = target.y;
                 mob.move_queue.pop();
             } else {
                 let dir = direction.normalize();
-                transform.translation.x += dir.x * mob.speed * time.delta_seconds();
-                transform.translation.y += dir.y * mob.speed * time.delta_seconds();
+                transform.translation.x += dir.x * mob.speed * time.delta_secs();
+                transform.translation.y += dir.y * mob.speed * time.delta_secs();
 
                 sprite.flip_x = dir.x < 0.0;
             }

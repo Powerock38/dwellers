@@ -21,7 +21,7 @@ impl Default for CameraControl {
 }
 
 pub fn spawn_camera(mut commands: Commands) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 }
 
 pub fn update_camera(
@@ -40,10 +40,10 @@ pub fn update_camera(
     if input_mouse.pressed(MouseButton::Right) {
         for ev in event_move.read() {
             control.target_pos +=
-                projection.scale * ev.delta * time.delta_seconds() * 200. * Vec2::new(-1., 1.);
+                projection.scale * ev.delta * time.delta_secs() * 200. * Vec2::new(-1., 1.);
         }
     } else {
-        let mut step = 270. * time.delta_seconds();
+        let mut step = 270. * time.delta_secs();
         if input_keyboard.pressed(KeyCode::ShiftLeft) {
             step *= 2.;
         }
@@ -69,9 +69,7 @@ pub fn update_camera(
 
     let target = control.target_pos.extend(0.);
     if transform.translation.distance_squared(target) > 0.01 {
-        transform.translation = transform
-            .translation
-            .lerp(target, 40. * time.delta_seconds());
+        transform.translation = transform.translation.lerp(target, 40. * time.delta_secs());
     }
 
     for ev in event_wheel.read() {
@@ -81,7 +79,7 @@ pub fn update_camera(
 
     if (projection.scale - control.target_scale).abs() > 0.01 {
         projection.scale = projection.scale
-            + ((control.target_scale - projection.scale) * 20. * time.delta_seconds());
+            + ((control.target_scale - projection.scale) * 20. * time.delta_secs());
     }
     event_move.clear();
 }

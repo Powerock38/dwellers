@@ -7,7 +7,7 @@ use crate::{
     tasks::{BuildResult, Task, TaskCompletionEvent, TaskKind, TaskNeeds},
     tilemap::TILE_SIZE,
     tilemap_data::TilemapData,
-    LoadChunk, SpriteLoaderBundle, UnloadChunk, CHUNK_SIZE,
+    LoadChunk, SpriteLoader, UnloadChunk, CHUNK_SIZE,
 };
 
 const LOAD_CHUNKS_RADIUS: i32 = 1;
@@ -25,12 +25,6 @@ pub struct Dweller {
     speed: f32,
     move_queue: Vec<IVec2>, // next move is at the end
     pub object: Option<ObjectId>,
-}
-
-#[derive(Bundle)]
-pub struct DwellerBundle {
-    dweller: Dweller,
-    sprite: SpriteLoaderBundle,
 }
 
 #[derive(Resource, Default)]
@@ -106,35 +100,34 @@ pub fn spawn_dwellers(
             let sprite_i = rng.gen_range(1..=4);
 
             commands
-                .spawn(DwellerBundle {
-                    sprite: SpriteLoaderBundle::new(
-                        format!("sprites/dweller{sprite_i}.png"),
-                        spawn_pos.x as f32 * TILE_SIZE,
-                        spawn_pos.y as f32 * TILE_SIZE,
-                        Z_INDEX,
-                    ),
-                    dweller: Dweller {
+                .spawn((
+                    Dweller {
                         name: name.to_string(),
                         speed: SPEED,
                         move_queue: vec![],
                         object: None,
                     },
-                })
+                    SpriteLoader {
+                        texture_path: format!("sprites/dweller{sprite_i}.png"),
+                    },
+                    Transform::from_xyz(
+                        spawn_pos.x as f32 * TILE_SIZE,
+                        spawn_pos.y as f32 * TILE_SIZE,
+                        Z_INDEX,
+                    ),
+                ))
                 .with_children(|c| {
-                    c.spawn(Text2dBundle {
-                        text: Text::from_section(
-                            name,
-                            TextStyle {
-                                font_size: 16.0,
-                                color: Color::WHITE,
-                                ..default()
-                            },
-                        ),
-                        text_anchor: Anchor::BottomCenter,
-                        transform: Transform::from_scale(Vec3::splat(0.5))
-                            .with_translation(Vec3::new(TILE_SIZE / 2.0, TILE_SIZE, 1.0)),
-                        ..default()
-                    });
+                    c.spawn((
+                        Text2d::new(name),
+                        TextFont::from_font_size(16.0),
+                        TextColor(Color::WHITE),
+                        Transform::from_scale(Vec3::splat(0.5)).with_translation(Vec3::new(
+                            TILE_SIZE / 2.0,
+                            TILE_SIZE,
+                            1.0,
+                        )),
+                        Anchor::BottomCenter,
+                    ));
                 });
         }
     }
@@ -278,14 +271,14 @@ pub fn update_dwellers_movement(
 
             let direction = target - transform.translation.truncate();
 
-            if direction.length() < dweller.speed * time.delta_seconds() {
+            if direction.length() < dweller.speed * time.delta_secs() {
                 transform.translation.x = target.x;
                 transform.translation.y = target.y;
                 dweller.move_queue.pop();
             } else {
                 let dir = direction.normalize();
-                transform.translation.x += dir.x * dweller.speed * time.delta_seconds();
-                transform.translation.y += dir.y * dweller.speed * time.delta_seconds();
+                transform.translation.x += dir.x * dweller.speed * time.delta_secs();
+                transform.translation.y += dir.y * dweller.speed * time.delta_secs();
 
                 sprite.flip_x = dir.x < 0.0;
             }

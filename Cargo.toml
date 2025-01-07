@@ -4,12 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-bevy = "0.14.1"
-bevy-inspector-egui = "0.25.2"
-bevy_ecs_tilemap = "0.14.0"
+bevy = "0.15.1"
+bevy_ecs_tilemap = "0.15.0"
 bitcode = "0.6.3"
 noise = "0.9.0"
-pathfinding = "4.10.0"
+pathfinding = "4.13.0"
 rand = "0.8.5"
 
 [features]
@@ -33,3 +32,25 @@ match_wildcard_for_single_variants = "allow"
 single_match = "allow"
 used_underscore_binding = "allow"
 unnecessary_wraps = "allow"
+
+
+# Dev optimizations
+
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
+
+
+# Release optimizations
+
+[profile.release]
+codegen-units = 1
+lto = "thin"
+
+[profile.wasm-release]
+inherits = "release"
+opt-level = "s"      # Optimize with size in mind (also try "z", sometimes it is better).
+strip = "debuginfo"
+# also try wasm-opt -Os

@@ -14,7 +14,7 @@ use crate::{
     tilemap::TILE_SIZE,
     tilemap_data::TilemapData,
     tiles::TilePlaced,
-    SpriteLoaderBundle,
+    SpriteLoader,
 };
 
 const Z_INDEX: f32 = 2.0;
@@ -67,7 +67,7 @@ impl TaskKind {
                 !tile.id.data().is_wall()
                     && tile
                         .object
-                        .map_or(false, |object| object.data().is_carriable())
+                        .is_some_and(|object| object.data().is_carriable())
             }
             TaskKind::Hunt => true,
             TaskKind::Stockpile => {
@@ -78,7 +78,7 @@ impl TaskKind {
             }
             TaskKind::Workstation => tile
                 .object
-                .map_or(false, |object| WORKSTATIONS.contains_key(&object)),
+                .is_some_and(|object| WORKSTATIONS.contains_key(&object)),
             TaskKind::Walk => !tile.is_blocking(),
         }
     }
@@ -102,7 +102,8 @@ pub enum BuildResult {
 #[derive(Bundle)]
 pub struct TaskBundle {
     pub task: Task,
-    pub sprite: SpriteLoaderBundle,
+    pub sprite: SpriteLoader,
+    pub transform: Transform,
 }
 
 impl TaskBundle {
@@ -122,7 +123,8 @@ impl TaskBundle {
 
         Self {
             task,
-            sprite: SpriteLoaderBundle::new(texture_path, x, y, Z_INDEX),
+            sprite: SpriteLoader { texture_path },
+            transform: Transform::from_xyz(x, y, Z_INDEX),
         }
     }
 }
@@ -638,7 +640,7 @@ pub fn event_task_completion(
             if matches!(task.kind, TaskKind::Stockpile)
                 && tilemap_data
                     .get(task.pos)
-                    .map_or(false, TilePlaced::is_floor_free)
+                    .is_some_and(TilePlaced::is_floor_free)
             {
                 task.needs = TaskNeeds::AnyObject;
             }
@@ -651,7 +653,7 @@ pub fn event_task_completion(
             if matches!(task.kind, TaskKind::Workstation { .. })
                 && tilemap_data
                     .get(task.pos)
-                    .map_or(false, TilePlaced::is_floor_free)
+                    .is_some_and(TilePlaced::is_floor_free)
             {
                 commands.entity(entity).despawn_recursive();
             }
@@ -693,7 +695,7 @@ pub fn update_pickups(
 
                         let not_working_on_task_that_needs_it =
                         !q_tasks.iter().any(|t| {
-                            t.dweller == Some(entity_dweller) && matches!(&t.needs, TaskNeeds::Objects(objects) if objects.iter().any(|object| dweller.object.map_or(false, |dweller_object| dweller_object == *object) ))
+                            t.dweller == Some(entity_dweller) && matches!(&t.needs, TaskNeeds::Objects(objects) if objects.iter().any(|object| dweller.object == Some(*object) ))
                         });
 
                         has_object && not_working_on_task_that_needs_it

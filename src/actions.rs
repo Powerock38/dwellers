@@ -5,8 +5,8 @@ use crate::{
     extract_ok, extract_some,
     mobs::Mob,
     tasks::{Task, TaskBundle, TaskKind, TaskNeeds},
-    tilemap_data::TilemapData,
     tilemap::TILE_SIZE,
+    tilemap_data::TilemapData,
     Dweller, DwellersSelected,
 };
 
@@ -92,7 +92,7 @@ pub fn click_terrain(
     let window = extract_ok!(q_windows.get_single());
     let cursor_position = extract_some!(window.cursor_position());
     let world_position =
-        extract_some!(camera.viewport_to_world_2d(camera_transform, cursor_position));
+        extract_ok!(camera.viewport_to_world_2d(camera_transform, cursor_position));
 
     let index = IVec2::new(
         (world_position.x / TILE_SIZE) as i32,
@@ -106,12 +106,17 @@ pub fn click_terrain(
         let center = (from + to) / 2. + TILE_SIZE / 2.;
         let size = (to - from).abs() + TILE_SIZE / 2.;
 
-        gizmos.rect_2d(center, 0., size, Color::WHITE);
+        gizmos.rect_2d(center, size, Color::WHITE);
     }
 
     if mouse_input.just_pressed(MouseButton::Left) {
         // Start selection
         current_action.index_start = Some(index);
+    }
+
+    if mouse_input.just_pressed(MouseButton::Right) {
+        // Cancel selection
+        current_action.index_start = None;
     }
 
     if mouse_input.just_released(MouseButton::Left) {

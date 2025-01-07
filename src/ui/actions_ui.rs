@@ -10,38 +10,27 @@ pub struct DwellersSelectedUi;
 
 pub fn spawn_ui(mut commands: Commands) {
     commands
-        .spawn(NodeBundle {
-            style: Style {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                flex_direction: FlexDirection::Column,
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::FlexEnd,
-                row_gap: Val::Px(10.0),
-                ..default()
-            },
+        .spawn(Node {
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            flex_direction: FlexDirection::Column,
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::FlexEnd,
+            row_gap: Val::Px(10.0),
             ..default()
         })
         .with_children(|c| {
             c.spawn((
                 DwellersSelectedUi,
-                TextBundle::from_section(
-                    "",
-                    TextStyle {
-                        font_size: 20.0,
-                        color: Color::srgb(0.9, 0.9, 0.9),
-                        ..default()
-                    },
-                ),
+                Text::new(""),
+                TextFont::from_font_size(20.0),
+                TextColor(Color::srgb(0.9, 0.9, 0.9)),
             ));
 
-            c.spawn(NodeBundle {
-                style: Style {
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Center,
-                    column_gap: Val::Px(10.0),
-                    ..default()
-                },
+            c.spawn(Node {
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                column_gap: Val::Px(10.0),
                 ..default()
             })
             .with_children(|c| {
@@ -57,13 +46,10 @@ pub fn spawn_ui(mut commands: Commands) {
                 }
             });
 
-            c.spawn(NodeBundle {
-                style: Style {
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Center,
-                    column_gap: Val::Px(10.0),
-                    ..default()
-                },
+            c.spawn(Node {
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                column_gap: Val::Px(10.0),
                 ..default()
             })
             .with_children(|c| {
@@ -94,7 +80,7 @@ pub fn update_dwellers_selected(
     if dwellers_selected.is_changed() {
         let mut dwellers_selected_ui = extract_ok!(q_dwellers_selected_ui.get_single_mut());
 
-        dwellers_selected_ui.sections[0].value = dwellers_selected
+        dwellers_selected_ui.0 = dwellers_selected
             .list()
             .iter()
             .filter_map(|e| q_dwellers.get(*e).ok().map(|d| d.name.clone()))

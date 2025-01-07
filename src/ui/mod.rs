@@ -8,15 +8,25 @@ use crate::{
 mod actions_ui;
 pub use actions_ui::*;
 
-pub fn init_font(asset_server: Res<AssetServer>, mut query: Query<&mut Text, Added<Text>>) {
-    for mut text in &mut query {
-        for section in &mut text.sections {
-            section.style.font = asset_server.load("alagard.ttf");
-        }
+pub fn init_font(asset_server: Res<AssetServer>, mut query: Query<&mut TextFont, Added<TextFont>>) {
+    for mut font in &mut query {
+        font.font = asset_server.load("alagard.ttf");
     }
 }
 
 #[derive(Component)]
+#[require(
+    Button,
+    Node(|| Node {
+        padding: UiRect::all(Val::Px(5.0)),
+        border: UiRect::all(Val::Px(4.0)),
+        justify_content: JustifyContent::Center,
+        align_items: AlignItems::Center,
+        ..default()
+    }),
+    BorderColor(|| BorderColor(Color::BLACK)),
+    BackgroundColor(|| BackgroundColor(UiButton::NORMAL))
+)]
 pub enum UiButton {
     Action(ActionKind),
     SaveGame,
@@ -30,67 +40,23 @@ impl UiButton {
 }
 
 pub fn build_ui_button(c: &mut ChildBuilder, ui_button: UiButton, text: impl Into<String>) {
-    c.spawn((
-        ui_button,
-        ButtonBundle {
-            style: Style {
-                padding: UiRect::all(Val::Px(5.0)),
-                border: UiRect::all(Val::Px(2.0)),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                ..default()
-            },
-            border_color: BorderColor(Color::BLACK),
-            background_color: UiButton::NORMAL.into(),
-            ..default()
-        },
-    ))
-    .with_children(|c| {
-        c.spawn(TextBundle::from_section(
-            text,
-            TextStyle {
-                font_size: 20.0,
-                color: Color::srgb(0.9, 0.9, 0.9),
-                ..default()
-            },
-        ));
+    c.spawn(ui_button).with_children(|c| {
+        c.spawn((Text::new(text), TextFont::from_font_size(20.0)));
     });
 }
 
 #[derive(Component)]
+#[require(
+    Node(|| Node {
+        width: Val::Percent(100.),
+        height: Val::Percent(100.),
+        flex_direction: FlexDirection::Column,
+        padding: UiRect::all(Val::Px(10.)),
+        ..default()
+    }),
+    BackgroundColor(|| Color::srgba(0.1, 0.1, 0.1, 0.5))
+)]
 pub struct UiWindow;
-
-#[derive(Bundle)]
-pub struct UiWindowBundle {
-    ui_window: UiWindow,
-    node: NodeBundle,
-}
-
-impl UiWindowBundle {
-    pub fn with_row_gap(mut self, val: Val) -> Self {
-        self.node.style.row_gap = val;
-        self
-    }
-}
-
-impl Default for UiWindowBundle {
-    fn default() -> Self {
-        Self {
-            ui_window: UiWindow,
-            node: NodeBundle {
-                style: Style {
-                    width: Val::Percent(100.),
-                    height: Val::Percent(100.),
-                    flex_direction: FlexDirection::Column,
-                    padding: UiRect::all(Val::Px(10.)),
-                    ..default()
-                },
-                background_color: Color::srgba(0.1, 0.1, 0.1, 0.5).into(),
-                ..default()
-            },
-        }
-    }
-}
 
 pub fn update_ui_buttons(
     mut commands: Commands,

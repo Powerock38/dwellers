@@ -14,7 +14,7 @@ impl TilePlaced {
         self.id.data().is_wall()
             || self
                 .object
-                .map_or(false, |o| ObjectId::data(&o).is_blocking())
+                .is_some_and(|o| ObjectId::data(&o).is_blocking())
     }
 
     pub fn is_floor_free(self) -> bool {

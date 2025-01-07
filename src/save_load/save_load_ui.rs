@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::{build_ui_button, GameState, SaveName, UiButton, UiWindow, UiWindowBundle, SAVE_DIR};
+use crate::{build_ui_button, GameState, SaveName, UiButton, UiWindow, SAVE_DIR};
 
 pub fn spawn_load_save_ui(
     mut commands: Commands,
@@ -14,37 +14,33 @@ pub fn spawn_load_save_ui(
             commands.entity(window).despawn_recursive();
             next_state.set(GameState::Running);
         } else {
-            commands
-                .spawn(UiWindowBundle::default().with_row_gap(Val::Px(10.0)))
-                .with_children(|c| {
-                    // Save button
-                    build_ui_button(c, UiButton::SaveGame, format!("Save {}", save_name.0));
+            commands.spawn(UiWindow).with_children(|c| {
+                // Save button
+                build_ui_button(c, UiButton::SaveGame, format!("Save {}", save_name.0));
 
-                    // Saves list
-                    if let Ok(save_files) =
-                        std::fs::read_dir(format!("assets/{SAVE_DIR}")).map(|dir| {
-                            let mut saves = dir
-                                .filter_map(|entry| {
-                                    entry
-                                        .ok()
-                                        .filter(|entry| {
-                                            entry.file_type().ok().map_or(false, |ft| ft.is_dir())
-                                        })
-                                        .and_then(|entry| entry.file_name().into_string().ok())
+                // Saves list
+                if let Ok(save_files) = std::fs::read_dir(format!("assets/{SAVE_DIR}")).map(|dir| {
+                    let mut saves = dir
+                        .filter_map(|entry| {
+                            entry
+                                .ok()
+                                .filter(|entry| {
+                                    entry.file_type().ok().is_some_and(|ft| ft.is_dir())
                                 })
-                                .collect::<Vec<_>>();
-
-                            saves.sort_by(|a, b| b.cmp(a));
-                            saves
+                                .and_then(|entry| entry.file_name().into_string().ok())
                         })
-                    {
-                        for save_file in save_files {
-                            build_ui_button(c, UiButton::LoadGame(save_file.clone()), save_file);
-                        }
-                    } else {
-                        error!("Failed to read save files");
+                        .collect::<Vec<_>>();
+
+                    saves.sort_by(|a, b| b.cmp(a));
+                    saves
+                }) {
+                    for save_file in save_files {
+                        build_ui_button(c, UiButton::LoadGame(save_file.clone()), save_file);
                     }
-                });
+                } else {
+                    error!("Failed to read save files");
+                }
+            });
 
             next_state.set(GameState::Paused);
         }
