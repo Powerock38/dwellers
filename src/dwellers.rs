@@ -99,37 +99,42 @@ pub fn spawn_dwellers(
 
             let sprite_i = rng.gen_range(1..=4);
 
-            commands
-                .spawn((
-                    Dweller {
-                        name: name.to_string(),
-                        speed: SPEED,
-                        move_queue: vec![],
-                        object: None,
-                    },
-                    SpriteLoader {
-                        texture_path: format!("sprites/dweller{sprite_i}.png"),
-                    },
-                    Transform::from_xyz(
-                        spawn_pos.x as f32 * TILE_SIZE,
-                        spawn_pos.y as f32 * TILE_SIZE,
-                        Z_INDEX,
-                    ),
-                ))
-                .with_children(|c| {
-                    c.spawn((
-                        Text2d::new(name),
-                        TextFont::from_font_size(16.0),
-                        TextColor(Color::WHITE),
-                        Transform::from_scale(Vec3::splat(0.5)).with_translation(Vec3::new(
-                            TILE_SIZE / 2.0,
-                            TILE_SIZE,
-                            1.0,
-                        )),
-                        Anchor::BottomCenter,
-                    ));
-                });
+            commands.spawn((
+                Dweller {
+                    name: name.to_string(),
+                    speed: SPEED,
+                    move_queue: vec![],
+                    object: None,
+                },
+                SpriteLoader {
+                    texture_path: format!("sprites/dweller{sprite_i}.png"),
+                },
+                Transform::from_xyz(
+                    spawn_pos.x as f32 * TILE_SIZE,
+                    spawn_pos.y as f32 * TILE_SIZE,
+                    Z_INDEX,
+                ),
+            ));
         }
+    }
+}
+
+pub fn spawn_dwellers_name(
+    mut commands: Commands,
+    q_dwellers: Query<(&Dweller, Entity), Added<Dweller>>,
+) {
+    for (dweller, entity) in &q_dwellers {
+        commands.entity(entity).with_child((
+            Text2d::new(dweller.name.clone()),
+            TextFont::from_font_size(16.0),
+            TextColor(Color::WHITE),
+            Transform::from_scale(Vec3::splat(0.5)).with_translation(Vec3::new(
+                TILE_SIZE / 2.0,
+                TILE_SIZE,
+                1.0,
+            )),
+            Anchor::BottomCenter,
+        ));
     }
 }
 
@@ -176,9 +181,22 @@ pub fn update_dwellers(
         }
 
         // Get a new task
-        // FIXME: dwellers first in the loop can "steal" a task far away from them from a dweller that is closer
         let task_path = q_tasks
             .iter_mut()
+            // Sort by distance to task (can't simply use sort_by_key because f32 doesn't implement Ord)
+            .sort_by::<&Task>(|task1, task2| {
+                task1
+                    .pos
+                    .as_vec2()
+                    .distance_squared(transform.translation.truncate())
+                    .partial_cmp(
+                        &task2
+                            .pos
+                            .as_vec2()
+                            .distance_squared(transform.translation.truncate()),
+                    )
+                    .unwrap()
+            })
             .filter_map(|(_, mut task)| {
                 if task.dweller.is_none()
                     && !task.reachable_positions.is_empty()

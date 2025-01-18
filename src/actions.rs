@@ -95,8 +95,8 @@ pub fn click_terrain(
         extract_ok!(camera.viewport_to_world_2d(camera_transform, cursor_position));
 
     let index = IVec2::new(
-        (world_position.x / TILE_SIZE) as i32,
-        (world_position.y / TILE_SIZE) as i32,
+        (world_position.x / TILE_SIZE).floor() as i32,
+        (world_position.y / TILE_SIZE).floor() as i32,
     );
 
     if let Some(index_start) = current_action.index_start {
@@ -320,7 +320,7 @@ pub fn click_terrain(
                             commands.spawn(TaskBundle::new(task));
 
                             max_tasks = max_tasks.saturating_sub(1);
-                            debug!("Going there task at {index:?}");
+                            debug!("Walk task at {index:?}");
                         }
 
                         TaskKind::Workstation { .. } | TaskKind::Build { .. } => {}
@@ -349,8 +349,8 @@ pub fn click_terrain(
                         {
                             commands.entity(entity_task).despawn();
 
-                            // if we are cancelling a stockpile task, mark item for pickup (if not already marked)
-                            if task.kind == TaskKind::Stockpile
+                            // if we are cancelling a Stockpile or Workstation task, mark object for pickup (if not already marked)
+                            if matches!(task.kind, TaskKind::Stockpile | TaskKind::Workstation)
                                 && TaskKind::Pickup.is_valid_on_tile(tile)
                                 && !q_tasks.iter().any(|(_, task)| {
                                     task.kind == TaskKind::Pickup && task.pos == index
@@ -364,7 +364,7 @@ pub fn click_terrain(
                                     &tilemap_data,
                                 )));
 
-                                debug!("Removing stockpile at {index:?}");
+                                debug!("Cancelling stockpile/workstation at {index:?} and marking object for pickup");
                             } else {
                                 debug!("Cancelling task at {index:?}");
                             }

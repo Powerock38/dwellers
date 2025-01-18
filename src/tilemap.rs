@@ -1,6 +1,7 @@
 use bevy::{
     prelude::*,
     render::render_resource::{AsBindGroup, ShaderRef},
+    utils::HashMap,
 };
 use bevy_ecs_tilemap::{
     map::{
@@ -206,7 +207,7 @@ pub fn update_tilemap_from_data(
         (With<ChunkObjectLayer>, Without<ChunkTileLayer>),
     >,
     mut tilemap_data: ResMut<TilemapData>,
-    tilemap_textures: Res<TilemapTextures>,
+    mut tilemap_textures: ResMut<TilemapTextures>,
 ) {
     let tiles_to_spawn = tilemap_data.tiles_to_spawn.drain(..).collect::<Vec<_>>();
 
@@ -307,36 +308,52 @@ pub fn update_tilemap_from_data(
 pub struct TilemapTextures {
     pub textures: TilemapTexture,
     pub material: Handle<TilemapMaterial>,
+    cache: HashMap<(&'static str, &'static str), TileTextureIndex>,
 }
 
 impl TilemapTextures {
     pub fn new(textures: TilemapTexture, material: Handle<TilemapMaterial>) -> Self {
-        Self { textures, material }
+        Self {
+            textures,
+            material,
+            cache: HashMap::default(),
+        }
     }
 
-    pub fn get_atlas_index_tile(&self, tile: TileData) -> TileTextureIndex {
+    pub fn get_atlas_index_tile(&mut self, tile: TileData) -> TileTextureIndex {
         let folder = if tile.is_wall() { "walls" } else { "floors" };
         self.get_atlas_index(folder, tile.filename())
     }
 
-    pub fn get_atlas_index_object(&self, object: ObjectData) -> TileTextureIndex {
+    pub fn get_atlas_index_object(&mut self, object: ObjectData) -> TileTextureIndex {
         self.get_atlas_index("objects", object.filename())
     }
 
-    fn get_atlas_index(&self, folder: &'static str, filename: &'static str) -> TileTextureIndex {
-        //TODO: memoize this
-        TileTextureIndex(match &self.textures {
+    fn get_atlas_index(
+        &mut self,
+        folder: &'static str,
+        filename: &'static str,
+    ) -> TileTextureIndex {
+        if let Some(index) = self.cache.get(&(folder, filename)) {
+            return *index;
+        }
+
+        debug!("Loading texture: {folder}/{filename}");
+
+        let index = TileTextureIndex(match &self.textures {
             TilemapTexture::Vector(textures) => textures
                 .iter()
                 .position(|t| {
                     let paths_string = t.path().unwrap().to_string();
-
                     paths_string.ends_with(format!("{folder}/{filename}.png").as_str())
                         || paths_string.ends_with(format!("{folder}\\{filename}.png").as_str())
                 })
                 .unwrap() as u32,
 
             _ => 0,
-        })
+        });
+
+        self.cache.insert((folder, filename), index);
+        index
     }
 }

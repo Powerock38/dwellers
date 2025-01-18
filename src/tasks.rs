@@ -39,28 +39,24 @@ pub enum TaskKind {
 impl TaskKind {
     pub fn is_valid_on_tile(self, tile: TilePlaced) -> bool {
         match self {
-            TaskKind::Dig => {
-                tile.id == TileId::DirtWall
-                    || tile.id == TileId::StoneWall
-                    || tile.id == TileId::DungeonWall
-            }
-            TaskKind::Smoothen => {
-                tile.id == TileId::DirtWall
-                    || tile.id == TileId::StoneWall
-                    || tile.id == TileId::StoneFloor
-            }
-            TaskKind::Harvest => {
-                matches!(
-                    tile.object,
-                    Some(
-                        ObjectId::Tree
-                            | ObjectId::PalmTree
-                            | ObjectId::Cactus
-                            | ObjectId::TallGrass
-                            | ObjectId::WheatPlant
-                    )
+            TaskKind::Dig => matches!(
+                tile.id,
+                TileId::DirtWall | TileId::StoneWall | TileId::DungeonWall | TileId::WoodWall
+            ),
+            TaskKind::Smoothen => matches!(
+                tile.id,
+                TileId::DirtWall | TileId::StoneWall | TileId::StoneFloor
+            ),
+            TaskKind::Harvest => matches!(
+                tile.object,
+                Some(
+                    ObjectId::Tree
+                        | ObjectId::PalmTree
+                        | ObjectId::Cactus
+                        | ObjectId::TallGrass
+                        | ObjectId::WheatPlant
                 )
-            }
+            ),
             TaskKind::Bridge => tile.id == TileId::Water,
             TaskKind::Build { .. } => !tile.id.data().is_wall() && tile.object.is_none(),
             TaskKind::Pickup => {
@@ -312,12 +308,15 @@ pub fn event_task_completion(
 
         let mut success = false;
 
+        // just to be sure
         if !task.kind.is_valid_on_tile(tile) {
             error!("SHOULD NEVER HAPPEN: removing invalid task {task:?} on tile {tile:?}");
             commands.entity(entity).despawn_recursive();
             continue;
         }
 
+        // Apply task, set success to true
+        // if success, TaskNeeds are handled after
         match task.kind {
             TaskKind::Dig => {
                 let object = if let Some(object) = tile.object {
@@ -437,7 +436,17 @@ pub fn event_task_completion(
 
             TaskKind::Build { result } => {
                 match &task.needs {
-                    TaskNeeds::Objects(objects) if objects.len() > 1 => {
+                    // If Build needs more than one object,
+                    // and is not being directly completed with the goal object,
+                    // do not complete the task (yet)
+                    //FIXME: if TaskNeeds objects have already been consumed, the task should not be completable with the goal object (as it would waste the needed objects).
+                    TaskNeeds::Objects(objects)
+                        if objects.len() > 1
+                            && !match result {
+                                BuildResult::Object(object) => dweller.object == Some(object),
+                                _ => false,
+                            } =>
+                    {
                         debug!("Progressing build task {:?}", task);
                     }
 
@@ -564,6 +573,7 @@ pub fn event_task_completion(
                             } if build_object == dweller_object
                         ) {
                             dweller.object = None;
+                            remove_task = true;
                         } else if let Some(i) =
                             objects.iter().position(|object| *object == dweller_object)
                         {
@@ -664,75 +674,107 @@ pub fn event_task_completion(
 pub fn update_pickups(
     mut commands: Commands,
     tilemap_data: Res<TilemapData>,
-    q_new_tasks: Query<&Task, Added<Task>>,
-    q_tasks: Query<&Task>, // Without<Added<Task>> ?
+    q_tasks: Query<&Task>,
     q_dwellers: Query<(Entity, &Dweller)>,
 ) {
     let mut task_indexes = vec![];
 
-    for task in &q_new_tasks {
-        if matches!(task.kind, TaskKind::Stockpile) {
+    for task in &q_tasks {
+        // Closure result enum
+        enum TryFindObjectResult {
+            Wait,
+            Found,
+            NotFound,
+        }
+
+        // Closure to find an object for a task
+        let mut try_find_object = |needs_object: &ObjectId, only_search_stockpiles: bool| {
+            // check if it needs a new Pickup task: check for already existing Pickup tasks for the required object
+            if q_tasks.iter().any(|t| {
+                    t.kind == TaskKind::Pickup
+                    && tilemap_data.get(t.pos).is_some_and(|tile| {
+                        if let Some(object) = tile.object {
+                            return *needs_object == object;
+                        }
+                        error!("SHOULD NEVER HAPPEN: Pickup task at {:?} has no object", t.pos);
+                        false
+                    })
+                }) || // or Dwellers with the required object
+                q_dwellers.iter().any(|(entity_dweller, dweller)| {
+                    let has_object = dweller.object.is_some_and(|dweller_object| dweller_object == *needs_object);
+
+                    let not_working_on_task_that_needs_it =
+                    !q_tasks.iter().any(|t| {
+                        t.dweller == Some(entity_dweller) && matches!(&t.needs, TaskNeeds::Objects(objects) if objects.iter().any(|object| dweller.object == Some(*object) ))
+                    });
+
+                    has_object && not_working_on_task_that_needs_it
+                }) {
+                    return TryFindObjectResult::Wait;
+            }
+
+            // Find object: search around task.pos
+            let index = TilemapData::find_from_center(task.pos, |index| {
+                if let Some(tile) = tilemap_data.get(index) {
+                    if let Some(object) = tile.object {
+                        return object == *needs_object
+                            && TaskKind::Pickup.is_valid_on_tile(tile)
+                            && !task_indexes.contains(&index)
+                            // if only_search_stockpiles, make sure there's a Stockpile task here
+                            && (!only_search_stockpiles
+                                || q_tasks.iter().any(|t| {
+                                    t.pos == index && matches!(t.kind, TaskKind::Stockpile)
+                                }))
+                            // make sure there's no task here already (excluding Stockpile tasks)
+                            // especially useful for avoiding multiple Pickup tasks for the same object
+                            && !q_tasks
+                                .iter()
+                                .any(|t| t.pos == index && !matches!(t.kind, TaskKind::Stockpile));
+                    }
+                }
+
+                false
+            });
+
+            if let Some(index) = index {
+                info!("Found object {needs_object:?} at {index:?} for {task:?}");
+
+                commands.spawn(TaskBundle::new(Task::new(
+                    index,
+                    TaskKind::Pickup,
+                    TaskNeeds::EmptyHands,
+                    None,
+                    &tilemap_data,
+                )));
+
+                task_indexes.push(index);
+                return TryFindObjectResult::Found;
+            }
+
+            TryFindObjectResult::NotFound
+        };
+
+        if task.dweller.is_some() {
             continue;
+        }
+
+        match task.kind {
+            TaskKind::Stockpile => continue, // Stockpile tasks don't need objects
+            TaskKind::Build {
+                result: BuildResult::Object(object),
+            } => {
+                // for Build tasks, check if the goal object is directly available
+                match try_find_object(&object, true) {
+                    TryFindObjectResult::Found | TryFindObjectResult::Wait => continue,
+                    TryFindObjectResult::NotFound => {}
+                }
+            }
+            _ => {}
         }
 
         if let TaskNeeds::Objects(needs_objects) = &task.needs {
             for needs_object in needs_objects {
-                // check if it needs a new Pickup task: check for already existing Pickup tasks for the required object
-                if q_tasks.iter().any(|t| {
-                        t.kind == TaskKind::Pickup
-                        && t.dweller.is_none() // not being worked on
-                        && tilemap_data.get(t.pos).is_some_and(|tile| {
-                            if let Some(object) = tile.object {
-                                return *needs_object == object;
-                            }
-
-                            error!("SHOULD NEVER HAPPEN: Pickup task at {:?} has no object", t.pos);
-                            false
-                        })
-                    }) || // or Dwellers with the required object
-                    q_dwellers.iter().any(|(entity_dweller, dweller)| {
-                        let has_object = dweller.object.is_some_and(|dweller_object| dweller_object == *needs_object);
-
-                        let not_working_on_task_that_needs_it =
-                        !q_tasks.iter().any(|t| {
-                            t.dweller == Some(entity_dweller) && matches!(&t.needs, TaskNeeds::Objects(objects) if objects.iter().any(|object| dweller.object == Some(*object) ))
-                        });
-
-                        has_object && not_working_on_task_that_needs_it
-                    }) {
-                        continue;
-                }
-
-                // Find object: search around task.pos
-                let index = TilemapData::find_from_center(task.pos, |index| {
-                    if let Some(tile) = tilemap_data.get(index) {
-                        if let Some(object) = tile.object {
-                            return object == *needs_object
-                                && TaskKind::Pickup.is_valid_on_tile(tile)
-                                && !task_indexes.contains(&index)
-                                // make sure there's no task here already (excluding Stockpile tasks)
-                                && !q_tasks
-                                    .iter()
-                                    .any(|t| !matches!(t.kind, TaskKind::Stockpile) && t.pos == index);
-                        }
-                    }
-
-                    false
-                });
-
-                if let Some(index) = index {
-                    info!("Found object at {index:?} for {task:?}");
-
-                    commands.spawn(TaskBundle::new(Task::new(
-                        index,
-                        TaskKind::Pickup,
-                        TaskNeeds::EmptyHands,
-                        None,
-                        &tilemap_data,
-                    )));
-
-                    task_indexes.push(index);
-                }
+                try_find_object(needs_object, false);
             }
         }
     }
