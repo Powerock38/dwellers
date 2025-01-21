@@ -7,8 +7,7 @@ use crate::{
     init_tilemap,
     tilemap_data::TilemapData,
     tiles::TilePlaced,
-    MobBundle, SaveName, SpawnDwellersOnChunk, SpawnMobsOnChunk, TilemapMaterial, CHUNK_SIZE,
-    SAVE_DIR,
+    MobBundle, SaveName, SpawnDwellersOnChunk, SpawnMobsOnChunk, CHUNK_SIZE, SAVE_DIR,
 };
 
 const CLIMATE_NOISE_SCALE: f64 = 0.01;
@@ -28,12 +27,11 @@ pub struct UnloadChunk(pub IVec2);
 pub fn spawn_new_terrain(
     commands: Commands,
     asset_server: Res<AssetServer>,
-    materials: ResMut<Assets<TilemapMaterial>>,
     mut ev_load_chunk: EventWriter<LoadChunk>,
     mut ev_spawn_dwellers: EventWriter<SpawnDwellersOnChunk>,
     save_name: Res<SaveName>,
 ) {
-    init_tilemap(commands, asset_server, materials);
+    init_tilemap(commands, asset_server);
 
     let save_folder = format!("assets/{SAVE_DIR}/{}", save_name.0);
     std::fs::create_dir(save_folder).expect("Error while creating save folder");

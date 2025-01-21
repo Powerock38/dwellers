@@ -178,7 +178,8 @@ pub fn click_terrain(
                                 | TaskKind::Harvest
                                 | TaskKind::Hunt
                                 | TaskKind::Workstation { .. },
-                            ) => false,
+                            )
+                            | (TaskKind::Hunt, _) => false,
                             _ => true,
                         },
                     ) {

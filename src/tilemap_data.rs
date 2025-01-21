@@ -5,7 +5,7 @@ use crate::{utils::div_to_floor, TilePlaced, CHUNK_SIZE};
 #[derive(Resource, Default)]
 pub struct TilemapData {
     pub chunks: HashMap<IVec2, Vec<Option<TilePlaced>>>,
-    pub tiles_to_spawn: Vec<(IVec2, TilePlaced)>,
+    pub tiles_to_update: HashMap<IVec2, TilePlaced>,
     pub chunks_to_remove: Vec<IVec2>,
 }
 
@@ -28,7 +28,8 @@ impl TilemapData {
     }
 
     pub fn set(&mut self, index: IVec2, tile: TilePlaced) {
-        self.tiles_to_spawn.push((index, tile));
+        self.tiles_to_update.insert(index, tile);
+        self.tiles_to_update.extend(self.neighbours(index)); // necessary for lighting
 
         let idx = Self::index_to_chunk(index);
         self.chunks
@@ -46,7 +47,7 @@ impl TilemapData {
     }
 
     pub fn set_chunk(&mut self, chunk_index: IVec2, chunk_data: Vec<TilePlaced>) {
-        self.tiles_to_spawn.extend(
+        self.tiles_to_update.extend(
             chunk_data
                 .iter()
                 .enumerate()

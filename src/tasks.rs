@@ -498,6 +498,8 @@ pub fn event_task_completion(
                                         None,
                                         &tilemap_data,
                                     )));
+                                } else {
+                                    debug!("Hunted mob at {:?} but loot tile is occupied", mob_pos);
                                 }
                             }
 

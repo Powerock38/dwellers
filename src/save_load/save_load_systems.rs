@@ -8,7 +8,7 @@ use bevy::{
 
 use crate::{
     init_tilemap, tilemap_data::TilemapData, ChunkObjectLayer, ChunkTileLayer, Dweller, GameState,
-    Mob, Task, TilemapMaterial, UnloadChunk,
+    Mob, Task, UnloadChunk,
 };
 
 pub const SAVE_DIR: &str = "saves";
@@ -99,7 +99,6 @@ pub fn load_world(
     load_game: Option<Res<LoadGame>>,
     mut scene_spawner: ResMut<SceneSpawner>,
     asset_server: Res<AssetServer>,
-    materials: ResMut<Assets<TilemapMaterial>>,
     q_chunks_tile_layer: Query<Entity, With<ChunkTileLayer>>,
     q_chunks_object_layer: Query<Entity, With<ChunkObjectLayer>>,
     q_dwellers: Query<Entity, With<Dweller>>,
@@ -139,7 +138,7 @@ pub fn load_world(
             );
 
             // Init tilemap, chunks will be loaded from disk
-            init_tilemap(commands, asset_server, materials);
+            init_tilemap(commands, asset_server);
 
             next_state.set(GameState::Running);
         }

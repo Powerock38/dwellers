@@ -73,6 +73,10 @@ impl TileId {
     pub fn i(self, object_id: ObjectId) -> Option<TilePlaced> {
         Some(self.with(object_id))
     }
+
+    pub fn is_transparent(self) -> bool {
+        !self.data().is_wall() || self == Self::Water
+    }
 }
 
 pub struct ObjectData {
