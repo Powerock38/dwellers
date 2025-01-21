@@ -14,7 +14,7 @@ use crate::{
     tilemap::TILE_SIZE,
     tilemap_data::TilemapData,
     tiles::TilePlaced,
-    SpriteLoader,
+    ObjectSlot, SpriteLoader,
 };
 
 const Z_INDEX: f32 = 2.0;
@@ -32,7 +32,7 @@ pub enum TaskKind {
     Build {
         result: BuildResult,
     },
-    Workstation,
+    Workstation, // TODO: make a way to choose how much to craft
     Walk,
 }
 
@@ -420,9 +420,23 @@ pub fn event_task_completion(
                 if let Some(object) = tile.object {
                     tilemap_data.set(task.pos, tile.id.place());
 
-                    dweller.object = Some(object);
+                    match (object.data().slot(), dweller.tool, dweller.armor) {
+                        (ObjectSlot::Tool, None, _) => {
+                            dweller.tool = Some(object);
+                            debug!("Picked up tool {:?} at {:?}", object, task.pos);
+                        }
 
-                    debug!("Picked up object at {:?}", task.pos);
+                        (ObjectSlot::Armor, _, None) => {
+                            dweller.armor = Some(object);
+                            debug!("Picked up armor {:?} at {:?}", object, task.pos);
+                        }
+
+                        _ => {
+                            dweller.object = Some(object);
+                            debug!("Picked up object {:?} at {:?}", object, task.pos);
+                        }
+                    }
+
                     if object.data().is_blocking() {
                         update_tasks_pos = true;
                     }

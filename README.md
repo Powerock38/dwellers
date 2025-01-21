@@ -4,7 +4,7 @@
 
 - [ ] bitmasking (autotiling)
 - [ ] animations
-- [ ] lighting system
+- [x] lighting system
 - [ ] ui (dweller stats, task menu, etc.)
 
 ## World generation
@@ -13,7 +13,7 @@
 - [x] trees
 - [x] mountains
 - [x] rivers
-- [ ] lakes
+- [x] lakes
 - [ ] plains
 - [ ] dungeons (caves)
 - [ ] towns
@@ -25,6 +25,6 @@
 
 - [x] crafting with workstations
 - [x] hold one object
-- [ ] equip objects
+- [x] equip objects
 - [ ] monsters
 - [ ] NPCs

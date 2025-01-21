@@ -82,37 +82,52 @@ impl TileId {
 pub struct ObjectData {
     filename: &'static str,
     blocking: bool,
-    carriable: bool,
+    slot: ObjectSlot,
+}
+
+pub enum ObjectSlot {
+    Uncarriable,
+    Object,
+    Tool,
+    Armor,
 }
 
 impl ObjectData {
-    const fn new(filename: &'static str, blocking: bool, carriable: bool) -> Self {
+    const fn new(filename: &'static str, blocking: bool, slot: ObjectSlot) -> Self {
         Self {
             filename,
             blocking,
-            carriable,
+            slot,
         }
     }
 
     pub const fn passable(filename: &'static str) -> Self {
-        Self::new(filename, false, true)
+        Self::new(filename, false, ObjectSlot::Object)
     }
 
     pub const fn blocking(filename: &'static str) -> Self {
-        Self::new(filename, true, true)
+        Self::new(filename, true, ObjectSlot::Object)
     }
 
     pub const fn passable_non_carriable(filename: &'static str) -> Self {
-        Self::new(filename, false, false)
+        Self::new(filename, false, ObjectSlot::Uncarriable)
     }
 
     pub const fn blocking_non_carriable(filename: &'static str) -> Self {
-        Self::new(filename, true, false)
+        Self::new(filename, true, ObjectSlot::Uncarriable)
+    }
+
+    pub const fn tool(filename: &'static str) -> Self {
+        Self::new(filename, false, ObjectSlot::Tool)
+    }
+
+    pub const fn armor(filename: &'static str) -> Self {
+        Self::new(filename, false, ObjectSlot::Armor)
     }
 
     #[inline]
     pub fn is_carriable(&self) -> bool {
-        self.carriable
+        !matches!(self.slot, ObjectSlot::Uncarriable)
     }
 
     #[inline]
@@ -123,5 +138,14 @@ impl ObjectData {
     #[inline]
     pub fn filename(&self) -> &'static str {
         self.filename
+    }
+
+    #[inline]
+    pub fn slot(&self) -> &ObjectSlot {
+        &self.slot
+    }
+
+    pub fn sprite_path(&self) -> String {
+        format!("tiles/objects/{}.png", self.filename)
     }
 }

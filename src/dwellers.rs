@@ -19,12 +19,14 @@ const Z_INDEX: f32 = 10.0;
 pub struct SpawnDwellersOnChunk(pub IVec2);
 
 #[derive(Component, Reflect, Default)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct Dweller {
     pub name: String,
     speed: f32,
     move_queue: Vec<IVec2>, // next move is at the end
     pub object: Option<ObjectId>,
+    pub tool: Option<ObjectId>,
+    pub armor: Option<ObjectId>,
 }
 
 #[derive(Resource, Default)]
@@ -103,8 +105,7 @@ pub fn spawn_dwellers(
                 Dweller {
                     name: name.to_string(),
                     speed: SPEED,
-                    move_queue: vec![],
-                    object: None,
+                    ..default()
                 },
                 SpriteLoader {
                     texture_path: format!("sprites/dweller{sprite_i}.png"),
@@ -131,7 +132,7 @@ pub fn spawn_dwellers_name(
             Transform::from_scale(Vec3::splat(0.5)).with_translation(Vec3::new(
                 TILE_SIZE / 2.0,
                 TILE_SIZE,
-                1.0,
+                2.0,
             )),
             Anchor::BottomCenter,
         ));
@@ -356,4 +357,96 @@ pub fn update_dwellers_load_chunks(
     }
 
     chunks_ttl.retain(|_, ttl| *ttl > 0);
+}
+
+#[derive(Component)]
+pub struct DwellerObjectPreview;
+
+#[derive(Component)]
+pub struct DwellerToolPreview;
+
+#[derive(Component)]
+pub struct DwellerArmorPreview;
+
+pub fn update_dwellers_equipment_sprites(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    q_dwellers: Query<(Entity, &Dweller, &Sprite, &Children), Changed<Dweller>>,
+    q_object_previews: Query<(), With<DwellerObjectPreview>>,
+    q_tool_previews: Query<(), With<DwellerToolPreview>>,
+    q_armor_previews: Query<(), With<DwellerArmorPreview>>,
+) {
+    for (entity, dweller, sprite, children) in &q_dwellers {
+        if let Some(object_preview) = children
+            .iter()
+            .find(|child| q_object_previews.get(**child).is_ok())
+        {
+            commands.entity(*object_preview).despawn();
+        }
+
+        if let Some(object) = dweller.object {
+            commands.entity(entity).with_children(|c| {
+                c.spawn((
+                    DwellerObjectPreview,
+                    Sprite {
+                        image: asset_server.load(object.data().sprite_path()),
+                        anchor: Anchor::BottomLeft,
+                        flip_x: sprite.flip_x,
+                        ..default()
+                    },
+                    Transform::from_translation(Vec3::new(
+                        if sprite.flip_x { 8.0 } else { 0.0 },
+                        0.0,
+                        1.25,
+                    ))
+                    .with_scale(Vec3::splat(0.5)),
+                ));
+            });
+        }
+
+        if let Some(tool_preview) = children
+            .iter()
+            .find(|child| q_tool_previews.get(**child).is_ok())
+        {
+            commands.entity(*tool_preview).despawn();
+        }
+
+        if let Some(tool) = dweller.tool {
+            commands.entity(entity).with_children(|c| {
+                c.spawn((
+                    DwellerToolPreview,
+                    Sprite {
+                        image: asset_server.load(tool.data().sprite_path()),
+                        anchor: Anchor::BottomLeft,
+                        flip_x: sprite.flip_x,
+                        ..default()
+                    },
+                    Transform::from_xyz(if sprite.flip_x { 5.0 } else { 19.0 }, 2.0, 1.5)
+                        .with_scale(Vec3::new(-0.5, 0.5, 0.5)),
+                ));
+            });
+        }
+
+        if let Some(armor_preview) = children
+            .iter()
+            .find(|child| q_armor_previews.get(**child).is_ok())
+        {
+            commands.entity(*armor_preview).despawn();
+        }
+
+        if let Some(armor) = dweller.armor {
+            commands.entity(entity).with_children(|c| {
+                c.spawn((
+                    DwellerArmorPreview,
+                    Sprite {
+                        image: asset_server.load(armor.data().sprite_path()),
+                        anchor: Anchor::BottomLeft,
+                        flip_x: sprite.flip_x,
+                        ..default()
+                    },
+                    Transform::from_translation(Vec3::Z),
+                ));
+            });
+        }
+    }
 }

@@ -35,7 +35,6 @@ fn main() {
                     filter: "wgpu=error,naga=warn,dungeons=debug".into(),
                     ..default()
                 }),
-            // bevy_inspector_egui::quick::WorldInspectorPlugin::default(),
             TilemapPlugin,
             SaveLoadPlugin,
         ))
@@ -68,6 +67,7 @@ fn main() {
                     click_terrain,
                     update_dwellers_selected,
                     spawn_dwellers_name,
+                    update_dwellers_equipment_sprites,
                 )
                     .in_set(GameplaySet),
             ),

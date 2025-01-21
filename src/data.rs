@@ -26,6 +26,11 @@ enum_map! {
         Cactus = ObjectData::passable_non_carriable("cactus"),
         CopperOre = ObjectData::passable("copper_ore"),
         CopperIngot = ObjectData::passable("copper_ingot"),
+        Forge = ObjectData::blocking("forge"),
+        Anvil = ObjectData::blocking("anvil"),
+        Grindstone = ObjectData::blocking("grindstone"),
+        Sword = ObjectData::tool("sword"),
+        Armor = ObjectData::armor("armor"),
     }
 }
 
@@ -53,47 +58,28 @@ enum_map! {
     }
 }
 
+#[rustfmt::skip]
 pub const BUILD_RECIPES: &[(&str, BuildResult, &[ObjectId])] = &[
-    (
-        "wall",
-        BuildResult::Tile(TileId::DungeonWall),
-        &[ObjectId::Rock],
-    ),
-    (
-        "table",
-        BuildResult::Object(ObjectId::Table),
-        &[ObjectId::Wood, ObjectId::Wood],
-    ),
-    (
-        "stool",
-        BuildResult::Object(ObjectId::Stool),
-        &[ObjectId::Wood],
-    ),
+    ("wall", BuildResult::Tile(TileId::DungeonWall), &[ObjectId::Rock]),
+    ("table", BuildResult::Object(ObjectId::Table), &[ObjectId::Wood, ObjectId::Wood]),
+    ("stool", BuildResult::Object(ObjectId::Stool), &[ObjectId::Wood]),
     ("bed", BuildResult::Object(ObjectId::Bed), &[ObjectId::Wood]),
-    (
-        "door",
-        BuildResult::Object(ObjectId::Door),
-        &[ObjectId::Wood],
-    ),
-    (
-        "farm",
-        BuildResult::Object(ObjectId::Farm),
-        &[ObjectId::Seeds],
-    ),
-    (
-        "furnace",
-        BuildResult::Object(ObjectId::Furnace),
-        &[ObjectId::Rock, ObjectId::Rock, ObjectId::Rock],
-    ),
+    ("door", BuildResult::Object(ObjectId::Door), &[ObjectId::Wood]),
+    ("farm", BuildResult::Object(ObjectId::Farm), &[ObjectId::Seeds]),
+    ("furnace", BuildResult::Object(ObjectId::Furnace), &[ObjectId::Rock, ObjectId::Rock, ObjectId::Rock]),
+    ("forge", BuildResult::Object(ObjectId::Forge), &[ObjectId::Rock, ObjectId::Rock, ObjectId::Rock, ObjectId::CopperOre, ObjectId::CopperOre]),
+    ("anvil", BuildResult::Object(ObjectId::Anvil), &[ObjectId::CopperIngot, ObjectId::CopperIngot, ObjectId::CopperIngot, ObjectId::CopperIngot]),
+    ("grindstone", BuildResult::Object(ObjectId::Grindstone), &[ObjectId::Rock, ObjectId::Wood]),
 ];
 
+#[rustfmt::skip]
 pub static WORKSTATIONS: LazyLock<HashMap<ObjectId, (ObjectId, Vec<ObjectId>)>> =
-    LazyLock::new(|| {
-        HashMap::from([(
-            ObjectId::Furnace,
-            (ObjectId::Bread, vec![ObjectId::Wheat, ObjectId::Wood]),
-        )])
-    });
+LazyLock::new(|| HashMap::from([
+    (ObjectId::Furnace, (ObjectId::Bread, vec![ObjectId::Wheat, ObjectId::Wood])),
+    (ObjectId::Forge, (ObjectId::CopperIngot, vec![ObjectId::CopperOre, ObjectId::CopperOre])),
+    (ObjectId::Grindstone, (ObjectId::Sword, vec![ObjectId::CopperIngot, ObjectId::CopperIngot])),
+    (ObjectId::Anvil, (ObjectId::Armor, vec![ObjectId::CopperIngot, ObjectId::CopperIngot, ObjectId::CopperIngot])),
+]));
 
 enum_map! {
     StructureId => StructureData {
