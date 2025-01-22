@@ -5,8 +5,8 @@ use bevy_ecs_tilemap::TilemapPlugin;
 use rand::{distributions::Alphanumeric, Rng};
 
 use crate::{
-    actions::*, camera::*, dwellers::*, mobs::*, save_load::*, state::*, tasks::*, terrain::*,
-    tilemap::*, tiles::*, ui::*,
+    actions::*, camera::*, dwellers::*, mobs::*, objects::*, save_load::*, state::*, tasks::*,
+    terrain::*, tilemap::*, tiles::*, ui::*,
 };
 
 mod actions;
@@ -14,6 +14,7 @@ mod camera;
 mod data;
 mod dwellers;
 mod mobs;
+mod objects;
 mod random_text;
 mod save_load;
 mod state;
@@ -61,13 +62,14 @@ fn main() {
                 load_chunks,
                 (spawn_dwellers, spawn_mobs).after(load_chunks),
                 (
-                    // Game UI
+                    // Game UI / "reactive" systems
                     keyboard_current_action,
                     focus_any_dweller,
                     click_terrain,
                     update_dwellers_selected,
                     spawn_dwellers_name,
                     update_dwellers_equipment_sprites,
+                    update_task_needs_object_sprites,
                 )
                     .in_set(GameplaySet),
             ),
