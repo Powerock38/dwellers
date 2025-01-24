@@ -142,7 +142,7 @@ pub fn spawn_dwellers_name(
 pub fn update_dwellers(
     mut q_dwellers: Query<(Entity, &mut Dweller, &Transform)>,
     tilemap_data: Res<TilemapData>,
-    mut q_tasks: Query<(Entity, &mut Task)>,
+    mut q_tasks: Query<(Entity, &mut Task, &TaskNeeds)>,
     mut ev_task_completion: EventWriter<TaskCompletionEvent>,
 ) {
     for (entity, mut dweller, transform) in &mut q_dwellers {
@@ -159,9 +159,9 @@ pub fn update_dwellers(
         let task = q_tasks
             .iter_mut()
             .sort::<&Task>()
-            .find(|(_, task)| task.dweller == Some(entity));
+            .find(|(_, task, _)| task.dweller == Some(entity));
 
-        if let Some((entity_task, mut task)) = task {
+        if let Some((entity_task, mut task, _)) = task {
             if task.reachable_positions.iter().any(|pos| *pos == index) {
                 // Reached task location
                 ev_task_completion.send(TaskCompletionEvent { task: entity_task });
@@ -198,12 +198,12 @@ pub fn update_dwellers(
                     )
                     .unwrap()
             })
-            .filter_map(|(_, mut task)| {
+            .filter_map(|(_, mut task, task_needs)| {
                 if task.dweller.is_none()
                     && !task.reachable_positions.is_empty()
                     && task.reachable_pathfinding
                 {
-                    match &task.needs {
+                    match task_needs {
                         TaskNeeds::Nothing => {}
                         TaskNeeds::EmptyHands => {
                             if dweller.object.is_some() {

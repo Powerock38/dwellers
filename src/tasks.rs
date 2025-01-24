@@ -98,34 +98,37 @@ pub enum BuildResult {
 #[derive(Bundle)]
 pub struct TaskBundle {
     pub task: Task,
+    pub needs: TaskNeeds,
     pub sprite: SpriteLoader,
     pub transform: Transform,
 }
 
 impl TaskBundle {
-    pub fn new(task: Task) -> Self {
+    pub fn new(task: Task, needs: TaskNeeds) -> Self {
         let x = task.pos.x as f32 * TILE_SIZE;
         let y = task.pos.y as f32 * TILE_SIZE;
 
-        Self::new_inner(task, x, y)
+        Self::new_inner(task, needs, x, y)
     }
 
-    pub fn new_as_child(task: Task) -> Self {
-        Self::new_inner(task, 0.0, 0.0)
+    pub fn new_as_child(task: Task, needs: TaskNeeds) -> Self {
+        Self::new_inner(task, needs, 0.0, 0.0)
     }
 
-    fn new_inner(task: Task, x: f32, y: f32) -> Self {
+    fn new_inner(task: Task, needs: TaskNeeds, x: f32, y: f32) -> Self {
         let texture_path = format!("tasks/{}.png", task.kind.id());
 
         Self {
             task,
+            needs,
             sprite: SpriteLoader { texture_path },
             transform: Transform::from_xyz(x, y, Z_INDEX),
         }
     }
 }
 
-#[derive(PartialEq, Clone, Reflect, Default, Debug)]
+#[derive(Component, Reflect, PartialEq, Clone, Default, Debug)]
+#[reflect(Component)]
 pub enum TaskNeeds {
     #[default]
     Nothing,
@@ -144,7 +147,6 @@ pub struct Task {
     pub reachable_pathfinding: bool,
     pub reachable_positions: Vec<IVec2>,
     pub dweller: Option<Entity>,
-    pub needs: TaskNeeds,
     pub priority: i32,
 }
 
@@ -180,7 +182,6 @@ impl Task {
     pub fn new(
         pos: IVec2,
         kind: TaskKind,
-        needs: TaskNeeds,
         dweller: Option<Entity>,
         tilemap_data: &TilemapData,
     ) -> Self {
@@ -195,7 +196,6 @@ impl Task {
             reachable_positions: vec![],
             dweller,
             priority: 0,
-            needs,
         };
         task.recompute_reachable_positions(tilemap_data);
         task
@@ -283,14 +283,15 @@ pub fn event_task_completion(
     mut tilemap_data: ResMut<TilemapData>,
     q_mobs: Query<(Entity, &Mob, &Transform)>,
     mut q_dwellers: Query<(&mut Dweller, &Transform)>,
-    mut q_tasks: Query<(Entity, &mut Task, Option<&Parent>)>,
+    mut q_tasks: Query<(Entity, &mut Task, &mut TaskNeeds, Option<&Parent>)>,
 ) {
     let mut update_tasks_pos = false;
     let mut update_stockpiles = false;
     let mut update_workstations = false;
 
     for event in events.read() {
-        let Ok((entity, mut task, task_parent)) = q_tasks.get_mut(event.task) else {
+        let Ok((entity, mut task, mut task_needs, task_parent)) = q_tasks.get_mut(event.task)
+        else {
             continue;
         };
 
@@ -328,13 +329,10 @@ pub fn event_task_completion(
                 };
 
                 let tile = if let Some(object) = object {
-                    commands.spawn(TaskBundle::new(Task::new(
-                        task.pos,
-                        TaskKind::Pickup,
+                    commands.spawn(TaskBundle::new(
+                        Task::new(task.pos, TaskKind::Pickup, None, &tilemap_data),
                         TaskNeeds::EmptyHands,
-                        None,
-                        &tilemap_data,
-                    )));
+                    ));
 
                     TileId::StoneFloor.with(object)
                 } else {
@@ -389,13 +387,10 @@ pub fn event_task_completion(
                         tilemap_data.set(task.pos, tile.id.with(object));
 
                         if object.data().is_carriable() {
-                            commands.spawn(TaskBundle::new(Task::new(
-                                task.pos,
-                                TaskKind::Pickup,
+                            commands.spawn(TaskBundle::new(
+                                Task::new(task.pos, TaskKind::Pickup, None, &tilemap_data),
                                 TaskNeeds::EmptyHands,
-                                None,
-                                &tilemap_data,
-                            )));
+                            ));
                         }
                     } else {
                         tilemap_data.set(task.pos, tile.id.place());
@@ -449,7 +444,7 @@ pub fn event_task_completion(
             }
 
             TaskKind::Build { result } => {
-                match &task.needs {
+                match &*task_needs {
                     // If Build needs more than one object,
                     // and is not being directly completed with the goal object,
                     // do not complete the task (yet)
@@ -469,13 +464,10 @@ pub fn event_task_completion(
                             tilemap_data.set(task.pos, tile.id.with(object));
 
                             if let Some(workstation) = WORKSTATIONS.get(&object) {
-                                commands.spawn(TaskBundle::new(Task::new(
-                                    task.pos,
-                                    TaskKind::Workstation,
+                                commands.spawn(TaskBundle::new(
+                                    Task::new(task.pos, TaskKind::Workstation, None, &tilemap_data),
                                     TaskNeeds::Objects(workstation.1.clone()),
-                                    None,
-                                    &tilemap_data,
-                                )));
+                                ));
                             }
                         }
                         BuildResult::Tile(tile) => {
@@ -505,13 +497,10 @@ pub fn event_task_completion(
                                 if loot_tile.object.is_none() {
                                     tilemap_data.set(mob_pos, loot_tile.id.with(mob.loot));
 
-                                    commands.spawn(TaskBundle::new(Task::new(
-                                        mob_pos,
-                                        TaskKind::Pickup,
+                                    commands.spawn(TaskBundle::new(
+                                        Task::new(mob_pos, TaskKind::Pickup, None, &tilemap_data),
                                         TaskNeeds::EmptyHands,
-                                        None,
-                                        &tilemap_data,
-                                    )));
+                                    ));
                                 } else {
                                     debug!("Hunted mob at {:?} but loot tile is occupied", mob_pos);
                                 }
@@ -551,13 +540,10 @@ pub fn event_task_completion(
                                 tilemap_data.set(pos, tile.id.with(recipe.0));
 
                                 if recipe.0.data().is_carriable() {
-                                    commands.spawn(TaskBundle::new(Task::new(
-                                        pos,
-                                        TaskKind::Pickup,
+                                    commands.spawn(TaskBundle::new(
+                                        Task::new(pos, TaskKind::Pickup, None, &tilemap_data),
                                         TaskNeeds::EmptyHands,
-                                        None,
-                                        &tilemap_data,
-                                    )));
+                                    ));
                                 }
 
                                 debug!("Workstation output at {:?}", pos);
@@ -578,7 +564,7 @@ pub fn event_task_completion(
             let mut remove_task = true;
 
             let kind = task.kind;
-            match &mut task.needs {
+            match *task_needs {
                 TaskNeeds::Objects(ref mut objects) => {
                     if let Some(dweller_object) = dweller.object {
                         if matches!(
@@ -626,7 +612,7 @@ pub fn event_task_completion(
             // Permanent tasks
             match task.kind {
                 TaskKind::Stockpile => {
-                    task.needs = TaskNeeds::Impossible;
+                    *task_needs = TaskNeeds::Impossible;
                     remove_task = false;
                 }
 
@@ -634,7 +620,7 @@ pub fn event_task_completion(
                     if remove_task {
                         if let Some(workstation) = tile.object {
                             if let Some(recipe) = WORKSTATIONS.get(&workstation) {
-                                task.needs = TaskNeeds::Objects(recipe.1.clone());
+                                *task_needs = TaskNeeds::Objects(recipe.1.clone());
                             }
                         }
                         remove_task = false;
@@ -655,27 +641,27 @@ pub fn event_task_completion(
     }
 
     if update_tasks_pos {
-        for (_, mut task, _) in &mut q_tasks {
+        for (_, mut task, _, _) in &mut q_tasks {
             task.recompute_reachable_positions(&tilemap_data);
         }
     }
 
     // Set Stockpile tasks to AnyObject if there is nothing on the tile
     if update_stockpiles {
-        for (_, mut task, _) in &mut q_tasks {
+        for (_, task, mut task_needs, _) in &mut q_tasks {
             if matches!(task.kind, TaskKind::Stockpile)
                 && tilemap_data
                     .get(task.pos)
                     .is_some_and(TilePlaced::is_floor_free)
             {
-                task.needs = TaskNeeds::AnyObject;
+                *task_needs = TaskNeeds::AnyObject;
             }
         }
     }
 
     // Remove Workstation tasks if the workstation is gone
     if update_workstations {
-        for (entity, task, _) in &mut q_tasks {
+        for (entity, task, _, _) in &q_tasks {
             if matches!(task.kind, TaskKind::Workstation { .. })
                 && tilemap_data
                     .get(task.pos)
@@ -690,12 +676,12 @@ pub fn event_task_completion(
 pub fn update_pickups(
     mut commands: Commands,
     tilemap_data: Res<TilemapData>,
-    q_tasks: Query<&Task>,
+    q_tasks: Query<(&Task, &TaskNeeds)>,
     q_dwellers: Query<(Entity, &Dweller)>,
 ) {
     let mut task_indexes = vec![];
 
-    for task in &q_tasks {
+    for (task, task_needs) in &q_tasks {
         // Closure result enum
         enum TryFindObjectResult {
             Wait,
@@ -706,7 +692,7 @@ pub fn update_pickups(
         // Closure to find an object for a task
         let mut try_find_object = |needs_object: &ObjectId, only_search_stockpiles: bool| {
             // check if it needs a new Pickup task: check for already existing Pickup tasks for the required object
-            if q_tasks.iter().any(|t| {
+            if q_tasks.iter().any(|(t, _)| {
                     t.kind == TaskKind::Pickup
                     && tilemap_data.get(t.pos).is_some_and(|tile| {
                         if let Some(object) = tile.object {
@@ -720,8 +706,8 @@ pub fn update_pickups(
                     let has_object = dweller.object.is_some_and(|dweller_object| dweller_object == *needs_object);
 
                     let not_working_on_task_that_needs_it =
-                    !q_tasks.iter().any(|t| {
-                        t.dweller == Some(entity_dweller) && matches!(&t.needs, TaskNeeds::Objects(objects) if objects.iter().any(|object| dweller.object == Some(*object) ))
+                    !q_tasks.iter().any(|(t, tn)| {
+                        t.dweller == Some(entity_dweller) && matches!(tn, TaskNeeds::Objects(objects) if objects.iter().any(|object| dweller.object == Some(*object) ))
                     });
 
                     has_object && not_working_on_task_that_needs_it
@@ -738,14 +724,14 @@ pub fn update_pickups(
                             && !task_indexes.contains(&index)
                             // if only_search_stockpiles, make sure there's a Stockpile task here
                             && (!only_search_stockpiles
-                                || q_tasks.iter().any(|t| {
+                                || q_tasks.iter().any(|(t, _)| {
                                     t.pos == index && matches!(t.kind, TaskKind::Stockpile)
                                 }))
                             // make sure there's no task here already (excluding Stockpile tasks)
                             // especially useful for avoiding multiple Pickup tasks for the same object
                             && !q_tasks
                                 .iter()
-                                .any(|t| t.pos == index && !matches!(t.kind, TaskKind::Stockpile));
+                                .any(|(t, _)| t.pos == index && !matches!(t.kind, TaskKind::Stockpile));
                     }
                 }
 
@@ -755,13 +741,10 @@ pub fn update_pickups(
             if let Some(index) = index {
                 info!("Found object {needs_object:?} at {index:?} for {task:?}");
 
-                commands.spawn(TaskBundle::new(Task::new(
-                    index,
-                    TaskKind::Pickup,
+                commands.spawn(TaskBundle::new(
+                    Task::new(index, TaskKind::Pickup, None, &tilemap_data),
                     TaskNeeds::EmptyHands,
-                    None,
-                    &tilemap_data,
-                )));
+                ));
 
                 task_indexes.push(index);
                 return TryFindObjectResult::Found;
@@ -788,7 +771,7 @@ pub fn update_pickups(
             _ => {}
         }
 
-        if let TaskNeeds::Objects(needs_objects) = &task.needs {
+        if let TaskNeeds::Objects(needs_objects) = task_needs {
             for needs_object in needs_objects {
                 try_find_object(needs_object, false);
             }

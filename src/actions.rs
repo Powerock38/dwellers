@@ -192,29 +192,20 @@ pub fn click_terrain(
                 match &current_action.kind {
                     ActionKind::Task(task_kind) => match task_kind {
                         TaskKind::Dig => {
-                            commands.spawn(TaskBundle::new(Task::new(
-                                index,
-                                *task_kind,
+                            commands.spawn(TaskBundle::new(
+                                Task::new(index, *task_kind, dweller, &tilemap_data),
                                 TaskNeeds::Nothing,
-                                dweller,
-                                &tilemap_data,
-                            )));
+                            ));
 
                             max_tasks = max_tasks.saturating_sub(1);
                             debug!("Digging task at {index:?}");
                         }
 
                         TaskKind::Smoothen => {
-                            let task = Task::new(
-                                index,
-                                *task_kind,
-                                TaskNeeds::Nothing,
-                                dweller,
-                                &tilemap_data,
-                            );
+                            let task = Task::new(index, *task_kind, dweller, &tilemap_data);
 
                             if !task.reachable_positions.is_empty() {
-                                commands.spawn(TaskBundle::new(task));
+                                commands.spawn(TaskBundle::new(task, TaskNeeds::Nothing));
 
                                 max_tasks = max_tasks.saturating_sub(1);
                                 debug!("Smoothening task at {index:?}");
@@ -222,42 +213,35 @@ pub fn click_terrain(
                         }
 
                         TaskKind::Harvest => {
-                            commands.spawn(TaskBundle::new(Task::new(
-                                index,
-                                *task_kind,
-                                match tile.object {
-                                    Some(ObjectId::WheatPlant) => TaskNeeds::EmptyHands,
-                                    _ => TaskNeeds::Nothing,
-                                },
-                                dweller,
-                                &tilemap_data,
-                            )));
+                            let needs = match tile.object {
+                                Some(ObjectId::WheatPlant) => TaskNeeds::EmptyHands,
+                                _ => TaskNeeds::Nothing,
+                            };
+
+                            commands.spawn(TaskBundle::new(
+                                Task::new(index, *task_kind, dweller, &tilemap_data),
+                                needs,
+                            ));
 
                             max_tasks = max_tasks.saturating_sub(1);
                             debug!("Harvesting task at {index:?}");
                         }
 
                         TaskKind::Bridge => {
-                            commands.spawn(TaskBundle::new(Task::new(
-                                index,
-                                *task_kind,
+                            commands.spawn(TaskBundle::new(
+                                Task::new(index, *task_kind, dweller, &tilemap_data),
                                 TaskNeeds::Objects(vec![ObjectId::Wood]),
-                                dweller,
-                                &tilemap_data,
-                            )));
+                            ));
 
                             max_tasks = max_tasks.saturating_sub(1);
                             debug!("Building bridge task at {index:?}");
                         }
 
                         TaskKind::Pickup => {
-                            commands.spawn(TaskBundle::new(Task::new(
-                                index,
-                                *task_kind,
+                            commands.spawn(TaskBundle::new(
+                                Task::new(index, *task_kind, dweller, &tilemap_data),
                                 TaskNeeds::EmptyHands,
-                                dweller,
-                                &tilemap_data,
-                            )));
+                            ));
 
                             max_tasks = max_tasks.saturating_sub(1);
                             debug!("Picking up task at {index:?}");
@@ -272,13 +256,10 @@ pub fn click_terrain(
                                 })
                             {
                                 commands.entity(entity_mob).with_children(|c| {
-                                    c.spawn(TaskBundle::new_as_child(Task::new(
-                                        index,
-                                        *task_kind,
+                                    c.spawn(TaskBundle::new_as_child(
+                                        Task::new(index, *task_kind, dweller, &tilemap_data),
                                         TaskNeeds::Nothing,
-                                        dweller,
-                                        &tilemap_data,
-                                    )));
+                                    ));
                                 });
 
                                 max_tasks = max_tasks.saturating_sub(1);
@@ -287,38 +268,28 @@ pub fn click_terrain(
                         }
 
                         TaskKind::Stockpile => {
-                            let mut task = Task::new(
-                                index,
-                                *task_kind,
-                                if tile.object.is_none() {
-                                    TaskNeeds::AnyObject
-                                } else {
-                                    TaskNeeds::Impossible
-                                },
-                                dweller,
-                                &tilemap_data,
-                            );
+                            let mut task = Task::new(index, *task_kind, dweller, &tilemap_data);
 
                             task.priority(-1);
 
-                            commands.spawn(TaskBundle::new(task));
+                            let needs = if tile.object.is_none() {
+                                TaskNeeds::AnyObject
+                            } else {
+                                TaskNeeds::Impossible
+                            };
+
+                            commands.spawn(TaskBundle::new(task, needs));
 
                             max_tasks = max_tasks.saturating_sub(1);
                             debug!("Stockpiling task at {index:?}");
                         }
 
                         TaskKind::Walk => {
-                            let mut task = Task::new(
-                                index,
-                                *task_kind,
-                                TaskNeeds::Nothing,
-                                dweller,
-                                &tilemap_data,
-                            );
+                            let mut task = Task::new(index, *task_kind, dweller, &tilemap_data);
 
                             task.priority(-1);
 
-                            commands.spawn(TaskBundle::new(task));
+                            commands.spawn(TaskBundle::new(task, TaskNeeds::Nothing));
 
                             max_tasks = max_tasks.saturating_sub(1);
                             debug!("Walk task at {index:?}");
@@ -329,13 +300,10 @@ pub fn click_terrain(
 
                     ActionKind::TaskWithNeeds(task_kind, needs) => match task_kind {
                         TaskKind::Build { .. } => {
-                            commands.spawn(TaskBundle::new(Task::new(
-                                index,
-                                *task_kind,
+                            commands.spawn(TaskBundle::new(
+                                Task::new(index, *task_kind, dweller, &tilemap_data),
                                 needs.clone(),
-                                dweller,
-                                &tilemap_data,
-                            )));
+                            ));
 
                             max_tasks = max_tasks.saturating_sub(1);
                             debug!("Building task at {index:?}");
@@ -357,13 +325,10 @@ pub fn click_terrain(
                                     task.kind == TaskKind::Pickup && task.pos == index
                                 })
                             {
-                                commands.spawn(TaskBundle::new(Task::new(
-                                    index,
-                                    TaskKind::Pickup,
+                                commands.spawn(TaskBundle::new(
+                                    Task::new(index, TaskKind::Pickup, dweller, &tilemap_data),
                                     TaskNeeds::EmptyHands,
-                                    dweller,
-                                    &tilemap_data,
-                                )));
+                                ));
 
                                 debug!("Cancelling stockpile/workstation at {index:?} and marking object for pickup");
                             } else {

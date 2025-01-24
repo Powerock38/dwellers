@@ -49,6 +49,14 @@ impl TileData {
     pub fn filename(&self) -> &'static str {
         self.filename
     }
+
+    pub fn sprite_path(&self) -> String {
+        format!(
+            "tiles/{}/{}.png",
+            if self.is_wall() { "walls" } else { "floors" },
+            self.filename
+        )
+    }
 }
 
 impl TileId {
