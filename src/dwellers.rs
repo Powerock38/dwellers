@@ -1,4 +1,4 @@
-use std::{cmp::Reverse, collections::BinaryHeap};
+use std::collections::BinaryHeap;
 
 use bevy::{
     prelude::*,
@@ -177,7 +177,7 @@ pub fn update_dwellers(
                     info!("Dweller {} can re-pathfind to {:?}", dweller.name, task);
                     dweller.move_queue = path.0;
                 } else {
-                    info!("Dweller {} give up {:?}", dweller.name, task);
+                    info!("Dweller {} gives up {:?}", dweller.name, task);
                     task.dweller = None;
                 }
             }
@@ -225,7 +225,6 @@ pub fn assign_tasks_to_dwellers(
 
     let mut tasks = q_tasks
         .iter_mut()
-        .sort_by_key::<&Task, _>(|task| task.priority)
         .filter(|(_, task, _)| {
             task.dweller.is_none()
                 && !task.reachable_positions.is_empty()
@@ -239,7 +238,7 @@ pub fn assign_tasks_to_dwellers(
     for (dweller_i, (_, _, dweller_pos)) in dwellers.iter().enumerate() {
         for (task_i, (_, task, _)) in tasks.iter().enumerate() {
             let distance = (dweller_pos.x - task.pos.x).abs() + (dweller_pos.y - task.pos.y).abs();
-            heap.push(Reverse((distance, dweller_i, task_i)));
+            heap.push((task.priority, -distance, dweller_i, task_i));
         }
     }
 
@@ -247,7 +246,7 @@ pub fn assign_tasks_to_dwellers(
     let mut assigned_tasks = HashSet::new();
 
     // Process the heap until it is empty or all tasks/dwellers are assigned
-    while let Some(Reverse((_, dweller_i, task_i))) = heap.pop() {
+    while let Some((_, _, dweller_i, task_i)) = heap.pop() {
         if assigned_dwellers.contains(&dweller_i) || assigned_tasks.contains(&task_i) {
             continue;
         }

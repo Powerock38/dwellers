@@ -278,9 +278,9 @@ pub fn load_chunks(
 }
 
 pub fn update_terrain(mut tilemap_data: ResMut<TilemapData>) {
-    let chunks = &tilemap_data.chunks.clone(); // FIXME: clone
+    let mut to_set = vec![]; //because cant modify tilemap_data while iterating
 
-    for (chunk_index, _chunk) in chunks {
+    for (chunk_index, _chunk) in &tilemap_data.chunks {
         for x in 0..CHUNK_SIZE {
             for y in 0..CHUNK_SIZE {
                 let index = TilemapData::local_index_to_global(
@@ -294,7 +294,7 @@ pub fn update_terrain(mut tilemap_data: ResMut<TilemapData>) {
                             let mut rng = rand::thread_rng();
 
                             if rng.gen_bool(0.01) {
-                                tilemap_data.set(index, tile.id.with(ObjectId::WheatPlant));
+                                to_set.push((index, tile.id.with(ObjectId::WheatPlant)));
                             }
                         }
 
@@ -303,5 +303,9 @@ pub fn update_terrain(mut tilemap_data: ResMut<TilemapData>) {
                 }
             }
         }
+    }
+
+    for (index, tile) in to_set {
+        tilemap_data.set(index, tile);
     }
 }

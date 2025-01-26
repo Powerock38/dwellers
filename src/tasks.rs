@@ -3,6 +3,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use bevy::{
     ecs::{entity::MapEntities, reflect::ReflectMapEntities},
     prelude::*,
+    utils::hashbrown::HashSet,
 };
 use pathfinding::directed::astar::astar;
 use rand::Rng;
@@ -288,6 +289,11 @@ pub fn event_task_completion(
     let mut update_stockpiles = false;
     let mut update_workstations = false;
 
+    let tasks_positions = q_tasks
+        .iter()
+        .map(|(_, task, _, _)| task.pos)
+        .collect::<HashSet<_>>();
+
     for event in events.read() {
         let Ok((entity, mut task, mut task_needs, task_parent)) = q_tasks.get_mut(event.task)
         else {
@@ -533,9 +539,7 @@ pub fn event_task_completion(
                 if let Some(workstation) = tile.object {
                     if let Some(recipe) = WORKSTATIONS.get(&workstation) {
                         for (pos, tile) in tilemap_data.neighbours(task.pos) {
-                            if tile.is_floor_free() {
-                                // TODO: ensure there is no task at pos
-
+                            if tile.is_floor_free() && !tasks_positions.contains(&pos) {
                                 tilemap_data.set(pos, tile.id.with(recipe.0));
 
                                 if recipe.0.data().is_carriable() {
@@ -562,12 +566,11 @@ pub fn event_task_completion(
         if success {
             let mut remove_task = true;
 
-            let kind = task.kind;
             match *task_needs {
                 TaskNeeds::Objects(ref mut objects) => {
                     if let Some(dweller_object) = dweller.object {
                         if matches!(
-                            kind,
+                            task.kind,
                             TaskKind::Build {
                                 result: BuildResult::Object(build_object),
                                 ..
@@ -582,10 +585,10 @@ pub fn event_task_completion(
                             objects.swap_remove(i);
                             remove_task = objects.is_empty();
                         } else {
-                            error!("SHOULD NEVER HAPPEN: Dweller {} completed task TaskNeeds::Objects {:?} with object {:?} not in list", dweller.name, kind, dweller_object);
+                            error!("SHOULD NEVER HAPPEN: Dweller {} completed task TaskNeeds::Objects {:?} with object {:?} not in list", dweller.name, task.kind, dweller_object);
                         }
                     } else {
-                        error!("SHOULD NEVER HAPPEN: Dweller {} completed task TaskNeeds::Objects {:?} without any object", dweller.name, kind);
+                        error!("SHOULD NEVER HAPPEN: Dweller {} completed task TaskNeeds::Objects {:?} without any object", dweller.name, task.kind);
                     }
                 }
 

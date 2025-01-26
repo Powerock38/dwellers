@@ -187,9 +187,9 @@ pub fn update_tilemap_from_data(
 
         // add or update tile
         if let Some(tile_entity) = tile_layer_chunk_storage.get(&tile_pos) {
-            commands
-                .entity(tile_entity)
-                .try_insert(tilemap_textures.get_atlas_index_tile(tile.id.data()));
+            if let Some(mut ec) = commands.get_entity(tile_entity) {
+                ec.insert(tilemap_textures.get_atlas_index_tile(tile.id.data()));
+            }
         } else {
             let tile_entity = commands
                 .spawn(TileBundle {
