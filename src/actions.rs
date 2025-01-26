@@ -10,7 +10,7 @@ use crate::{
     Dweller, DwellersSelected,
 };
 
-const MAX_ACTIONS: usize = 512;
+const MAX_ACTIONS: usize = 2048;
 
 #[derive(PartialEq, Clone, Debug)]
 pub enum ActionKind {
@@ -86,7 +86,7 @@ pub fn click_terrain(
     tilemap_data: Res<TilemapData>,
     q_tasks: Query<(Entity, &Task)>,
     q_mobs: Query<(Entity, &Transform), With<Mob>>,
-    q_dwellers: Query<(Entity, &Transform), With<Dweller>>,
+    mut q_dwellers: Query<(Entity, &mut Dweller, &Transform)>,
 ) {
     let (camera, camera_transform) = extract_ok!(q_camera.get_single());
     let window = extract_ok!(q_windows.get_single());
@@ -166,7 +166,7 @@ pub fn click_terrain(
                     if q_tasks.iter().filter(|(_, t)| t.pos == index).any(
                         |(entity_other_task, other_task)| match (task_kind, other_task.kind) {
                             (TaskKind::Stockpile, TaskKind::Pickup) => {
-                                commands.entity(entity_other_task).despawn();
+                                commands.entity(entity_other_task).despawn_recursive();
                                 // Stockpile task will be correctly marked TaskNeeds::Impossible below
                                 false
                             }
@@ -316,7 +316,14 @@ pub fn click_terrain(
                         if let Some((entity_task, task)) =
                             q_tasks.iter().find(|(_, task)| task.pos == index)
                         {
-                            commands.entity(entity_task).despawn();
+                            commands.entity(entity_task).despawn_recursive();
+
+                            // stop dweller from moving towards this task
+                            if let Some(dweller) = task.dweller {
+                                if let Ok((_, mut dweller, _)) = q_dwellers.get_mut(dweller) {
+                                    dweller.move_queue = Vec::new();
+                                }
+                            }
 
                             // if we are cancelling a Stockpile or Workstation task, mark object for pickup (if not already marked)
                             if matches!(task.kind, TaskKind::Stockpile | TaskKind::Workstation)
@@ -338,7 +345,7 @@ pub fn click_terrain(
                     }
 
                     ActionKind::Select => {
-                        for (entity, transform) in &q_dwellers {
+                        for (entity, _, transform) in &q_dwellers {
                             if index.x == (transform.translation.x / TILE_SIZE) as i32
                                 && index.y == (transform.translation.y / TILE_SIZE) as i32
                             {

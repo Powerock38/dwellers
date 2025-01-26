@@ -1,4 +1,10 @@
-use bevy::{prelude::*, sprite::Anchor, utils::HashMap};
+use std::{cmp::Reverse, collections::BinaryHeap};
+
+use bevy::{
+    prelude::*,
+    sprite::Anchor,
+    utils::{HashMap, HashSet},
+};
 use rand::{seq::SliceRandom, Rng};
 
 use crate::{
@@ -23,7 +29,7 @@ pub struct SpawnDwellersOnChunk(pub IVec2);
 pub struct Dweller {
     pub name: String,
     speed: f32,
-    move_queue: Vec<IVec2>, // next move is at the end
+    pub move_queue: Vec<IVec2>, // next move is at the end
     pub object: Option<ObjectId>,
     pub tool: Option<ObjectId>,
     pub armor: Option<ObjectId>,
@@ -167,9 +173,7 @@ pub fn update_dwellers(
                 ev_task_completion.send(TaskCompletionEvent { task: entity_task });
             } else {
                 // Task moved, try to pathfind again
-                let path = task.pathfind(index, &tilemap_data);
-
-                if let Some(path) = path {
+                if let Some(path) = task.pathfind(index, &tilemap_data) {
                     info!("Dweller {} can re-pathfind to {:?}", dweller.name, task);
                     dweller.move_queue = path.0;
                 } else {
@@ -181,88 +185,7 @@ pub fn update_dwellers(
             continue;
         }
 
-        // Get a new task
-        let task_path = q_tasks
-            .iter_mut()
-            // Sort by distance to task (can't simply use sort_by_key because f32 doesn't implement Ord)
-            .sort_by::<&Task>(|task1, task2| {
-                task1
-                    .pos
-                    .as_vec2()
-                    .distance_squared(transform.translation.truncate())
-                    .partial_cmp(
-                        &task2
-                            .pos
-                            .as_vec2()
-                            .distance_squared(transform.translation.truncate()),
-                    )
-                    .unwrap()
-            })
-            .filter_map(|(_, mut task, task_needs)| {
-                if task.dweller.is_none()
-                    && !task.reachable_positions.is_empty()
-                    && task.reachable_pathfinding
-                {
-                    match task_needs {
-                        TaskNeeds::Nothing => {}
-                        TaskNeeds::EmptyHands => {
-                            if dweller.object.is_some() {
-                                return None;
-                            }
-                        }
-                        TaskNeeds::Objects(objects) => match dweller.object {
-                            None => return None,
-                            Some(dweller_object) => {
-                                if !objects.iter().any(|object| *object == dweller_object)
-                                    && !matches!(
-                                        task.kind,
-                                        TaskKind::Build {
-                                            result: BuildResult::Object(build_object),
-                                            ..
-                                        } if build_object == dweller_object
-                                    )
-                                {
-                                    return None;
-                                }
-                            }
-                        },
-                        TaskNeeds::AnyObject => {
-                            dweller.object?;
-                        }
-                        TaskNeeds::Impossible => {
-                            return None;
-                        }
-                    }
-
-                    // Try pathfinding to task
-                    let path = task.pathfind(index, &tilemap_data);
-
-                    if let Some(path) = path {
-                        return Some((task, path));
-                    }
-
-                    task.reachable_pathfinding = false;
-                }
-
-                None
-            })
-            .max_by(|(task1, (_, path1)), (task2, (_, path2))| {
-                task1
-                    .priority
-                    .cmp(&task2.priority)
-                    .then_with(|| path2.cmp(path1))
-            });
-
-        if let Some((mut task, (path, _))) = task_path {
-            debug!("Dweller {} got task {task:?}", dweller.name);
-
-            task.dweller = Some(entity);
-            dweller.move_queue = path;
-
-            continue;
-        }
-
-        // Wander around
+        // Else, wander around
         let mut rng = rand::thread_rng();
 
         if rng.gen_bool(0.2) {
@@ -271,6 +194,110 @@ pub fn update_dwellers(
             if let Some(direction) = directions.choose(&mut rng) {
                 dweller.move_queue.push(*direction);
             }
+        }
+    }
+}
+
+pub fn assign_tasks_to_dwellers(
+    tilemap_data: Res<TilemapData>,
+    mut q_dwellers: Query<(Entity, &mut Dweller, &Transform)>,
+    mut q_tasks: Query<(Entity, &mut Task, &TaskNeeds)>,
+) {
+    // Collect unassigned dwellers and tasks
+    let assigned_dwellers: HashSet<_> = q_tasks
+        .iter()
+        .filter_map(|(_, task, _)| task.dweller)
+        .collect();
+
+    let mut dwellers = q_dwellers
+        .iter_mut()
+        .filter_map(|(entity, dweller, transform)| {
+            if assigned_dwellers.contains(&entity) {
+                return None;
+            }
+            let index = IVec2::new(
+                (transform.translation.x / TILE_SIZE) as i32,
+                (transform.translation.y / TILE_SIZE) as i32,
+            );
+            Some((entity, dweller, index))
+        })
+        .collect::<Vec<_>>();
+
+    let mut tasks = q_tasks
+        .iter_mut()
+        .sort_by_key::<&Task, _>(|task| task.priority)
+        .filter(|(_, task, _)| {
+            task.dweller.is_none()
+                && !task.reachable_positions.is_empty()
+                && task.reachable_pathfinding
+        })
+        .collect::<Vec<_>>();
+
+    // Compute all distances
+    let mut heap = BinaryHeap::new();
+
+    for (dweller_i, (_, _, dweller_pos)) in dwellers.iter().enumerate() {
+        for (task_i, (_, task, _)) in tasks.iter().enumerate() {
+            let distance = (dweller_pos.x - task.pos.x).abs() + (dweller_pos.y - task.pos.y).abs();
+            heap.push(Reverse((distance, dweller_i, task_i)));
+        }
+    }
+
+    let mut assigned_dwellers = HashSet::new();
+    let mut assigned_tasks = HashSet::new();
+
+    // Process the heap until it is empty or all tasks/dwellers are assigned
+    while let Some(Reverse((_, dweller_i, task_i))) = heap.pop() {
+        if assigned_dwellers.contains(&dweller_i) || assigned_tasks.contains(&task_i) {
+            continue;
+        }
+
+        let (_, task, task_needs) = &mut tasks[task_i];
+        let (dweller_entity, dweller, dweller_pos) = &mut dwellers[dweller_i];
+
+        match task_needs {
+            TaskNeeds::Nothing => {}
+            TaskNeeds::EmptyHands => {
+                if dweller.object.is_some() {
+                    continue;
+                }
+            }
+            TaskNeeds::Objects(objects) => match dweller.object {
+                None => continue,
+                Some(dweller_object) => {
+                    if !objects.iter().any(|object| *object == dweller_object)
+                        && !matches!(
+                            task.kind,
+                            TaskKind::Build {
+                                result: BuildResult::Object(build_object),
+                                ..
+                            } if build_object == dweller_object
+                        )
+                    {
+                        continue;
+                    }
+                }
+            },
+            TaskNeeds::AnyObject => {
+                if dweller.object.is_none() {
+                    continue;
+                }
+            }
+            TaskNeeds::Impossible => {
+                continue;
+            }
+        }
+
+        // Try pathfinding to task
+        if let Some(path) = task.pathfind(*dweller_pos, &tilemap_data) {
+            task.dweller = Some(*dweller_entity);
+            dweller.move_queue = path.0;
+
+            assigned_dwellers.insert(dweller_i);
+            assigned_tasks.insert(task_i);
+            debug!("Dweller {} got task {:?}", dweller.name, task);
+        } else {
+            task.reachable_pathfinding = false;
         }
     }
 }

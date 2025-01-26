@@ -255,21 +255,20 @@ impl Task {
 
 pub fn update_unreachable_tasks(tilemap_data: Res<TilemapData>, mut q_tasks: Query<&mut Task>) {
     if tilemap_data.is_changed() {
-        for mut task in &mut q_tasks {
+        q_tasks.par_iter_mut().for_each(|mut task| {
             if task.reachable_positions.is_empty() || task.dweller.is_none() {
                 task.recompute_reachable_positions(&tilemap_data);
             }
-        }
+        });
     }
 }
 
-//TODO: spread in time to avoid lag
 pub fn update_unreachable_pathfinding_tasks(mut q_tasks: Query<&mut Task>) {
-    for mut task in &mut q_tasks {
+    q_tasks.par_iter_mut().for_each(|mut task| {
         if !task.reachable_pathfinding {
             task.reachable_pathfinding = true;
         }
-    }
+    });
 }
 
 #[derive(Event)]
@@ -631,7 +630,7 @@ pub fn event_task_completion(
             }
 
             if remove_task {
-                commands.entity(entity).despawn();
+                commands.entity(entity).despawn_recursive();
             } else {
                 task.dweller = None;
             }
