@@ -1,6 +1,8 @@
 use bevy::{
     input::mouse::{MouseMotion, MouseWheel},
     prelude::*,
+    render::render_resource::{AsBindGroup, ShaderRef},
+    sprite::Material2d,
 };
 
 use crate::{dwellers::Dweller, CHUNK_SIZE, TILE_SIZE};
@@ -20,12 +22,36 @@ impl Default for CameraControl {
     }
 }
 
-pub fn spawn_camera(mut commands: Commands) {
-    commands.spawn(Camera2d);
+#[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
+pub struct BackgroundMaterial {}
+
+impl Material2d for BackgroundMaterial {
+    fn fragment_shader() -> ShaderRef {
+        "shaders/background.wgsl".into()
+    }
+}
+
+pub fn spawn_camera(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<BackgroundMaterial>>,
+) {
+    commands.spawn(Camera2d).with_child((
+        Mesh2d(meshes.add(Rectangle::default())),
+        MeshMaterial2d(materials.add(BackgroundMaterial {})),
+    ));
 }
 
 pub fn update_camera(
-    mut query: Query<(&mut Transform, &mut OrthographicProjection)>,
+    query: Single<(&mut Transform, &mut OrthographicProjection)>,
+    q_background: Single<
+        &mut Transform,
+        (
+            With<MeshMaterial2d<BackgroundMaterial>>,
+            Without<OrthographicProjection>,
+        ),
+    >,
+    window: Single<&Window>,
     input_keyboard: Res<ButtonInput<KeyCode>>,
     input_mouse: Res<ButtonInput<MouseButton>>,
     mut event_wheel: EventReader<MouseWheel>,
@@ -33,9 +59,8 @@ pub fn update_camera(
     time: Res<Time>,
     mut control: ResMut<CameraControl>,
 ) {
-    let Ok((mut transform, mut projection)) = query.get_single_mut() else {
-        return;
-    };
+    let (mut transform, mut projection) = query.into_inner();
+    let mut bg_transform = q_background.into_inner();
 
     if input_mouse.pressed(MouseButton::Right) {
         for ev in event_move.read() {
@@ -80,6 +105,8 @@ pub fn update_camera(
     if (projection.scale - control.target_scale).abs() > 0.01 {
         projection.scale = projection.scale
             + ((control.target_scale - projection.scale) * 20. * time.delta_secs());
+
+        bg_transform.scale = Vec3::new(window.width(), window.height(), 1.0) * projection.scale;
     }
     event_move.clear();
 }

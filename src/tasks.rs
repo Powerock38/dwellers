@@ -100,6 +100,7 @@ pub enum BuildResult {
 
 #[derive(Bundle)]
 pub struct TaskBundle {
+    pub name: Name,
     pub task: Task,
     pub needs: TaskNeeds,
     pub sprite: SpriteLoader,
@@ -122,6 +123,7 @@ impl TaskBundle {
         let texture_path = format!("tasks/{}.png", task.kind.id());
 
         Self {
+            name: Name::new(format!("Task {:?}", task.kind)),
             task,
             needs,
             sprite: SpriteLoader { texture_path },
@@ -728,6 +730,7 @@ pub fn update_pickups(
 
                     has_object && not_working_on_task_that_needs_it
                 }) {
+                    debug!("Waiting for object {needs_object:?} for {task:?}");
                     return TryFindObjectResult::Wait;
             }
 
@@ -766,6 +769,7 @@ pub fn update_pickups(
                 return TryFindObjectResult::Found;
             }
 
+            debug!("No object {needs_object:?} found for {task:?}");
             TryFindObjectResult::NotFound
         };
 
