@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use bevy::math::IVec2;
 
 #[macro_export]
@@ -59,4 +61,13 @@ pub fn div_to_floor(a: IVec2, b: IVec2) -> IVec2 {
         result.y -= 1;
     }
     result
+}
+
+pub fn write_to_file(path: String, content: impl AsRef<[u8]>) {
+    let path = Path::new(&path);
+    path.parent()
+        .and_then(|p| std::fs::create_dir_all(p).ok())
+        .expect("Error while creating parent directory");
+
+    std::fs::write(path, content).expect("Error while writing to file");
 }

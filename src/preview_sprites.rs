@@ -1,4 +1,4 @@
-use bevy::{prelude::*, sprite::Anchor};
+use bevy::{prelude::*, sprite::Anchor, utils::HashMap};
 
 use crate::{BuildResult, Dweller, Task, TaskKind, TaskNeeds, TILE_SIZE};
 
@@ -89,21 +89,18 @@ pub fn update_dwellers_equipment_sprites(
 }
 
 #[derive(Component)]
-pub struct TaskNeedsObjectPreview;
+pub struct TaskNeedsPreview;
 
-#[derive(Component)]
-pub struct TaskBuildPreview;
-
-pub fn update_task_object_sprites(
+pub fn update_task_needs_preview(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     time: Res<Time>,
-    q_tasks: Query<(Entity, &Task, &TaskNeeds, Option<&Children>), Changed<TaskNeeds>>,
-    mut q_object_previews: Query<&mut Sprite, With<TaskNeedsObjectPreview>>,
+    q_tasks: Query<(Entity, &TaskNeeds, Option<&Children>), Changed<TaskNeeds>>,
+    mut q_object_previews: Query<&mut Sprite, With<TaskNeedsPreview>>,
 ) {
     const TASK_OBJECT_PREVIEW_SCALE: f32 = 0.25;
 
-    for (entity, task, task_needs, children) in &q_tasks {
+    for (entity, task_needs, children) in &q_tasks {
         if let TaskNeeds::Objects(objects) = task_needs {
             if let Some(children) = children {
                 for child in children {
@@ -126,7 +123,7 @@ pub fn update_task_object_sprites(
                     } - Vec2::splat(TILE_SIZE * TASK_OBJECT_PREVIEW_SCALE / 2.0);
 
                     c.spawn((
-                        TaskNeedsObjectPreview,
+                        TaskNeedsPreview,
                         Sprite {
                             image: asset_server.load(object.data().sprite_path()),
                             anchor: Anchor::BottomLeft,
@@ -139,29 +136,6 @@ pub fn update_task_object_sprites(
                 }
             });
         }
-
-        // Build task result preview
-        let sprite_path = match task.kind {
-            TaskKind::Build { result } => Some(match result {
-                BuildResult::Object(object) => object.data().sprite_path(),
-                BuildResult::Tile(tile) => tile.data().sprite_path(),
-            }),
-
-            _ => None,
-        };
-
-        if let Some(sprite_path) = sprite_path {
-            commands.entity(entity).with_child((
-                TaskBuildPreview,
-                Sprite {
-                    image: asset_server.load(sprite_path),
-                    anchor: Anchor::BottomLeft,
-                    color: Color::WHITE.with_alpha(0.5),
-                    ..default()
-                },
-                Transform::from_translation(Vec3::NEG_Z),
-            ));
-        }
     }
 
     // Sprite blinking
@@ -170,4 +144,91 @@ pub fn update_task_object_sprites(
             .color
             .set_alpha((0.5 + (time.elapsed_secs_wrapped() * 4.0).sin()).clamp(0.25, 0.75));
     }
+}
+
+#[derive(Component)]
+pub struct TaskBuildPreview;
+
+pub fn update_task_build_preview(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    q_tasks: Query<(Entity, &Task, Option<&Children>), Added<Task>>,
+    q_build_previews: Query<(), With<TaskBuildPreview>>,
+) {
+    for (entity, task, children) in &q_tasks {
+        match task.kind {
+            // Build result preview
+            TaskKind::Build { result } => {
+                let sprite_path = match result {
+                    BuildResult::Object(object) => object.data().sprite_path(),
+                    BuildResult::Tile(tile) => tile.data().sprite_path(),
+                };
+
+                if let Some(children) = children {
+                    for child in children {
+                        if q_build_previews.get(*child).is_ok() {
+                            commands.entity(*child).despawn();
+                        }
+                    }
+                }
+
+                commands.entity(entity).with_child((
+                    TaskBuildPreview,
+                    Sprite {
+                        image: asset_server.load(sprite_path),
+                        anchor: Anchor::BottomLeft,
+                        color: Color::WHITE.with_alpha(0.5),
+                        ..default()
+                    },
+                    Transform::from_translation(Vec3::NEG_Z),
+                ));
+            }
+
+            _ => {}
+        }
+    }
+}
+
+#[derive(Component)]
+pub struct TaskWorkstationPreview;
+
+pub fn update_task_workstation_preview(
+    mut commands: Commands,
+    q_tasks: Query<(Entity, &Task, Option<&Children>), Changed<Task>>,
+    q_workstation_previews: Query<(), With<TaskWorkstationPreview>>,
+    mut changes: Local<HashMap<Entity, u32>>,
+) {
+    for (entity, task, children) in &q_tasks {
+        match task.kind {
+            // Workstation amount preview
+            TaskKind::Workstation { amount } => {
+                if let Some(old_amount) = changes.get(&entity) {
+                    if *old_amount == amount {
+                        continue;
+                    }
+                }
+
+                changes.insert(entity, amount);
+
+                if let Some(children) = children {
+                    for child in children {
+                        if q_workstation_previews.get(*child).is_ok() {
+                            commands.entity(*child).despawn();
+                        }
+                    }
+                }
+
+                commands.entity(entity).with_child((
+                    TaskWorkstationPreview,
+                    Text2d::new(format!("{amount}")),
+                    Anchor::TopLeft,
+                    Transform::from_xyz(1., TILE_SIZE, 1.0).with_scale(Vec3::splat(0.25)),
+                ));
+            }
+
+            _ => {}
+        }
+    }
+
+    changes.retain(|entity, _| commands.get_entity(*entity).is_some());
 }

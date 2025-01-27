@@ -33,7 +33,9 @@ pub enum TaskKind {
     Build {
         result: BuildResult,
     },
-    Workstation, // TODO: make a way to choose how much to craft
+    Workstation {
+        amount: u32,
+    },
     Walk,
 }
 
@@ -73,7 +75,7 @@ impl TaskKind {
                         .object
                         .map_or(true, |object| object.data().is_carriable())
             }
-            TaskKind::Workstation => tile
+            TaskKind::Workstation { .. } => tile
                 .object
                 .is_some_and(|object| WORKSTATIONS.contains_key(&object)),
             TaskKind::Walk => !tile.is_blocking(),
@@ -310,7 +312,7 @@ pub fn event_task_completion(
             continue;
         };
 
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
 
         let mut success = false;
 
@@ -321,13 +323,19 @@ pub fn event_task_completion(
             continue;
         }
 
+        let about_to_finish = match &*task_needs {
+            TaskNeeds::Objects(objects) => objects.len() == 1,
+            TaskNeeds::Impossible => false,
+            _ => true,
+        };
+
         // Apply task, set success to true
         // if success, TaskNeeds are handled after
         match task.kind {
             TaskKind::Dig => {
                 let object = if let Some(object) = tile.object {
                     Some(object)
-                } else if rng.gen_bool(0.2) {
+                } else if rng.random_bool(0.2) {
                     Some(ObjectId::Rock)
                 } else {
                     None
@@ -370,7 +378,7 @@ pub fn event_task_completion(
                 Some(object) => {
                     let drop_object = match object {
                         ObjectId::Tree | ObjectId::PalmTree | ObjectId::Cactus => {
-                            if rng.gen_bool(0.3) {
+                            if rng.random_bool(0.3) {
                                 Some(ObjectId::Wood)
                             } else {
                                 None
@@ -449,28 +457,30 @@ pub fn event_task_completion(
             }
 
             TaskKind::Build { result } => {
-                match &*task_needs {
-                    // If Build needs more than one object,
-                    // and is not being directly completed with the goal object,
-                    // do not complete the task (yet)
-                    //FIXME: if TaskNeeds objects have already been consumed, the task should not be completable with the goal object (as it would waste the needed objects).
-                    TaskNeeds::Objects(objects)
-                        if objects.len() > 1
-                            && !match result {
-                                BuildResult::Object(object) => dweller.object == Some(object),
-                                _ => false,
-                            } =>
-                    {
-                        debug!("Progressing build task {:?}", task);
+                // If Build needs more than one object (!about_to_finish),
+                // and is not being directly completed with the goal object,
+                // do not complete the task (yet)
+                //FIXME: if TaskNeeds objects have already been consumed, the task should not be completable with the goal object (as it would waste the needed objects).
+                if !about_to_finish
+                    && !match result {
+                        BuildResult::Object(object) => dweller.object == Some(object),
+                        _ => false,
                     }
-
-                    _ => match result {
+                {
+                    debug!("Progressing build task {:?}", task);
+                } else {
+                    match result {
                         BuildResult::Object(object) => {
                             tilemap_data.set(task.pos, tile.id.with(object));
 
                             if let Some(workstation) = WORKSTATIONS.get(&object) {
                                 commands.spawn(TaskBundle::new(
-                                    Task::new(task.pos, TaskKind::Workstation, None, &tilemap_data),
+                                    Task::new(
+                                        task.pos,
+                                        TaskKind::Workstation { amount: 1 },
+                                        None,
+                                        &tilemap_data,
+                                    ),
                                     TaskNeeds::Objects(workstation.1.clone()),
                                 ));
                             }
@@ -478,7 +488,7 @@ pub fn event_task_completion(
                         BuildResult::Tile(tile) => {
                             tilemap_data.set(task.pos, tile.place());
                         }
-                    },
+                    }
                 }
 
                 debug!("Built {:?} at {:?}", result, task.pos);
@@ -535,9 +545,9 @@ pub fn event_task_completion(
                 }
             }
 
-            TaskKind::Workstation => {
-                if let Some(workstation) = tile.object {
-                    if let Some(recipe) = WORKSTATIONS.get(&workstation) {
+            TaskKind::Workstation { .. } => {
+                if let Some(recipe) = tile.object.and_then(|object| WORKSTATIONS.get(&object)) {
+                    if about_to_finish {
                         for (pos, tile) in tilemap_data.neighbours(task.pos) {
                             if tile.is_floor_free() && !tasks_positions.contains(&pos) {
                                 tilemap_data.set(pos, tile.id.with(recipe.0));
@@ -554,6 +564,9 @@ pub fn event_task_completion(
                                 break;
                             }
                         }
+                    } else {
+                        debug!("Progressing workstation task {:?}", task);
+                        success = true;
                     }
                 }
             }
@@ -618,12 +631,13 @@ pub fn event_task_completion(
                     remove_task = false;
                 }
 
-                TaskKind::Workstation => {
+                TaskKind::Workstation { ref mut amount } => {
                     if remove_task {
-                        if let Some(workstation) = tile.object {
-                            if let Some(recipe) = WORKSTATIONS.get(&workstation) {
-                                *task_needs = TaskNeeds::Objects(recipe.1.clone());
-                            }
+                        if let Some(recipe) =
+                            tile.object.and_then(|object| WORKSTATIONS.get(&object))
+                        {
+                            *amount = amount.saturating_sub(1);
+                            *task_needs = TaskNeeds::Objects(recipe.1.clone());
                         }
                         remove_task = false;
                     }
@@ -760,7 +774,7 @@ pub fn update_pickups(
         }
 
         match task.kind {
-            TaskKind::Stockpile => continue, // Stockpile tasks don't need objects
+            TaskKind::Stockpile | TaskKind::Workstation { amount: 0 } => continue, //  Stockpile tasks or Workstation tasks with amount 0 don't need objects
             TaskKind::Build {
                 result: BuildResult::Object(object),
             } => {

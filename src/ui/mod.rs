@@ -7,6 +7,8 @@ use crate::{
 
 mod actions_ui;
 pub use actions_ui::*;
+mod workstation_ui;
+pub use workstation_ui::*;
 
 pub fn init_font(asset_server: Res<AssetServer>, mut query: Query<&mut TextFont, Added<TextFont>>) {
     for mut font in &mut query {
@@ -25,7 +27,7 @@ pub fn init_font(asset_server: Res<AssetServer>, mut query: Query<&mut TextFont,
         ..default()
     }),
     BorderColor(|| BorderColor(Color::BLACK)),
-    BackgroundColor(|| BackgroundColor(UiButton::NORMAL))
+    BackgroundColor(|| BackgroundColor(BG_PRIMARY))
 )]
 pub enum UiButton {
     Action(ActionKind),
@@ -33,16 +35,13 @@ pub enum UiButton {
     LoadGame(String),
 }
 
-impl UiButton {
-    pub const NORMAL: Color = Color::srgb(0.15, 0.15, 0.15);
-    pub const HOVERED: Color = Color::srgb(0.25, 0.25, 0.25);
-    pub const PRESSED: Color = Color::srgb(0.35, 0.75, 0.35);
-}
+pub const BG_PRIMARY: Color = Color::srgb(0.15, 0.15, 0.15);
+pub const BG_SECONDARY: Color = Color::srgb(0.25, 0.25, 0.25);
+pub const BG_TERTIARY: Color = Color::srgb(0.35, 0.75, 0.35);
 
 pub fn build_ui_button(c: &mut ChildBuilder, ui_button: UiButton, text: impl Into<String>) {
-    c.spawn(ui_button).with_children(|c| {
-        c.spawn((Text::new(text), TextFont::from_font_size(20.0)));
-    });
+    c.spawn(ui_button)
+        .with_child((Text::new(text), TextFont::from_font_size(20.0)));
 }
 
 #[derive(Component)]
@@ -81,7 +80,7 @@ pub fn update_ui_buttons(
         if interaction_changed.is_changed() {
             match *interaction {
                 Interaction::Pressed => {
-                    *color = UiButton::PRESSED.into();
+                    *color = BG_TERTIARY.into();
                     border_color.0 = bevy::color::palettes::css::RED.into();
 
                     match ui_button {
@@ -118,13 +117,13 @@ pub fn update_ui_buttons(
                     }
                 }
                 Interaction::Hovered => {
-                    *color = UiButton::HOVERED.into();
+                    *color = BG_SECONDARY.into();
                     border_color.0 = Color::WHITE;
 
                     continue;
                 }
                 Interaction::None => {
-                    *color = UiButton::NORMAL.into();
+                    *color = BG_PRIMARY.into();
                     border_color.0 = Color::BLACK;
                 }
             }
@@ -144,8 +143,8 @@ pub fn update_ui_buttons(
             }
         }
 
-        if color.0 != UiButton::HOVERED {
-            *color = UiButton::NORMAL.into();
+        if color.0 != BG_SECONDARY {
+            *color = BG_PRIMARY.into();
             border_color.0 = Color::BLACK;
         }
     }

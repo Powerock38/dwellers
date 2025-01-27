@@ -5,7 +5,7 @@ use bevy::{
     sprite::Anchor,
     utils::{HashMap, HashSet},
 };
-use rand::{seq::SliceRandom, Rng};
+use rand::{seq::IndexedRandom, Rng};
 
 use crate::{
     data::ObjectId,
@@ -99,13 +99,13 @@ pub fn spawn_dwellers(
         };
 
         let nb_dwellers = 10;
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
 
         for _ in 0..nb_dwellers {
             let mut name = generate_word(&NAMES, &mut rng);
             name.get_mut(0..1).unwrap().make_ascii_uppercase();
 
-            let sprite_i = rng.gen_range(1..=4);
+            let sprite_i = rng.random_range(1..=4);
 
             commands.spawn((
                 Dweller {
@@ -186,9 +186,9 @@ pub fn update_dwellers(
         }
 
         // Else, wander around
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
 
-        if rng.gen_bool(0.2) {
+        if rng.random_bool(0.2) {
             let directions = tilemap_data.non_blocking_neighbours_pos(index, true);
 
             if let Some(direction) = directions.choose(&mut rng) {
@@ -253,6 +253,11 @@ pub fn assign_tasks_to_dwellers(
 
         let (_, task, task_needs) = &mut tasks[task_i];
         let (dweller_entity, dweller, dweller_pos) = &mut dwellers[dweller_i];
+
+        match task.kind {
+            TaskKind::Workstation { amount: 0 } => continue,
+            _ => {}
+        }
 
         match task_needs {
             TaskNeeds::Nothing => {}

@@ -1,5 +1,3 @@
-use std::{fs::File, io::Write};
-
 use bevy::{
     prelude::*,
     render::camera::{CameraMainTextureUsages, CameraRenderGraph},
@@ -7,8 +5,8 @@ use bevy::{
 };
 
 use crate::{
-    init_tilemap, tilemap_data::TilemapData, ChunkObjectLayer, ChunkTileLayer, Dweller, GameState,
-    Mob, Task, UnloadChunk,
+    init_tilemap, tilemap_data::TilemapData, utils::write_to_file, ChunkObjectLayer,
+    ChunkTileLayer, Dweller, GameState, Mob, Task, UnloadChunk,
 };
 
 pub const SAVE_DIR: &str = "saves";
@@ -75,14 +73,12 @@ pub fn save_world(
             let type_registry = app_type_registry.read();
             match scene.serialize(&type_registry) {
                 Ok(serialized) => {
-                    let save_folder = format!("assets/{SAVE_DIR}/{}", save_name.0);
+                    let path = format!("assets/{SAVE_DIR}/{}/entities.ron", save_name.0);
 
                     // Save tasks & entities with Bevy reflection
                     IoTaskPool::get()
                         .spawn(async move {
-                            File::create(format!("{save_folder}/entities.ron"))
-                                .and_then(|mut file| file.write(serialized.as_bytes()))
-                                .expect("Error while writing entities to file");
+                            write_to_file(path, serialized.as_bytes());
                         })
                         .detach();
                 }

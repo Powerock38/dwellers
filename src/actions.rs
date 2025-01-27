@@ -7,13 +7,14 @@ use crate::{
     tasks::{Task, TaskBundle, TaskKind, TaskNeeds},
     tilemap::TILE_SIZE,
     tilemap_data::TilemapData,
-    Dweller, DwellersSelected,
+    Dweller, DwellersSelected, OpenWorkstationUi,
 };
 
 const MAX_ACTIONS: usize = 2048;
 
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Clone, Default, Debug)]
 pub enum ActionKind {
+    #[default]
     Select,
     Cancel,
     Task(TaskKind),
@@ -54,7 +55,7 @@ pub fn keyboard_current_action(
     }
 }
 
-#[derive(Resource, Debug)]
+#[derive(Resource, Default, Debug)]
 pub struct CurrentAction {
     pub kind: ActionKind,
     pub index_start: Option<IVec2>,
@@ -66,12 +67,6 @@ impl CurrentAction {
             kind,
             index_start: None,
         }
-    }
-}
-
-impl Default for CurrentAction {
-    fn default() -> Self {
-        Self::new(ActionKind::Select)
     }
 }
 
@@ -326,8 +321,10 @@ pub fn click_terrain(
                             }
 
                             // if we are cancelling a Stockpile or Workstation task, mark object for pickup (if not already marked)
-                            if matches!(task.kind, TaskKind::Stockpile | TaskKind::Workstation)
-                                && TaskKind::Pickup.is_valid_on_tile(tile)
+                            if matches!(
+                                task.kind,
+                                TaskKind::Stockpile | TaskKind::Workstation { .. }
+                            ) && TaskKind::Pickup.is_valid_on_tile(tile)
                                 && !q_tasks.iter().any(|(_, task)| {
                                     task.kind == TaskKind::Pickup && task.pos == index
                                 })
@@ -345,6 +342,21 @@ pub fn click_terrain(
                     }
 
                     ActionKind::Select => {
+                        // if single click on workstation, open workstation ui
+                        if index_min == index_max {
+                            if let Some(entity) = q_tasks.iter().find_map(|(entity, task)| {
+                                if task.pos == index {
+                                    Some(entity)
+                                } else {
+                                    None
+                                }
+                            }) {
+                                commands.trigger_targets(OpenWorkstationUi, entity);
+                                break;
+                            }
+                        }
+
+                        // else select dwellers
                         for (entity, _, transform) in &q_dwellers {
                             if index.x == (transform.translation.x / TILE_SIZE) as i32
                                 && index.y == (transform.translation.y / TILE_SIZE) as i32

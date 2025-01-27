@@ -69,15 +69,15 @@ pub fn spawn_mobs(
     tilemap_data: Res<TilemapData>,
     mut ev_spawn: EventReader<SpawnMobsOnChunk>,
 ) {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     for SpawnMobsOnChunk(chunk_index) in ev_spawn.read() {
         let Some(index) = TilemapData::find_from_center(
             TilemapData::local_index_to_global(
                 *chunk_index,
                 IVec2::new(
-                    rng.gen_range(0..CHUNK_SIZE as i32),
-                    rng.gen_range(0..CHUNK_SIZE as i32),
+                    rng.random_range(0..CHUNK_SIZE as i32),
+                    rng.random_range(0..CHUNK_SIZE as i32),
                 ),
             ),
             |index| {
@@ -101,8 +101,8 @@ pub fn spawn_mobs(
             return;
         };
 
-        let nb_sheeps = rng.gen_range(1..=7);
-        let nb_boars = rng.gen_range(1..=5);
+        let nb_sheeps = rng.random_range(1..=7);
+        let nb_boars = rng.random_range(1..=5);
 
         for _ in 0..nb_sheeps {
             commands.spawn(MobBundle::new(MobId::Sheep, index));
@@ -126,9 +126,9 @@ pub fn update_mobs(mut q_mobs: Query<(&mut Mob, &Transform)>, tilemap_data: Res<
         );
 
         // Wander around
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
 
-        if rng.gen_bool(0.2) {
+        if rng.random_bool(0.2) {
             let directions = tilemap_data.non_blocking_neighbours_pos(index, true);
 
             if let Some(direction) = directions.choose(&mut rng) {

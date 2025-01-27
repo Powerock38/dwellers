@@ -7,6 +7,7 @@ use crate::{
     init_tilemap,
     tilemap_data::TilemapData,
     tiles::TilePlaced,
+    utils::write_to_file,
     MobBundle, SaveName, SpawnDwellersOnChunk, SpawnMobsOnChunk, CHUNK_SIZE, SAVE_DIR,
 };
 
@@ -29,12 +30,8 @@ pub fn spawn_new_terrain(
     asset_server: Res<AssetServer>,
     mut ev_load_chunk: EventWriter<LoadChunk>,
     mut ev_spawn_dwellers: EventWriter<SpawnDwellersOnChunk>,
-    save_name: Res<SaveName>,
 ) {
     init_tilemap(commands, asset_server);
-
-    let save_folder = format!("assets/{SAVE_DIR}/{}", save_name.0);
-    std::fs::create_dir(save_folder).expect("Error while creating save folder");
 
     ev_load_chunk.send(LoadChunk(IVec2::ZERO));
     ev_spawn_dwellers.send(SpawnDwellersOnChunk(IVec2::ZERO));
@@ -208,8 +205,8 @@ pub fn load_chunks(
                 );
 
                 let structure_local_pos = IVec2::new(
-                    rng.gen_range(0..CHUNK_SIZE as i32 - structure.x_size() as i32),
-                    rng.gen_range(0..CHUNK_SIZE as i32 - structure.y_size() as i32),
+                    rng.random_range(0..CHUNK_SIZE as i32 - structure.x_size() as i32),
+                    rng.random_range(0..CHUNK_SIZE as i32 - structure.y_size() as i32),
                 );
 
                 let structure_pos =
@@ -269,8 +266,8 @@ pub fn load_chunks(
 
         IoTaskPool::get()
             .spawn(async move {
-                std::fs::write(format!("{save_folder}/{x}_{y}.bin"), chunk_encoded)
-                    .expect("Error while writing terrain to file");
+                let path = format!("{save_folder}/{x}_{y}.bin");
+                write_to_file(path, chunk_encoded);
             })
             .detach();
         tilemap_data.remove_chunk(*chunk_index);
@@ -291,9 +288,9 @@ pub fn update_terrain(mut tilemap_data: ResMut<TilemapData>) {
                 if let Some(tile) = tilemap_data.get(index) {
                     match tile.object {
                         Some(ObjectId::Farm) => {
-                            let mut rng = rand::thread_rng();
+                            let mut rng = rand::rng();
 
-                            if rng.gen_bool(0.01) {
+                            if rng.random_bool(0.01) {
                                 to_set.push((index, tile.id.with(ObjectId::WheatPlant)));
                             }
                         }

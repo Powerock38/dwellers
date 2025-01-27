@@ -1,8 +1,13 @@
 use std::time::Duration;
 
-use bevy::{log::LogPlugin, prelude::*, time::common_conditions::on_timer};
+use bevy::{
+    log::LogPlugin,
+    prelude::*,
+    remote::{http::RemoteHttpPlugin, RemotePlugin},
+    time::common_conditions::on_timer,
+};
 use bevy_ecs_tilemap::TilemapPlugin;
-use rand::{distributions::Alphanumeric, Rng};
+use rand::{distr::Alphanumeric, Rng};
 
 use crate::{
     actions::*, camera::*, dwellers::*, mobs::*, objects::*, preview_sprites::*, save_load::*,
@@ -39,6 +44,8 @@ fn main() {
                 }),
             TilemapPlugin,
             SaveLoadPlugin,
+            RemotePlugin::default(),
+            RemoteHttpPlugin::default(),
         ))
         .insert_resource(ClearColor(Color::BLACK))
         .init_resource::<CameraControl>()
@@ -58,6 +65,7 @@ fn main() {
             (
                 init_font,
                 update_ui_buttons,
+                update_workstation_ui,
                 update_camera,
                 toggle_state,
                 load_chunks,
@@ -70,7 +78,9 @@ fn main() {
                     update_dwellers_selected,
                     spawn_dwellers_name,
                     update_dwellers_equipment_sprites,
-                    update_task_object_sprites,
+                    update_task_needs_preview,
+                    update_task_build_preview,
+                    update_task_workstation_preview,
                 )
                     .in_set(GameplaySet),
             ),
@@ -94,9 +104,10 @@ fn main() {
             )
                 .in_set(GameplaySet),
         )
+        .add_observer(observe_open_workstation_ui)
         .init_state::<GameState>()
         .insert_resource(SaveName({
-            rand::thread_rng()
+            rand::rng()
                 .sample_iter(&Alphanumeric)
                 .take(10)
                 .map(char::from)
