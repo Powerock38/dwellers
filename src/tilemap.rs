@@ -4,7 +4,7 @@ use bevy_ecs_tilemap::{
         TilemapGridSize, TilemapId, TilemapRenderSettings, TilemapSize, TilemapTexture,
         TilemapTileSize,
     },
-    tiles::{TileBundle, TilePos, TileStorage, TileTextureIndex},
+    tiles::{TileBundle, TileColor, TilePos, TileStorage, TileTextureIndex},
     TilemapBundle,
 };
 
@@ -170,25 +170,21 @@ pub fn update_tilemap_from_data(
             continue;
         };
 
-        // Lighting: do not draw invisible tiles (surrounded by walls)
-        if !tilemap_data
+        // Lighting: darken tiles surrounded by walls
+        let color = if tilemap_data
             .neighbours(index)
             .iter()
             .any(|(_, TilePlaced { id: tile, .. })| tile.is_transparent())
         {
-            if let Some(tile_entity) = tile_layer_chunk_storage.get(&tile_pos) {
-                commands.entity(tile_entity).despawn_recursive();
-            }
-            if let Some(object_entity) = object_layer_chunk_storage.get(&tile_pos) {
-                commands.entity(object_entity).despawn_recursive();
-            }
-            continue;
-        }
+            TileColor::default()
+        } else {
+            TileColor(Color::BLACK.with_alpha(0.5))
+        };
 
         // add or update tile
         if let Some(tile_entity) = tile_layer_chunk_storage.get(&tile_pos) {
             if let Some(mut ec) = commands.get_entity(tile_entity) {
-                ec.insert(tilemap_textures.get_atlas_index_tile(tile.id.data()));
+                ec.insert((tilemap_textures.get_atlas_index_tile(tile.id.data()), color));
             }
         } else {
             let tile_entity = commands
@@ -196,6 +192,7 @@ pub fn update_tilemap_from_data(
                     position: tile_pos,
                     tilemap_id: TilemapId(tile_layer_entity),
                     texture_index: tilemap_textures.get_atlas_index_tile(tile.id.data()),
+                    color,
                     ..default()
                 })
                 .id();
@@ -207,15 +204,17 @@ pub fn update_tilemap_from_data(
         // add, update or remove object
         if let Some(object) = tile.object {
             if let Some(object_entity) = object_layer_chunk_storage.get(&tile_pos) {
-                commands
-                    .entity(object_entity)
-                    .try_insert(tilemap_textures.get_atlas_index_object(object.data()));
+                commands.entity(object_entity).try_insert((
+                    tilemap_textures.get_atlas_index_object(object.data()),
+                    color,
+                ));
             } else {
                 let tile_entity = commands
                     .spawn(TileBundle {
                         position: tile_pos,
                         tilemap_id: TilemapId(object_layer_entity),
                         texture_index: tilemap_textures.get_atlas_index_object(object.data()),
+                        color,
                         ..default()
                     })
                     .id();

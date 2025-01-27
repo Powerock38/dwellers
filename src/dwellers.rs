@@ -174,7 +174,7 @@ pub fn update_dwellers(
             } else {
                 // Task moved, try to pathfind again
                 if let Some(path) = task.pathfind(index, &tilemap_data) {
-                    info!("Dweller {} can re-pathfind to {:?}", dweller.name, task);
+                    debug!("Dweller {} can re-pathfind to {:?}", dweller.name, task);
                     dweller.move_queue = path.0;
                 } else {
                     info!("Dweller {} gives up {:?}", dweller.name, task);

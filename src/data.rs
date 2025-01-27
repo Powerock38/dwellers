@@ -8,7 +8,7 @@ use crate::{enum_map, structures::StructureData, BuildResult, MobData, ObjectDat
 enum_map! {
     ObjectId => ObjectData {
         Wood = ObjectData::passable("wood"),
-        Rug = ObjectData::passable("rug"),
+        Hide = ObjectData::passable("hide"),
         Tree = ObjectData::blocking_non_carriable("tree"),
         Table = ObjectData::blocking("table"),
         Stool = ObjectData::blocking("stool"),
@@ -52,24 +52,25 @@ enum_map! {
 
 enum_map! {
     MobId => MobData {
-        Sheep = MobData::new("sheep", 60.0, ObjectId::Rug),
-        Boar = MobData::new("boar", 50.0, ObjectId::Rug),
+        Sheep = MobData::new("sheep", 60.0, ObjectId::Hide),
+        Boar = MobData::new("boar", 50.0, ObjectId::Hide),
         Undead = MobData::new("undead", 40.0, ObjectId::CopperIngot),
     }
 }
 
 #[rustfmt::skip]
 pub const BUILD_RECIPES: &[(&str, BuildResult, &[ObjectId])] = &[
-    ("wall", BuildResult::Tile(TileId::DungeonWall), &[ObjectId::Rock]),
-    ("table", BuildResult::Object(ObjectId::Table), &[ObjectId::Wood, ObjectId::Wood]),
-    ("stool", BuildResult::Object(ObjectId::Stool), &[ObjectId::Wood]),
-    ("bed", BuildResult::Object(ObjectId::Bed), &[ObjectId::Wood]),
-    ("door", BuildResult::Object(ObjectId::Door), &[ObjectId::Wood]),
-    ("farm", BuildResult::Object(ObjectId::Farm), &[ObjectId::Seeds]),
-    ("furnace", BuildResult::Object(ObjectId::Furnace), &[ObjectId::Rock, ObjectId::Rock, ObjectId::Rock]),
-    ("forge", BuildResult::Object(ObjectId::Forge), &[ObjectId::Rock, ObjectId::Rock, ObjectId::Rock, ObjectId::CopperOre, ObjectId::CopperOre]),
-    ("anvil", BuildResult::Object(ObjectId::Anvil), &[ObjectId::CopperIngot, ObjectId::CopperIngot, ObjectId::CopperIngot, ObjectId::CopperIngot]),
-    ("grindstone", BuildResult::Object(ObjectId::Grindstone), &[ObjectId::Rock, ObjectId::Wood]),
+    ("Wall", BuildResult::Tile(TileId::DungeonWall), &[ObjectId::Rock]),
+    ("Bridge", BuildResult::Tile(TileId::BridgeFloor), &[ObjectId::Wood]),
+    ("Table", BuildResult::Object(ObjectId::Table), &[ObjectId::Wood, ObjectId::Wood]),
+    ("Stool", BuildResult::Object(ObjectId::Stool), &[ObjectId::Wood]),
+    ("Bed", BuildResult::Object(ObjectId::Bed), &[ObjectId::Wood]),
+    ("Door", BuildResult::Object(ObjectId::Door), &[ObjectId::Wood]),
+    ("Farm", BuildResult::Object(ObjectId::Farm), &[ObjectId::Seeds]),
+    ("Furnace", BuildResult::Object(ObjectId::Furnace), &[ObjectId::Rock, ObjectId::Rock, ObjectId::Rock]),
+    ("Forge", BuildResult::Object(ObjectId::Forge), &[ObjectId::Rock, ObjectId::Rock, ObjectId::Rock, ObjectId::CopperOre, ObjectId::CopperOre]),
+    ("Anvil", BuildResult::Object(ObjectId::Anvil), &[ObjectId::CopperIngot, ObjectId::CopperIngot, ObjectId::CopperIngot, ObjectId::CopperIngot]),
+    ("Grindstone", BuildResult::Object(ObjectId::Grindstone), &[ObjectId::Rock, ObjectId::Wood]),
 ];
 
 #[rustfmt::skip]

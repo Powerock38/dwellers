@@ -21,22 +21,6 @@ pub enum ActionKind {
     TaskWithNeeds(TaskKind, TaskNeeds),
 }
 
-impl std::fmt::Display for ActionKind {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::Select => write!(f, ""),
-            Self::Cancel => write!(f, "{self:?}"),
-            Self::Task(task_kind) | Self::TaskWithNeeds(task_kind, _) => {
-                write!(
-                    f,
-                    "{}",
-                    format!("{task_kind:?}").split_whitespace().next().unwrap()
-                )
-            }
-        }
-    }
-}
-
 pub fn keyboard_current_action(
     mut commands: Commands,
     mut current_action: ResMut<CurrentAction>,
@@ -220,16 +204,6 @@ pub fn click_terrain(
 
                             max_tasks = max_tasks.saturating_sub(1);
                             debug!("Harvesting task at {index:?}");
-                        }
-
-                        TaskKind::Bridge => {
-                            commands.spawn(TaskBundle::new(
-                                Task::new(index, *task_kind, dweller, &tilemap_data),
-                                TaskNeeds::Objects(vec![ObjectId::Wood]),
-                            ));
-
-                            max_tasks = max_tasks.saturating_sub(1);
-                            debug!("Building bridge task at {index:?}");
                         }
 
                         TaskKind::Pickup => {

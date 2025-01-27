@@ -1,14 +1,14 @@
 use bevy::prelude::*;
 
 use crate::{
-    build_ui_button, data::BUILD_RECIPES, extract_ok, ActionKind, Dweller, DwellersSelected,
-    TaskKind, TaskNeeds, UiButton,
+    data::BUILD_RECIPES, extract_ok, ActionKind, Dweller, DwellersSelected, TaskKind, TaskNeeds,
+    UiButton,
 };
 
 #[derive(Component)]
 pub struct DwellersSelectedUi;
 
-pub fn spawn_ui(mut commands: Commands) {
+pub fn spawn_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn(Node {
             width: Val::Percent(100.0),
@@ -35,14 +35,12 @@ pub fn spawn_ui(mut commands: Commands) {
             })
             .with_children(|c| {
                 for (name, result, cost) in BUILD_RECIPES {
-                    build_ui_button(
-                        c,
-                        UiButton::Action(ActionKind::TaskWithNeeds(
-                            TaskKind::Build { result: *result },
-                            TaskNeeds::Objects(cost.to_vec()),
-                        )),
-                        format!("Build {name}"),
-                    );
+                    c.spawn(UiButton::Action(ActionKind::TaskWithNeeds(
+                        TaskKind::Build { result: *result },
+                        TaskNeeds::Objects(cost.to_vec()),
+                    )))
+                    .with_child(Text::new(*name))
+                    .with_child(ImageNode::new(asset_server.load(result.sprite_path())));
                 }
             });
 
@@ -53,23 +51,26 @@ pub fn spawn_ui(mut commands: Commands) {
                 ..default()
             })
             .with_children(|c| {
-                build_button(c, ActionKind::Task(TaskKind::Dig));
-                build_button(c, ActionKind::Task(TaskKind::Smoothen));
-                build_button(c, ActionKind::Task(TaskKind::Harvest));
-                build_button(c, ActionKind::Task(TaskKind::Bridge));
-                build_button(c, ActionKind::Task(TaskKind::Hunt));
-                build_button(c, ActionKind::Task(TaskKind::Pickup));
-                build_button(c, ActionKind::Task(TaskKind::Stockpile));
-                build_button(c, ActionKind::Task(TaskKind::Walk));
+                for task_kind in [
+                    TaskKind::Dig,
+                    TaskKind::Harvest,
+                    TaskKind::Hunt,
+                    TaskKind::Pickup,
+                    TaskKind::Stockpile,
+                    TaskKind::Smoothen,
+                    TaskKind::Walk,
+                ] {
+                    c.spawn(UiButton::Action(ActionKind::Task(task_kind)))
+                        .with_child(Text::new(
+                            format!("{task_kind:?}").split_whitespace().next().unwrap(),
+                        ))
+                        .with_child(ImageNode::new(asset_server.load(task_kind.sprite_path())));
+                }
 
-                build_button(c, ActionKind::Cancel);
+                c.spawn(UiButton::Action(ActionKind::Cancel))
+                    .with_child(Text::new("Cancel"));
             });
         });
-}
-
-fn build_button(c: &mut ChildBuilder, kind: ActionKind) {
-    let text = kind.to_string();
-    build_ui_button(c, UiButton::Action(kind), text);
 }
 
 pub fn update_dwellers_selected(

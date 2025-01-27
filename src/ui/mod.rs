@@ -24,6 +24,7 @@ pub fn init_font(asset_server: Res<AssetServer>, mut query: Query<&mut TextFont,
         border: UiRect::all(Val::Px(4.0)),
         justify_content: JustifyContent::Center,
         align_items: AlignItems::Center,
+        column_gap: Val::Px(5.0),
         ..default()
     }),
     BorderColor(|| BorderColor(Color::BLACK)),

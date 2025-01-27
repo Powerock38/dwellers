@@ -26,7 +26,6 @@ pub enum TaskKind {
     Dig,
     Smoothen,
     Harvest,
-    Bridge,
     Pickup,
     Hunt,
     Stockpile,
@@ -60,7 +59,9 @@ impl TaskKind {
                         | ObjectId::WheatPlant
                 )
             ),
-            TaskKind::Bridge => tile.id == TileId::Water,
+            TaskKind::Build {
+                result: BuildResult::Tile(TileId::BridgeFloor),
+            } => tile.id == TileId::Water,
             TaskKind::Build { .. } => !tile.id.data().is_wall() && tile.object.is_none(),
             TaskKind::Pickup => {
                 !tile.id.data().is_wall()
@@ -90,12 +91,25 @@ impl TaskKind {
             .unwrap()
             .to_string()
     }
+
+    pub fn sprite_path(self) -> String {
+        format!("tasks/{}.png", self.id())
+    }
 }
 
 #[derive(PartialEq, Clone, Copy, Reflect, Debug)]
 pub enum BuildResult {
     Object(ObjectId),
     Tile(TileId),
+}
+
+impl BuildResult {
+    pub fn sprite_path(self) -> String {
+        match self {
+            BuildResult::Object(object) => object.data().sprite_path(),
+            BuildResult::Tile(tile) => tile.data().sprite_path(),
+        }
+    }
 }
 
 #[derive(Bundle)]
@@ -120,13 +134,13 @@ impl TaskBundle {
     }
 
     fn new_inner(task: Task, needs: TaskNeeds, x: f32, y: f32) -> Self {
-        let texture_path = format!("tasks/{}.png", task.kind.id());
-
         Self {
             name: Name::new(format!("Task {:?}", task.kind)),
-            task,
             needs,
-            sprite: SpriteLoader { texture_path },
+            sprite: SpriteLoader {
+                texture_path: task.kind.sprite_path(),
+            },
+            task,
             transform: Transform::from_xyz(x, y, Z_INDEX),
         }
     }
@@ -417,14 +431,6 @@ pub fn event_task_completion(
                 }
                 _ => {}
             },
-
-            TaskKind::Bridge => {
-                tilemap_data.set(task.pos, TileId::BridgeFloor.place());
-
-                debug!("Bridged tile at {:?}", task.pos);
-                update_tasks_pos = true;
-                success = true;
-            }
 
             TaskKind::Pickup => {
                 if let Some(object) = tile.object {
@@ -730,7 +736,6 @@ pub fn update_pickups(
 
                     has_object && not_working_on_task_that_needs_it
                 }) {
-                    debug!("Waiting for object {needs_object:?} for {task:?}");
                     return TryFindObjectResult::Wait;
             }
 
@@ -758,7 +763,7 @@ pub fn update_pickups(
             });
 
             if let Some(index) = index {
-                info!("Found object {needs_object:?} at {index:?} for {task:?}");
+                debug!("Found object {needs_object:?} at {index:?} for {task:?}");
 
                 commands.spawn(TaskBundle::new(
                     Task::new(index, TaskKind::Pickup, None, &tilemap_data),
@@ -769,7 +774,6 @@ pub fn update_pickups(
                 return TryFindObjectResult::Found;
             }
 
-            debug!("No object {needs_object:?} found for {task:?}");
             TryFindObjectResult::NotFound
         };
 

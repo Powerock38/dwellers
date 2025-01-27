@@ -1,6 +1,6 @@
 use bevy::{prelude::*, sprite::Anchor, utils::HashMap};
 
-use crate::{BuildResult, Dweller, Task, TaskKind, TaskNeeds, TILE_SIZE};
+use crate::{Dweller, Task, TaskKind, TaskNeeds, TILE_SIZE};
 
 #[derive(Component)]
 pub struct DwellerObjectPreview;
@@ -159,11 +159,6 @@ pub fn update_task_build_preview(
         match task.kind {
             // Build result preview
             TaskKind::Build { result } => {
-                let sprite_path = match result {
-                    BuildResult::Object(object) => object.data().sprite_path(),
-                    BuildResult::Tile(tile) => tile.data().sprite_path(),
-                };
-
                 if let Some(children) = children {
                     for child in children {
                         if q_build_previews.get(*child).is_ok() {
@@ -175,7 +170,7 @@ pub fn update_task_build_preview(
                 commands.entity(entity).with_child((
                     TaskBuildPreview,
                     Sprite {
-                        image: asset_server.load(sprite_path),
+                        image: asset_server.load(result.sprite_path()),
                         anchor: Anchor::BottomLeft,
                         color: Color::WHITE.with_alpha(0.5),
                         ..default()
