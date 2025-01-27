@@ -178,7 +178,7 @@ pub fn update_tilemap_from_data(
         {
             TileColor::default()
         } else {
-            TileColor(Color::BLACK.with_alpha(0.5))
+            TileColor(Color::BLACK.with_alpha(0.8))
         };
 
         // add or update tile

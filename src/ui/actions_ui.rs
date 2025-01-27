@@ -1,8 +1,8 @@
 use bevy::prelude::*;
 
 use crate::{
-    data::BUILD_RECIPES, extract_ok, ActionKind, Dweller, DwellersSelected, TaskKind, TaskNeeds,
-    UiButton,
+    data::BUILD_RECIPES, extract_ok, utils::pascal_case_to_title_case, ActionKind, Dweller,
+    DwellersSelected, TaskKind, TaskNeeds, UiButton,
 };
 
 #[derive(Component)]
@@ -23,8 +23,7 @@ pub fn spawn_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
             c.spawn((
                 DwellersSelectedUi,
                 Text::new(""),
-                TextFont::from_font_size(20.0),
-                TextColor(Color::srgb(0.9, 0.9, 0.9)),
+                BackgroundColor(Color::BLACK.with_alpha(0.5)),
             ));
 
             c.spawn(Node {
@@ -34,12 +33,12 @@ pub fn spawn_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ..default()
             })
             .with_children(|c| {
-                for (name, result, cost) in BUILD_RECIPES {
+                for (result, cost) in BUILD_RECIPES {
                     c.spawn(UiButton::Action(ActionKind::TaskWithNeeds(
                         TaskKind::Build { result: *result },
                         TaskNeeds::Objects(cost.to_vec()),
                     )))
-                    .with_child(Text::new(*name))
+                    .with_child(Text::new(pascal_case_to_title_case(&result.debug_name())))
                     .with_child(ImageNode::new(asset_server.load(result.sprite_path())));
                 }
             });
@@ -61,9 +60,9 @@ pub fn spawn_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
                     TaskKind::Walk,
                 ] {
                     c.spawn(UiButton::Action(ActionKind::Task(task_kind)))
-                        .with_child(Text::new(
+                        .with_child(Text::new(pascal_case_to_title_case(
                             format!("{task_kind:?}").split_whitespace().next().unwrap(),
-                        ))
+                        )))
                         .with_child(ImageNode::new(asset_server.load(task_kind.sprite_path())));
                 }
 

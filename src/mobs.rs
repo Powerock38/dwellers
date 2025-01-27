@@ -72,7 +72,7 @@ pub fn spawn_mobs(
     let mut rng = rand::rng();
 
     for SpawnMobsOnChunk(chunk_index) in ev_spawn.read() {
-        let Some(index) = TilemapData::find_from_center(
+        let Some(index) = TilemapData::find_from_center_chunk_size(
             TilemapData::local_index_to_global(
                 *chunk_index,
                 IVec2::new(

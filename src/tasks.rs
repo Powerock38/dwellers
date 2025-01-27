@@ -60,7 +60,7 @@ impl TaskKind {
                 )
             ),
             TaskKind::Build {
-                result: BuildResult::Tile(TileId::BridgeFloor),
+                result: BuildResult::Tile(TileId::Bridge),
             } => tile.id == TileId::Water,
             TaskKind::Build { .. } => !tile.id.data().is_wall() && tile.object.is_none(),
             TaskKind::Pickup => {
@@ -108,6 +108,13 @@ impl BuildResult {
         match self {
             BuildResult::Object(object) => object.data().sprite_path(),
             BuildResult::Tile(tile) => tile.data().sprite_path(),
+        }
+    }
+
+    pub fn debug_name(self) -> String {
+        match self {
+            BuildResult::Object(object) => format!("{object:?}"),
+            BuildResult::Tile(tile) => format!("{tile:?}"),
         }
     }
 }
@@ -404,7 +411,20 @@ pub fn event_task_completion(
                         ObjectId::TallGrass => Some(ObjectId::Seeds),
 
                         ObjectId::WheatPlant => {
-                            dweller.object = Some(ObjectId::Wheat);
+                            dweller.object = Some(if rng.random_bool(0.7) {
+                                ObjectId::Wheat
+                            } else {
+                                ObjectId::Seeds
+                            });
+
+                            if rng.random_bool(0.1) {
+                                for (pos, tile) in tilemap_data.neighbours(task.pos) {
+                                    if tile.is_floor_free() && !tasks_positions.contains(&pos) {
+                                        tilemap_data.set(pos, tile.id.with(ObjectId::Farm));
+                                        break;
+                                    }
+                                }
+                            }
 
                             Some(ObjectId::Farm)
                         }
@@ -740,7 +760,7 @@ pub fn update_pickups(
             }
 
             // Find object: search around task.pos
-            let index = TilemapData::find_from_center(task.pos, |index| {
+            let index = TilemapData::find_from_center_chunk_size(task.pos, |index| {
                 if let Some(tile) = tilemap_data.get(index) {
                     if let Some(object) = tile.object {
                         return object == *needs_object

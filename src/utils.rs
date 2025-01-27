@@ -71,3 +71,16 @@ pub fn write_to_file(path: String, content: impl AsRef<[u8]>) {
 
     std::fs::write(path, content).expect("Error while writing to file");
 }
+
+pub fn pascal_case_to_title_case(input: &str) -> String {
+    let mut result = String::new();
+
+    for (i, c) in input.chars().enumerate() {
+        if i > 0 && c.is_uppercase() {
+            result.push(' ');
+        }
+        result.push(c);
+    }
+
+    result
+}

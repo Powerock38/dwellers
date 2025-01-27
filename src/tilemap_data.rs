@@ -126,36 +126,58 @@ impl TilemapData {
         result
     }
 
-    pub fn find_from_center(index: IVec2, is_valid: impl Fn(IVec2) -> bool) -> Option<IVec2> {
-        for radius in 0..=(CHUNK_SIZE as i32 / 2) {
-            // Top and Bottom edges of the square
-            for x in (index.x - radius).max(1)..=(index.x + radius).min(CHUNK_SIZE as i32 - 2) {
-                // Top edge
-                let top_y = (index.y - radius).max(1);
-                if is_valid(IVec2::new(x, top_y)) {
-                    return Some(IVec2::new(x, top_y));
+    pub fn find_from_center_chunk_size(
+        center: IVec2,
+        is_valid: impl Fn(IVec2) -> bool,
+    ) -> Option<IVec2> {
+        Self::find_from_center(center, CHUNK_SIZE / 2, is_valid)
+    }
+
+    pub fn find_from_center(
+        center: IVec2,
+        radius: u32,
+        is_valid: impl Fn(IVec2) -> bool,
+    ) -> Option<IVec2> {
+        let radius = radius as i32;
+
+        if is_valid(center) {
+            return Some(center);
+        }
+
+        // Explore in a spiral pattern
+        for layer in 1..=radius {
+            let mut position = center + IVec2::new(-layer, -layer);
+
+            // Top edge: Left to right
+            for _ in 0..2 * layer {
+                if is_valid(position) {
+                    return Some(position);
                 }
-                // Bottom edge
-                let bottom_y = (index.y + radius).min(CHUNK_SIZE as i32 - 2);
-                if is_valid(IVec2::new(x, bottom_y)) {
-                    return Some(IVec2::new(x, bottom_y));
-                }
+                position.x += 1;
             }
 
-            // Left and Right edges of the square (excluding corners already checked)
-            for y in ((index.y - radius + 1).max(1))
-                ..=((index.y + radius - 1).min(CHUNK_SIZE as i32 - 2))
-            {
-                // Left edge
-                let left_x = (index.x - radius).max(1);
-                if is_valid(IVec2::new(left_x, y)) {
-                    return Some(IVec2::new(left_x, y));
+            // Right edge: Top to bottom
+            for _ in 0..2 * layer {
+                if is_valid(position) {
+                    return Some(position);
                 }
-                // Right edge
-                let right_x = (index.x + radius).min(CHUNK_SIZE as i32 - 2);
-                if is_valid(IVec2::new(right_x, y)) {
-                    return Some(IVec2::new(right_x, y));
+                position.y += 1;
+            }
+
+            // Bottom edge: Right to left
+            for _ in 0..2 * layer {
+                if is_valid(position) {
+                    return Some(position);
                 }
+                position.x -= 1;
+            }
+
+            // Left edge: Bottom to top
+            for _ in 0..2 * layer {
+                if is_valid(position) {
+                    return Some(position);
+                }
+                position.y -= 1;
             }
         }
 

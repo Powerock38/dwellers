@@ -35,6 +35,50 @@ pub struct Dweller {
     pub armor: Option<ObjectId>,
 }
 
+impl Dweller {
+    pub fn can_do(&self, task_kind: TaskKind, task_needs: &TaskNeeds) -> bool {
+        match task_kind {
+            TaskKind::Workstation { amount: 0 } => return false,
+            _ => {}
+        }
+
+        match task_needs {
+            TaskNeeds::Nothing => {}
+            TaskNeeds::EmptyHands => {
+                if self.object.is_some() {
+                    return false;
+                }
+            }
+            TaskNeeds::Objects(objects) => match self.object {
+                None => return false,
+                Some(dweller_object) => {
+                    if !objects.iter().any(|object| *object == dweller_object)
+                        && !matches!(
+                            task_kind,
+                            TaskKind::Build {
+                                result: BuildResult::Object(build_object),
+                                ..
+                            } if build_object == dweller_object
+                        )
+                    {
+                        return false;
+                    }
+                }
+            },
+            TaskNeeds::AnyObject => {
+                if self.object.is_none() {
+                    return false;
+                }
+            }
+            TaskNeeds::Impossible => {
+                return false;
+            }
+        }
+
+        true
+    }
+}
+
 #[derive(Resource, Default)]
 pub struct DwellersSelected {
     list: Vec<Entity>,
@@ -75,7 +119,7 @@ pub fn spawn_dwellers(
     mut ev_spawn: EventReader<SpawnDwellersOnChunk>,
 ) {
     for SpawnDwellersOnChunk(chunk_index) in ev_spawn.read() {
-        let Some(spawn_pos) = TilemapData::find_from_center(
+        let Some(spawn_pos) = TilemapData::find_from_center_chunk_size(
             TilemapData::local_index_to_global(*chunk_index, IVec2::splat(CHUNK_SIZE as i32 / 2)),
             |index| {
                 for dx in -1..=1 {
@@ -165,7 +209,9 @@ pub fn update_dwellers(
         let task = q_tasks
             .iter_mut()
             .sort::<&Task>()
-            .find(|(_, task, _)| task.dweller == Some(entity));
+            .find(|(_, task, task_needs)| {
+                task.dweller == Some(entity) && dweller.can_do(task.kind, task_needs)
+            });
 
         if let Some((entity_task, mut task, _)) = task {
             if task.reachable_positions.iter().any(|pos| *pos == index) {
@@ -254,42 +300,8 @@ pub fn assign_tasks_to_dwellers(
         let (_, task, task_needs) = &mut tasks[task_i];
         let (dweller_entity, dweller, dweller_pos) = &mut dwellers[dweller_i];
 
-        match task.kind {
-            TaskKind::Workstation { amount: 0 } => continue,
-            _ => {}
-        }
-
-        match task_needs {
-            TaskNeeds::Nothing => {}
-            TaskNeeds::EmptyHands => {
-                if dweller.object.is_some() {
-                    continue;
-                }
-            }
-            TaskNeeds::Objects(objects) => match dweller.object {
-                None => continue,
-                Some(dweller_object) => {
-                    if !objects.iter().any(|object| *object == dweller_object)
-                        && !matches!(
-                            task.kind,
-                            TaskKind::Build {
-                                result: BuildResult::Object(build_object),
-                                ..
-                            } if build_object == dweller_object
-                        )
-                    {
-                        continue;
-                    }
-                }
-            },
-            TaskNeeds::AnyObject => {
-                if dweller.object.is_none() {
-                    continue;
-                }
-            }
-            TaskNeeds::Impossible => {
-                continue;
-            }
+        if !dweller.can_do(task.kind, task_needs) {
+            continue;
         }
 
         // Try pathfinding to task

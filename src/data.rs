@@ -31,6 +31,7 @@ enum_map! {
         Grindstone = ObjectData::blocking("grindstone"),
         Sword = ObjectData::tool("sword"),
         Armor = ObjectData::armor("armor"),
+        Scarecrow = ObjectData::blocking("scarecrow"),
     }
 }
 
@@ -39,7 +40,7 @@ enum_map! {
         GrassFloor = TileData::floor("grass"),
         StoneFloor = TileData::floor("stone"),
         DungeonFloor = TileData::floor("dungeon"),
-        BridgeFloor = TileData::floor("bridge"),
+        Bridge = TileData::floor("bridge"),
         SandFloor = TileData::floor("sand"),
 
         DirtWall = TileData::wall("dirt"),
@@ -59,18 +60,20 @@ enum_map! {
 }
 
 #[rustfmt::skip]
-pub const BUILD_RECIPES: &[(&str, BuildResult, &[ObjectId])] = &[
-    ("Wall", BuildResult::Tile(TileId::DungeonWall), &[ObjectId::Rock]),
-    ("Bridge", BuildResult::Tile(TileId::BridgeFloor), &[ObjectId::Wood]),
-    ("Table", BuildResult::Object(ObjectId::Table), &[ObjectId::Wood, ObjectId::Wood]),
-    ("Stool", BuildResult::Object(ObjectId::Stool), &[ObjectId::Wood]),
-    ("Bed", BuildResult::Object(ObjectId::Bed), &[ObjectId::Wood]),
-    ("Door", BuildResult::Object(ObjectId::Door), &[ObjectId::Wood]),
-    ("Farm", BuildResult::Object(ObjectId::Farm), &[ObjectId::Seeds]),
-    ("Furnace", BuildResult::Object(ObjectId::Furnace), &[ObjectId::Rock, ObjectId::Rock, ObjectId::Rock]),
-    ("Forge", BuildResult::Object(ObjectId::Forge), &[ObjectId::Rock, ObjectId::Rock, ObjectId::Rock, ObjectId::CopperOre, ObjectId::CopperOre]),
-    ("Anvil", BuildResult::Object(ObjectId::Anvil), &[ObjectId::CopperIngot, ObjectId::CopperIngot, ObjectId::CopperIngot, ObjectId::CopperIngot]),
-    ("Grindstone", BuildResult::Object(ObjectId::Grindstone), &[ObjectId::Rock, ObjectId::Wood]),
+pub const BUILD_RECIPES: &[(BuildResult, &[ObjectId])] = &[
+    (BuildResult::Tile(TileId::WoodWall), &[ObjectId::Wood]),
+    (BuildResult::Tile(TileId::DungeonWall), &[ObjectId::Rock]),
+    (BuildResult::Tile(TileId::Bridge), &[ObjectId::Wood]),
+    (BuildResult::Object(ObjectId::Table), &[ObjectId::Wood, ObjectId::Wood]),
+    (BuildResult::Object(ObjectId::Stool), &[ObjectId::Wood]),
+    (BuildResult::Object(ObjectId::Bed), &[ObjectId::Wood]),
+    (BuildResult::Object(ObjectId::Door), &[ObjectId::Wood]),
+    (BuildResult::Object(ObjectId::Farm), &[ObjectId::Seeds]),
+    (BuildResult::Object(ObjectId::Scarecrow), &[ObjectId::Wood, ObjectId::Wheat, ObjectId::Wheat]),
+    (BuildResult::Object(ObjectId::Furnace), &[ObjectId::Rock, ObjectId::Rock, ObjectId::Rock]),
+    (BuildResult::Object(ObjectId::Forge), &[ObjectId::Rock, ObjectId::Rock, ObjectId::Rock, ObjectId::CopperOre, ObjectId::CopperOre]),
+    (BuildResult::Object(ObjectId::Anvil), &[ObjectId::CopperIngot, ObjectId::CopperIngot, ObjectId::CopperIngot, ObjectId::CopperIngot]),
+    (BuildResult::Object(ObjectId::Grindstone), &[ObjectId::Rock, ObjectId::Wood]),
 ];
 
 #[rustfmt::skip]

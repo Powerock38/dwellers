@@ -5,19 +5,37 @@ use rand::{rngs::StdRng, Rng, SeedableRng};
 use crate::{
     data::{ObjectId, StructureId, TileId},
     init_tilemap,
+    tasks::{Task, TaskBundle, TaskKind, TaskNeeds},
     tilemap_data::TilemapData,
     tiles::TilePlaced,
     utils::write_to_file,
     MobBundle, SaveName, SpawnDwellersOnChunk, SpawnMobsOnChunk, CHUNK_SIZE, SAVE_DIR,
 };
 
-const CLIMATE_NOISE_SCALE: f64 = 0.01;
-const MOBS_SPAWN_NOISE_SCALE: f64 = 0.1;
-const STRUCTURES_NOISE_SCALE: f64 = 0.2;
-const MOUNTAINS_NOISE_SCALE: f64 = 0.004;
-const ORES_NOISE_SCALE: f64 = 0.1;
-const VEGETATION_NOISE_SCALE: f64 = 0.5;
-const VEGETATION_ZONES_NOISE_SCALE: f64 = 0.05;
+const MOBS_SCALE: f64 = 0.1;
+const MOBS_THRESHOLD: f64 = 0.0;
+
+const CLIMATE_SCALE: f64 = 0.01;
+const DESERT_THRESHOLD: f64 = 0.5;
+
+const STRUCTURES_SCALE: f64 = 0.2;
+const STRUCTURES_THRESHOLD: f64 = 0.0;
+
+const MOUNTAINS_SCALE: f64 = 0.004;
+const MOUNTAINS_DIRT_THRESHOLD: f64 = 0.2;
+const MOUNTAINS_STONE_THRESHOLD: f64 = 0.3;
+const RIVER_SHORE_THRESHOLD: f64 = 0.45;
+const RIVER_THRESHOLD: f64 = 0.5;
+
+const ORES_SCALE: f64 = 0.2;
+const ORES_THRESHOLD: f64 = 0.7;
+
+const VEGETATION_ZONES_SCALE: f64 = 0.05;
+const VEGETATION_ZONES_THRESHOLD: f64 = 0.4;
+
+const VEGETATION_SCALE: f64 = 0.5;
+const TREE_THRESHOLD: f64 = 0.4;
+const PLANT_THRESHOLD: f64 = 0.7;
 
 #[derive(Event)]
 pub struct LoadChunk(pub IVec2);
@@ -88,9 +106,9 @@ pub fn load_chunks(
 
             // Generate mobs
             if noise_climate.get([
-                chunk_index.x as f64 * MOBS_SPAWN_NOISE_SCALE,
-                chunk_index.y as f64 * MOBS_SPAWN_NOISE_SCALE,
-            ]) > 0.0
+                chunk_index.x as f64 * MOBS_SCALE,
+                chunk_index.y as f64 * MOBS_SCALE,
+            ]) > MOBS_THRESHOLD
             {
                 ev_spawn_mobs.send(SpawnMobsOnChunk(*chunk_index));
             }
@@ -107,18 +125,17 @@ pub fn load_chunks(
                     let v = index.y as f64;
 
                     let climate_noise_value =
-                        noise_climate.get([u * CLIMATE_NOISE_SCALE, v * CLIMATE_NOISE_SCALE]);
+                        noise_climate.get([u * CLIMATE_SCALE, v * CLIMATE_SCALE]);
 
                     // Mountains
                     let mountain_noise_value =
-                        noise_mountains.get([u * MOUNTAINS_NOISE_SCALE, v * MOUNTAINS_NOISE_SCALE]);
+                        noise_mountains.get([u * MOUNTAINS_SCALE, v * MOUNTAINS_SCALE]);
 
-                    if mountain_noise_value < -0.2 {
-                        let tile = if mountain_noise_value < -0.3 {
-                            let ores_noise_value =
-                                noise_ores.get([u * ORES_NOISE_SCALE, v * ORES_NOISE_SCALE]);
+                    if mountain_noise_value < -MOUNTAINS_DIRT_THRESHOLD {
+                        let tile = if mountain_noise_value < -MOUNTAINS_STONE_THRESHOLD {
+                            let ores_noise_value = noise_ores.get([u * ORES_SCALE, v * ORES_SCALE]);
 
-                            if ores_noise_value > 0.5 {
+                            if ores_noise_value > ORES_THRESHOLD {
                                 TileId::StoneWall.with(ObjectId::CopperOre)
                             } else {
                                 TileId::StoneWall.place()
@@ -133,37 +150,35 @@ pub fn load_chunks(
                     }
 
                     // Rivers
-                    if mountain_noise_value > 0.5 {
+                    if mountain_noise_value > RIVER_THRESHOLD {
                         tilemap_data.set(index, TileId::Water.place());
 
                         continue;
                     }
 
                     // River shores
-                    if mountain_noise_value > 0.45 {
+                    if mountain_noise_value > RIVER_SHORE_THRESHOLD {
                         tilemap_data.set(index, TileId::SandFloor.place());
 
                         continue;
                     }
 
                     // Vegetation
-                    let vegetation_noise_value = noise_vegetation
-                        .get([u * VEGETATION_NOISE_SCALE, v * VEGETATION_NOISE_SCALE]);
+                    let vegetation_noise_value =
+                        noise_vegetation.get([u * VEGETATION_SCALE, v * VEGETATION_SCALE]);
 
-                    let vegetation_zones_noise_value = noise_vegetation_zones.get([
-                        u * VEGETATION_ZONES_NOISE_SCALE,
-                        v * VEGETATION_ZONES_NOISE_SCALE,
-                    ]);
+                    let vegetation_zones_noise_value = noise_vegetation_zones
+                        .get([u * VEGETATION_ZONES_SCALE, v * VEGETATION_ZONES_SCALE]);
 
-                    let vegetation = if vegetation_zones_noise_value > 0.4 {
-                        if vegetation_noise_value > 0.4 {
-                            if climate_noise_value > 0.5 {
+                    let vegetation = if vegetation_zones_noise_value > VEGETATION_ZONES_THRESHOLD {
+                        if vegetation_noise_value > TREE_THRESHOLD {
+                            if climate_noise_value > DESERT_THRESHOLD {
                                 Some(ObjectId::PalmTree)
                             } else {
                                 Some(ObjectId::Tree)
                             }
-                        } else if vegetation_noise_value < -0.7 {
-                            if climate_noise_value > 0.5 {
+                        } else if vegetation_noise_value < -PLANT_THRESHOLD {
+                            if climate_noise_value > DESERT_THRESHOLD {
                                 Some(ObjectId::Cactus)
                             } else {
                                 Some(ObjectId::TallGrass)
@@ -175,7 +190,7 @@ pub fn load_chunks(
                         None
                     };
 
-                    let mut ground_tile = if climate_noise_value > 0.5 {
+                    let mut ground_tile = if climate_noise_value > DESERT_THRESHOLD {
                         TileId::SandFloor.place()
                     } else {
                         TileId::GrassFloor.place()
@@ -191,13 +206,13 @@ pub fn load_chunks(
 
             // Generate structures
             let structure_noise_value = noise_structures.get([
-                chunk_index.x as f64 * STRUCTURES_NOISE_SCALE,
-                chunk_index.y as f64 * STRUCTURES_NOISE_SCALE,
+                chunk_index.x as f64 * STRUCTURES_SCALE,
+                chunk_index.y as f64 * STRUCTURES_SCALE,
             ]);
 
             let mut forbidden_positions: Vec<(IVec2, IVec2)> = vec![];
 
-            if structure_noise_value > 0.0 {
+            if structure_noise_value > STRUCTURES_THRESHOLD {
                 let structure = StructureId::SmallOutpost.data(); //TODO: random structure
 
                 let mut rng: StdRng = SeedableRng::seed_from_u64(
@@ -274,7 +289,11 @@ pub fn load_chunks(
     }
 }
 
-pub fn update_terrain(mut tilemap_data: ResMut<TilemapData>) {
+pub fn update_terrain(
+    mut commands: Commands,
+    mut tilemap_data: ResMut<TilemapData>,
+    q_tasks: Query<&Task>,
+) {
     let mut to_set = vec![]; //because cant modify tilemap_data while iterating
 
     for (chunk_index, _chunk) in &tilemap_data.chunks {
@@ -286,16 +305,39 @@ pub fn update_terrain(mut tilemap_data: ResMut<TilemapData>) {
                 );
 
                 if let Some(tile) = tilemap_data.get(index) {
-                    match tile.object {
-                        Some(ObjectId::Farm) => {
-                            let mut rng = rand::rng();
+                    if let Some(object) = tile.object {
+                        match object {
+                            ObjectId::Farm => {
+                                let mut rng = rand::rng();
 
-                            if rng.random_bool(0.01) {
-                                to_set.push((index, tile.id.with(ObjectId::WheatPlant)));
+                                if rng.random_bool(0.01) {
+                                    to_set.push((index, tile.id.with(ObjectId::WheatPlant)));
+                                }
                             }
-                        }
 
-                        _ => {}
+                            ObjectId::Scarecrow => {
+                                if let Some(index) =
+                                    TilemapData::find_from_center(index, 4, |index| {
+                                        if let Some(TilePlaced {
+                                            object: Some(ObjectId::WheatPlant),
+                                            ..
+                                        }) = tilemap_data.get(index)
+                                        {
+                                            return !q_tasks.iter().any(|task| task.pos == index);
+                                        }
+
+                                        false
+                                    })
+                                {
+                                    commands.spawn(TaskBundle::new(
+                                        Task::new(index, TaskKind::Harvest, None, &tilemap_data),
+                                        TaskNeeds::EmptyHands,
+                                    ));
+                                }
+                            }
+
+                            _ => {}
+                        }
                     }
                 }
             }
