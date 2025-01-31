@@ -16,11 +16,11 @@ rustflags = [
 
 
 # Use cranelift
-# [unstable]
-# codegen-backend = true
+[unstable]
+codegen-backend = true
 
-# [profile.dev]
-# codegen-backend = "cranelift"
+[profile.dev]
+codegen-backend = "cranelift"
 
-# [profile.dev.package."*"]
-# codegen-backend = "llvm"
+[profile.dev.package."*"]
+codegen-backend = "llvm"

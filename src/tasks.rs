@@ -74,7 +74,7 @@ impl TaskKind {
                 !tile.id.data().is_wall()
                     && tile
                         .object
-                        .map_or(true, |object| object.data().is_carriable())
+                        .is_none_or(|object| object.data().is_carriable())
             }
             TaskKind::Workstation { .. } => tile
                 .object

@@ -111,7 +111,7 @@ impl TilemapData {
                         let adj_blocking = [IVec2::new(diag_pos.x, 0), IVec2::new(0, diag_pos.y)]
                             .into_iter()
                             .any(|adj| {
-                                self.get(pos + adj).map_or(true, |t| t.id.data().is_wall())
+                                self.get(pos + adj).is_none_or(|t| t.id.data().is_wall())
                                 // Do not allow diagonal movement if there is a wall, but allow if it's a blocking object
                             });
 

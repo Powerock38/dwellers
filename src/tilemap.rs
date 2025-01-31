@@ -199,7 +199,7 @@ pub fn update_tilemap_from_data(
 
             commands.entity(tile_layer_entity).add_child(tile_entity);
             tile_layer_chunk_storage.set(&tile_pos, tile_entity);
-        };
+        }
 
         // add, update or remove object
         if let Some(object) = tile.object {
@@ -221,7 +221,7 @@ pub fn update_tilemap_from_data(
 
                 commands.entity(object_layer_entity).add_child(tile_entity);
                 object_layer_chunk_storage.set(&tile_pos, tile_entity);
-            };
+            }
         } else if let Some(object_entity) = object_layer_chunk_storage.get(&tile_pos) {
             commands.entity(object_entity).despawn_recursive();
             object_layer_chunk_storage.remove(&tile_pos);
