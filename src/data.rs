@@ -12,7 +12,7 @@ enum_map! {
         Tree = ObjectData::blocking_non_carriable("tree"),
         Table = ObjectData::blocking("table"),
         Stool = ObjectData::blocking("stool"),
-        Bed = ObjectData::blocking("bed"),
+        Bed = ObjectData::passable("bed"),
         Door = ObjectData::passable("door"),
         Rock = ObjectData::passable("rock"),
         TallGrass = ObjectData::passable_non_carriable("tall_grass"),

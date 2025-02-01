@@ -11,14 +11,15 @@ use bevy_ecs_tilemap::TilemapPlugin;
 use rand::{distr::Alphanumeric, Rng};
 
 use crate::{
-    actions::*, camera::*, dwellers::*, mobs::*, objects::*, preview_sprites::*, save_load::*,
-    state::*, tasks::*, terrain::*, tilemap::*, tiles::*, ui::*,
+    actions::*, camera::*, dwellers::*, dwellers_needs::*, mobs::*, objects::*, preview_sprites::*,
+    save_load::*, state::*, tasks::*, terrain::*, tilemap::*, tiles::*, ui::*,
 };
 
 mod actions;
 mod camera;
 mod data;
 mod dwellers;
+mod dwellers_needs;
 mod mobs;
 mod objects;
 mod preview_sprites;
@@ -92,6 +93,7 @@ fn main() {
                 // Game logic
                 (update_dwellers, update_mobs, assign_tasks_to_dwellers)
                     .run_if(on_timer(Duration::from_millis(200))),
+                (update_dweller_needs).run_if(on_timer(Duration::from_millis(600))),
                 (update_dwellers_load_chunks).run_if(on_timer(Duration::from_millis(1000))),
                 (update_terrain).run_if(on_timer(Duration::from_millis(800))),
                 update_dwellers_movement,

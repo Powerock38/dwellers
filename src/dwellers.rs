@@ -9,6 +9,7 @@ use rand::{seq::IndexedRandom, Rng};
 
 use crate::{
     data::ObjectId,
+    dwellers_needs::DwellerNeeds,
     random_text::{generate_word, NAMES},
     tasks::{BuildResult, Task, TaskCompletionEvent, TaskKind, TaskNeeds},
     tilemap::TILE_SIZE,
@@ -18,7 +19,7 @@ use crate::{
 
 const LOAD_CHUNKS_RADIUS: i32 = 1;
 
-const SPEED: f32 = 100.0;
+const SPEED: f32 = 120.0;
 const Z_INDEX: f32 = 10.0;
 
 #[derive(Event)]
@@ -28,7 +29,6 @@ pub struct SpawnDwellersOnChunk(pub IVec2);
 #[reflect(Component, Default)]
 pub struct Dweller {
     pub name: String,
-    speed: f32,
     pub move_queue: Vec<IVec2>, // next move is at the end
     pub object: Option<ObjectId>,
     pub tool: Option<ObjectId>,
@@ -152,11 +152,8 @@ pub fn spawn_dwellers(
             let sprite_i = rng.random_range(1..=4);
 
             commands.spawn((
-                Dweller {
-                    name: name.to_string(),
-                    speed: SPEED,
-                    ..default()
-                },
+                Dweller { name, ..default() },
+                DwellerNeeds::default(),
                 SpriteLoader {
                     texture_path: format!("sprites/dweller{sprite_i}.png"),
                 },
@@ -320,9 +317,9 @@ pub fn assign_tasks_to_dwellers(
 
 pub fn update_dwellers_movement(
     time: Res<Time>,
-    mut q_dwellers: Query<(&mut Dweller, &mut Transform, &mut Sprite)>,
+    mut q_dwellers: Query<(&mut Dweller, &DwellerNeeds, &mut Transform, &mut Sprite)>,
 ) {
-    for (mut dweller, mut transform, mut sprite) in &mut q_dwellers {
+    for (mut dweller, needs, mut transform, mut sprite) in &mut q_dwellers {
         // Move to next position in queue
 
         if let Some(next_move) = dweller.move_queue.last() {
@@ -333,14 +330,16 @@ pub fn update_dwellers_movement(
 
             let direction = target - transform.translation.truncate();
 
-            if direction.length() < dweller.speed * time.delta_secs() {
+            let speed = SPEED * needs.speed_ratio() * time.delta_secs();
+
+            if direction.length() < speed {
                 transform.translation.x = target.x;
                 transform.translation.y = target.y;
                 dweller.move_queue.pop();
             } else {
                 let dir = direction.normalize();
-                transform.translation.x += dir.x * dweller.speed * time.delta_secs();
-                transform.translation.y += dir.y * dweller.speed * time.delta_secs();
+                transform.translation.x += dir.x * speed;
+                transform.translation.y += dir.y * speed;
 
                 sprite.flip_x = dir.x < 0.0;
             }

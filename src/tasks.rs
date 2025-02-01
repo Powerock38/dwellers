@@ -11,6 +11,7 @@ use rand::Rng;
 use crate::{
     data::{ObjectId, TileId, WORKSTATIONS},
     dwellers::Dweller,
+    dwellers_needs::DwellerNeeds,
     mobs::Mob,
     tilemap::TILE_SIZE,
     tilemap_data::TilemapData,
@@ -36,6 +37,7 @@ pub enum TaskKind {
         amount: u32,
     },
     Walk,
+    UseToSatisfyNeed,
 }
 
 impl TaskKind {
@@ -80,6 +82,9 @@ impl TaskKind {
                 .object
                 .is_some_and(|object| WORKSTATIONS.contains_key(&object)),
             TaskKind::Walk => !tile.is_blocking(),
+            TaskKind::UseToSatisfyNeed => {
+                matches!(tile.object, Some(ObjectId::Bed | ObjectId::Bread))
+            }
         }
     }
 
@@ -227,8 +232,9 @@ impl Task {
         task
     }
 
-    pub fn priority(&mut self, priority: i32) {
+    pub fn with_priority(mut self, priority: i32) -> Self {
         self.priority = priority;
+        self
     }
 
     pub fn recompute_reachable_positions(&mut self, tilemap_data: &TilemapData) {
@@ -307,9 +313,11 @@ pub fn event_task_completion(
     mut events: EventReader<TaskCompletionEvent>,
     mut tilemap_data: ResMut<TilemapData>,
     q_mobs: Query<(Entity, &Mob, &Transform)>,
-    mut q_dwellers: Query<(&mut Dweller, &Transform)>,
+    mut q_dwellers: Query<(&mut Dweller, &mut DwellerNeeds, &Transform)>,
     mut q_tasks: Query<(Entity, &mut Task, &mut TaskNeeds, Option<&Parent>)>,
 ) {
+    let mut rng = rand::rng();
+
     let mut update_tasks_pos = false;
     let mut update_stockpiles = false;
     let mut update_workstations = false;
@@ -325,7 +333,7 @@ pub fn event_task_completion(
             continue;
         };
 
-        let Some((mut dweller, dweller_transform)) =
+        let Some((mut dweller, mut dweller_needs, dweller_transform)) =
             task.dweller.and_then(|d| q_dwellers.get_mut(d).ok())
         else {
             continue;
@@ -334,8 +342,6 @@ pub fn event_task_completion(
         let Some(tile) = tilemap_data.get(task.pos) else {
             continue;
         };
-
-        let mut rng = rand::rng();
 
         let mut success = false;
 
@@ -377,6 +383,8 @@ pub fn event_task_completion(
 
                 tilemap_data.set(task.pos, tile);
 
+                dweller_needs.sleep(-5);
+
                 debug!("Dug tile at {:?}", task.pos);
                 update_tasks_pos = true;
                 success = true;
@@ -397,8 +405,8 @@ pub fn event_task_completion(
                 success = true;
             }
 
-            TaskKind::Harvest => match tile.object {
-                Some(object) => {
+            TaskKind::Harvest => {
+                if let Some(object) = tile.object {
                     let drop_object = match object {
                         ObjectId::Tree | ObjectId::PalmTree | ObjectId::Cactus => {
                             if rng.random_bool(0.3) {
@@ -445,12 +453,13 @@ pub fn event_task_completion(
                         tilemap_data.set(task.pos, tile.id.place());
                     }
 
+                    dweller_needs.sleep(-2);
+
                     debug!("Harvested object at {:?}", task.pos);
                     update_tasks_pos = true;
                     success = true;
                 }
-                _ => {}
-            },
+            }
 
             TaskKind::Pickup => {
                 if let Some(object) = tile.object {
@@ -519,6 +528,9 @@ pub fn event_task_completion(
                     }
                 }
 
+                dweller_needs.sleep(-3);
+                dweller_needs.food(-1);
+
                 debug!("Built {:?} at {:?}", result, task.pos);
                 update_tasks_pos = true;
                 success = true;
@@ -550,6 +562,9 @@ pub fn event_task_completion(
                             }
 
                             commands.entity(entity_mob).despawn_recursive();
+
+                            dweller_needs.sleep(-5);
+                            dweller_needs.food(-5);
 
                             debug!("Hunted mob at {:?}", mob_transform.translation);
                             success = true;
@@ -587,6 +602,9 @@ pub fn event_task_completion(
                                     ));
                                 }
 
+                                dweller_needs.sleep(-1);
+                                dweller_needs.food(-1);
+
                                 debug!("Workstation output at {:?}", pos);
                                 success = true;
                                 break;
@@ -601,6 +619,31 @@ pub fn event_task_completion(
 
             TaskKind::Walk => {
                 success = true;
+            }
+
+            TaskKind::UseToSatisfyNeed => {
+                if let Some(object) = tile.object {
+                    match object {
+                        ObjectId::Bread => {
+                            tilemap_data.set(task.pos, tile.id.place());
+                            dweller_needs.food(500);
+
+                            debug!("Ate bread {:?}", dweller_needs);
+                            success = true;
+                        }
+
+                        ObjectId::Bed => {
+                            dweller_needs.sleep(100);
+
+                            debug!("Zzzzz {:?}", dweller_needs);
+                            if dweller_needs.is_fully_rested() {
+                                success = true;
+                            }
+                        }
+
+                        _ => {}
+                    }
+                }
             }
         }
 
@@ -652,7 +695,7 @@ pub fn event_task_completion(
                 TaskNeeds::Nothing | TaskNeeds::EmptyHands => {}
             }
 
-            // Permanent tasks
+            // Do not remove permanent tasks
             match task.kind {
                 TaskKind::Stockpile => {
                     *task_needs = TaskNeeds::Impossible;
@@ -679,8 +722,6 @@ pub fn event_task_completion(
             } else {
                 task.dweller = None;
             }
-        } else {
-            info!("Dweller {} failed task {:?}", dweller.name, task);
         }
     }
 
@@ -731,6 +772,10 @@ pub fn update_pickups(
             Wait,
             Found,
             NotFound,
+        }
+
+        if task.dweller.is_some() {
+            continue;
         }
 
         // Closure to find an object for a task
@@ -796,10 +841,6 @@ pub fn update_pickups(
 
             TryFindObjectResult::NotFound
         };
-
-        if task.dweller.is_some() {
-            continue;
-        }
 
         match task.kind {
             TaskKind::Stockpile | TaskKind::Workstation { amount: 0 } => continue, //  Stockpile tasks or Workstation tasks with amount 0 don't need objects
