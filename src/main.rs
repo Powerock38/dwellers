@@ -100,7 +100,7 @@ fn main() {
                 update_mobs_movement,
                 update_unreachable_tasks,
                 update_unreachable_pathfinding_tasks.run_if(on_timer(Duration::from_millis(5000))),
-                update_pickups.run_if(on_timer(Duration::from_millis(400))),
+                update_pickups.run_if(on_timer(Duration::from_millis(1000))),
                 event_task_completion,
                 manage_chunks,
                 update_tilemap_from_data.after(manage_chunks),

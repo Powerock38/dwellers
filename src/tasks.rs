@@ -5,6 +5,7 @@ use bevy::{
     prelude::*,
     utils::hashbrown::HashSet,
 };
+use dashmap::DashSet;
 use pathfinding::directed::astar::astar;
 use rand::Rng;
 
@@ -13,7 +14,7 @@ use crate::{
     dwellers::Dweller,
     dwellers_needs::DwellerNeeds,
     mobs::Mob,
-    tilemap::TILE_SIZE,
+    tilemap::{CHUNK_SIZE, TILE_SIZE},
     tilemap_data::TilemapData,
     tiles::TilePlaced,
     ObjectSlot, SpriteLoader,
@@ -759,14 +760,56 @@ pub fn event_task_completion(
 }
 
 pub fn update_pickups(
-    mut commands: Commands,
+    par_commands: ParallelCommands,
     tilemap_data: Res<TilemapData>,
-    q_tasks: Query<(&Task, &TaskNeeds)>,
+    q_tasks: Query<(Ref<Task>, Ref<TaskNeeds>)>,
     q_dwellers: Query<(Entity, &Dweller)>,
 ) {
-    let mut task_indexes = vec![];
+    let mut updated = false;
 
+    // Precompute existing pickup objects
+    let mut existing_pickups = HashSet::new();
     for (task, task_needs) in &q_tasks {
+        updated = updated || task.is_changed() || task_needs.is_changed();
+
+        if task.kind == TaskKind::Pickup {
+            if let Some(tile) = tilemap_data.get(task.pos) {
+                if let Some(object) = tile.object {
+                    existing_pickups.insert(object);
+                }
+            } else {
+                error!(
+                    "SHOULD NEVER HAPPEN: Pickup task at {:?} has no object",
+                    task.pos
+                );
+            }
+        }
+    }
+
+    if !updated {
+        info!("No new pickups to update");
+        return;
+    }
+
+    // Precompute dwellers with an object, not working on a task that needs it
+    let mut dwellers_candidates = HashSet::new();
+    for (entity_dweller, dweller) in &q_dwellers {
+        if let Some(object) = dweller.object {
+            let not_working_on_task_that_needs_it =
+                !q_tasks.iter().any(|(t, tn)| {
+                    t.dweller == Some(entity_dweller)
+                        && matches!(tn.into_inner(), TaskNeeds::Objects(objects) if objects.iter().any(|object| dweller.object == Some(*object)))
+                });
+
+            if not_working_on_task_that_needs_it {
+                dwellers_candidates.insert(object);
+            }
+        }
+    }
+
+    let task_indexes = DashSet::new();
+
+    q_tasks.par_iter().for_each(|(task, task_needs)| {
         // Closure result enum
         enum TryFindObjectResult {
             Wait,
@@ -774,92 +817,88 @@ pub fn update_pickups(
             NotFound,
         }
 
-        if task.dweller.is_some() {
-            continue;
+        if task.dweller.is_some()
+            || matches!(
+                task.kind,
+                TaskKind::Stockpile | TaskKind::Workstation { amount: 0 }
+            )
+        {
+            return;
         }
 
-        // Closure to find an object for a task
-        let mut try_find_object = |needs_object: &ObjectId, only_search_stockpiles: bool| {
-            // check if it needs a new Pickup task: check for already existing Pickup tasks for the required object
-            if q_tasks.iter().any(|(t, _)| {
-                    t.kind == TaskKind::Pickup
-                    && tilemap_data.get(t.pos).is_some_and(|tile| {
-                        if let Some(object) = tile.object {
-                            return *needs_object == object;
-                        }
-                        error!("SHOULD NEVER HAPPEN: Pickup task at {:?} has no object", t.pos);
-                        false
-                    })
-                }) || // or Dwellers with the required object
-                q_dwellers.iter().any(|(entity_dweller, dweller)| {
-                    let has_object = dweller.object.is_some_and(|dweller_object| dweller_object == *needs_object);
+        if let TaskNeeds::Objects(needs_objects) = task_needs.into_inner() {
+            // Closure to find an object for a task
+            let try_find_object = |needs_object: &ObjectId| {
+                // check if it needs a new Pickup task:
+                // check for existing Pickup tasks for the required object
+                // or Dwellers with the required object
+                if existing_pickups.contains(needs_object)
+                    || dwellers_candidates.contains(needs_object)
+                {
+                    return TryFindObjectResult::Wait;
+                }
 
-                    let not_working_on_task_that_needs_it =
-                    !q_tasks.iter().any(|(t, tn)| {
-                        t.dweller == Some(entity_dweller) && matches!(tn, TaskNeeds::Objects(objects) if objects.iter().any(|object| dweller.object == Some(*object) ))
+                // Find object: iter on stockpiles tasks containing required object, sort by distance
+                let stockpiles = q_tasks
+                    .iter()
+                    .filter_map(|(t, _)| {
+                        if matches!(t.kind, TaskKind::Stockpile)
+                            && !task_indexes.contains(&t.pos)
+                            && matches!(
+                                tilemap_data.get(t.pos),
+                                Some(TilePlaced {
+                                    object: Some(o),
+                                    ..
+                                }) if *needs_object == o
+                            )
+                        {
+                            const CHUNK_SIZE_SQUARED: i32 = (CHUNK_SIZE * CHUNK_SIZE) as i32;
+                            let distance = t.pos.distance_squared(task.pos);
+                            if distance < CHUNK_SIZE_SQUARED {
+                                return Some((t.into_inner(), distance));
+                            }
+                        }
+
+                        None
+                    })
+                    .collect::<Vec<_>>();
+
+                // Get closest stockpile
+                let stockpile = stockpiles.into_iter().min_by_key(|(_, distance)| *distance);
+
+                if let Some((Task { pos, .. }, _)) = stockpile {
+                    debug!("Found object {needs_object:?} at {pos:?} for {task:?}");
+
+                    par_commands.command_scope(|mut commands| {
+                        commands.spawn(TaskBundle::new(
+                            Task::new(*pos, TaskKind::Pickup, None, &tilemap_data),
+                            TaskNeeds::EmptyHands,
+                        ));
                     });
 
-                    has_object && not_working_on_task_that_needs_it
-                }) {
-                    return TryFindObjectResult::Wait;
-            }
+                    task_indexes.insert(pos);
+                    return TryFindObjectResult::Found;
+                }
 
-            // Find object: search around task.pos
-            let index = TilemapData::find_from_center_chunk_size(task.pos, |index| {
-                if let Some(tile) = tilemap_data.get(index) {
-                    if let Some(object) = tile.object {
-                        return object == *needs_object
-                            && TaskKind::Pickup.is_valid_on_tile(tile)
-                            && !task_indexes.contains(&index)
-                            // if only_search_stockpiles, make sure there's a Stockpile task here
-                            && (!only_search_stockpiles
-                                || q_tasks.iter().any(|(t, _)| {
-                                    t.pos == index && matches!(t.kind, TaskKind::Stockpile)
-                                }))
-                            // make sure there's no task here already (excluding Stockpile tasks)
-                            // especially useful for avoiding multiple Pickup tasks for the same object
-                            && !q_tasks
-                                .iter()
-                                .any(|(t, _)| t.pos == index && !matches!(t.kind, TaskKind::Stockpile));
+                TryFindObjectResult::NotFound
+            };
+
+            match task.kind {
+                TaskKind::Build {
+                    result: BuildResult::Object(object),
+                } => {
+                    // for Build tasks, check if the goal object is directly available
+                    match try_find_object(&object) {
+                        TryFindObjectResult::Found | TryFindObjectResult::Wait => return,
+                        TryFindObjectResult::NotFound => {}
                     }
                 }
-
-                false
-            });
-
-            if let Some(index) = index {
-                debug!("Found object {needs_object:?} at {index:?} for {task:?}");
-
-                commands.spawn(TaskBundle::new(
-                    Task::new(index, TaskKind::Pickup, None, &tilemap_data),
-                    TaskNeeds::EmptyHands,
-                ));
-
-                task_indexes.push(index);
-                return TryFindObjectResult::Found;
+                _ => {}
             }
 
-            TryFindObjectResult::NotFound
-        };
-
-        match task.kind {
-            TaskKind::Stockpile | TaskKind::Workstation { amount: 0 } => continue, //  Stockpile tasks or Workstation tasks with amount 0 don't need objects
-            TaskKind::Build {
-                result: BuildResult::Object(object),
-            } => {
-                // for Build tasks, check if the goal object is directly available
-                match try_find_object(&object, true) {
-                    TryFindObjectResult::Found | TryFindObjectResult::Wait => continue,
-                    TryFindObjectResult::NotFound => {}
-                }
-            }
-            _ => {}
-        }
-
-        if let TaskNeeds::Objects(needs_objects) = task_needs {
             for needs_object in needs_objects {
-                try_find_object(needs_object, false);
+                try_find_object(needs_object);
             }
         }
-    }
+    });
 }
