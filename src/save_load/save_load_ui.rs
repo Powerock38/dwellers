@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::{build_ui_button, GameState, SaveName, UiButton, UiWindow, SAVE_DIR};
+use crate::{GameState, LoadGame, SaveGame, SaveName, UiButton, UiWindow, SAVE_DIR};
 
 pub fn spawn_load_save_ui(
     mut commands: Commands,
@@ -16,7 +16,22 @@ pub fn spawn_load_save_ui(
         } else {
             commands.spawn(UiWindow).with_children(|c| {
                 // Save button
-                build_ui_button(c, UiButton::SaveGame, format!("Save {}", save_name.0));
+                c.spawn(UiButton)
+                    .with_child(Text::new(format!("Save {}", save_name.0)))
+                    .observe(
+                        |_: Trigger<Pointer<Click>>,
+                         mut commands: Commands,
+                         q_windows: Query<Entity, With<UiWindow>>,
+                         mut next_state: ResMut<NextState<GameState>>| {
+                            commands.insert_resource(SaveGame);
+
+                            if let Some(window) = q_windows.iter().next() {
+                                commands.entity(window).despawn_recursive();
+                            }
+
+                            next_state.set(GameState::Running);
+                        },
+                    );
 
                 // Saves list
                 if let Ok(save_files) = std::fs::read_dir(format!("assets/{SAVE_DIR}")).map(|dir| {
@@ -35,7 +50,19 @@ pub fn spawn_load_save_ui(
                     saves
                 }) {
                     for save_file in save_files {
-                        build_ui_button(c, UiButton::LoadGame(save_file.clone()), save_file);
+                        c.spawn(UiButton)
+                            .with_child(Text::new(format!("Load {save_file}")))
+                            .observe(
+                                move |_: Trigger<Pointer<Click>>,
+                                mut commands: Commands,
+                                q_windows: Query<Entity, With<UiWindow>>| {
+                                    commands.insert_resource(LoadGame(save_file.clone()));
+
+                                    if let Some(window) = q_windows.iter().next() {
+                                        commands.entity(window).despawn_recursive();
+                                    }
+                                },
+                            );
                     }
                 } else {
                     error!("Failed to read save files");

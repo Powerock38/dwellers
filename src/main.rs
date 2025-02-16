@@ -76,7 +76,7 @@ fn main() {
                     // Game UI / "reactive" systems
                     keyboard_current_action,
                     focus_any_dweller,
-                    click_terrain,
+                    terrain_draw_selection,
                     update_dwellers_selected,
                     spawn_dwellers_name,
                     update_dwellers_equipment_sprites,
@@ -107,6 +107,8 @@ fn main() {
             )
                 .in_set(GameplaySet),
         )
+        .add_observer(terrain_pointer_down)
+        .add_observer(terrain_pointer_up)
         .add_observer(observe_open_workstation_ui)
         .init_state::<GameState>()
         .insert_resource(SaveName({

@@ -1,8 +1,8 @@
 use bevy::prelude::*;
 
 use crate::{
-    data::BUILD_RECIPES, extract_ok, utils::pascal_case_to_title_case, ActionKind, Dweller,
-    DwellersSelected, TaskKind, TaskNeeds, UiButton,
+    actions::CurrentAction, data::BUILD_RECIPES, extract_ok, utils::pascal_case_to_title_case,
+    ActionKind, Dweller, DwellersSelected, TaskKind, TaskNeeds, UiButton,
 };
 
 #[derive(Component)]
@@ -34,12 +34,13 @@ pub fn spawn_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
             })
             .with_children(|c| {
                 for (result, cost) in BUILD_RECIPES {
-                    c.spawn(UiButton::Action(ActionKind::TaskWithNeeds(
-                        TaskKind::Build { result: *result },
-                        TaskNeeds::Objects(cost.to_vec()),
-                    )))
-                    .with_child(Text::new(pascal_case_to_title_case(&result.debug_name())))
-                    .with_child(ImageNode::new(asset_server.load(result.sprite_path())));
+                    c.spawn(UiButton)
+                        .with_child(Text::new(pascal_case_to_title_case(&result.debug_name())))
+                        .with_child(ImageNode::new(asset_server.load(result.sprite_path())))
+                        .observe(get_observer_action_button(ActionKind::TaskWithNeeds(
+                            TaskKind::Build { result: *result },
+                            TaskNeeds::Objects(cost.to_vec()),
+                        )));
                 }
             });
 
@@ -59,17 +60,44 @@ pub fn spawn_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
                     TaskKind::Smoothen,
                     TaskKind::Walk,
                 ] {
-                    c.spawn(UiButton::Action(ActionKind::Task(task_kind)))
+                    c.spawn(UiButton)
                         .with_child(Text::new(pascal_case_to_title_case(
                             format!("{task_kind:?}").split_whitespace().next().unwrap(),
                         )))
-                        .with_child(ImageNode::new(asset_server.load(task_kind.sprite_path())));
+                        .with_child(ImageNode::new(asset_server.load(task_kind.sprite_path())))
+                        .observe(get_observer_action_button(ActionKind::Task(task_kind)));
                 }
 
-                c.spawn(UiButton::Action(ActionKind::Cancel))
-                    .with_child(Text::new("Cancel"));
+                c.spawn(UiButton)
+                    .with_child(Text::new("Cancel"))
+                    .observe(get_observer_action_button(ActionKind::Cancel));
             });
         });
+}
+
+pub fn get_observer_action_button(
+    action: ActionKind,
+) -> impl FnMut(
+    Trigger<Pointer<Click>>,
+    Commands,
+    Res<CurrentAction>,
+    Query<&mut BorderColor, With<UiButton>>,
+) {
+    move |trigger: _, mut commands: _, current_action: _, mut q_borders: _| {
+        if current_action.kind == action {
+            commands.insert_resource(CurrentAction::default());
+        } else {
+            commands.insert_resource(CurrentAction::new(action.clone()));
+        }
+
+        for mut border in &mut q_borders {
+            border.0 = Color::BLACK;
+        }
+
+        if let Ok(mut border) = q_borders.get_mut(trigger.entity()) {
+            border.0 = bevy::color::palettes::css::RED.into();
+        }
+    }
 }
 
 pub fn update_dwellers_selected(

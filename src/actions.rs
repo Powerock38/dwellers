@@ -1,4 +1,4 @@
-use bevy::{prelude::*, window::PrimaryWindow};
+use bevy::prelude::*;
 
 use crate::{
     data::ObjectId,
@@ -7,6 +7,7 @@ use crate::{
     tasks::{Task, TaskBundle, TaskKind, TaskNeeds},
     tilemap::TILE_SIZE,
     tilemap_data::TilemapData,
+    ui::UiButton,
     Dweller, DwellersSelected, OpenWorkstationUi,
 };
 
@@ -25,6 +26,7 @@ pub fn keyboard_current_action(
     mut commands: Commands,
     mut current_action: ResMut<CurrentAction>,
     mut dwellers_selected: ResMut<DwellersSelected>,
+    mut q_borders: Query<&mut BorderColor, With<UiButton>>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
 ) {
     if keyboard_input.just_pressed(KeyCode::Escape) {
@@ -35,6 +37,10 @@ pub fn keyboard_current_action(
                 dwellers_selected.reset();
             }
             commands.insert_resource(CurrentAction::default());
+
+            for mut border in &mut q_borders {
+                border.0 = Color::BLACK;
+            }
         }
     }
 }
@@ -54,52 +60,59 @@ impl CurrentAction {
     }
 }
 
-pub fn click_terrain(
-    mut commands: Commands,
-    mut gizmos: Gizmos,
-    mouse_input: Res<ButtonInput<MouseButton>>,
+pub fn terrain_pointer_down(
+    trigger: Trigger<Pointer<Down>>,
+    mut current_action: ResMut<CurrentAction>,
     q_camera: Query<(&Camera, &GlobalTransform)>,
-    q_windows: Query<&Window, With<PrimaryWindow>>,
+    q_ui_buttons: Query<(), With<UiButton>>,
+) {
+    let event = trigger.event();
+
+    if q_ui_buttons.contains(trigger.entity()) {
+        return;
+    }
+
+    match event.event.button {
+        PointerButton::Primary => {
+            let (camera, camera_transform) = extract_ok!(q_camera.get_single());
+            let world_position = extract_ok!(
+                camera.viewport_to_world_2d(camera_transform, event.pointer_location.position)
+            );
+            let index = (world_position / TILE_SIZE).floor().as_ivec2();
+
+            // Start selection
+            current_action.index_start = Some(index);
+        }
+
+        PointerButton::Secondary => {
+            // Cancel selection
+            current_action.index_start = None;
+        }
+
+        _ => {}
+    }
+}
+
+pub fn terrain_pointer_up(
+    trigger: Trigger<Pointer<Up>>,
+    mut commands: Commands,
     mut current_action: ResMut<CurrentAction>,
     mut dwellers_selected: ResMut<DwellersSelected>,
     tilemap_data: Res<TilemapData>,
+    q_camera: Query<(&Camera, &GlobalTransform)>,
     q_tasks: Query<(Entity, &Task)>,
     q_mobs: Query<(Entity, &Transform), With<Mob>>,
     mut q_dwellers: Query<(Entity, &mut Dweller, &Transform)>,
 ) {
+    let event = trigger.event();
+
     let (camera, camera_transform) = extract_ok!(q_camera.get_single());
-    let window = extract_ok!(q_windows.get_single());
-    let cursor_position = extract_some!(window.cursor_position());
     let world_position =
-        extract_ok!(camera.viewport_to_world_2d(camera_transform, cursor_position));
+        extract_ok!(camera.viewport_to_world_2d(camera_transform, event.pointer_location.position));
+    let index = (world_position / TILE_SIZE).floor().as_ivec2();
 
-    let index = IVec2::new(
-        (world_position.x / TILE_SIZE).floor() as i32,
-        (world_position.y / TILE_SIZE).floor() as i32,
-    );
-
-    if let Some(index_start) = current_action.index_start {
-        let from = Vec2::new(index_start.x as f32, index_start.y as f32) * TILE_SIZE;
-        let to = Vec2::new(index.x as f32, index.y as f32) * TILE_SIZE;
-
-        let center = (from + to) / 2. + TILE_SIZE / 2.;
-        let size = (to - from).abs() + TILE_SIZE / 2.;
-
-        gizmos.rect_2d(center, size, Color::WHITE);
-    }
-
-    if mouse_input.just_pressed(MouseButton::Left) {
-        // Start selection
-        current_action.index_start = Some(index);
-    }
-
-    if mouse_input.just_pressed(MouseButton::Right) {
-        // Cancel selection
-        current_action.index_start = None;
-    }
-
-    if mouse_input.just_released(MouseButton::Left) {
-        // End selection
+    if matches!(event.event.button, PointerButton::Primary) {
+        // Confirm selection
         let index_start = extract_some!(current_action.index_start);
 
         let index_min = IVec2::new(index_start.x.min(index.x), index_start.y.min(index.y));
@@ -344,5 +357,29 @@ pub fn click_terrain(
         }
 
         current_action.index_start = None;
+    }
+}
+
+pub fn terrain_draw_selection(
+    mut gizmos: Gizmos,
+    current_action: Res<CurrentAction>,
+    q_windows: Query<&Window>,
+    q_camera: Query<(&Camera, &GlobalTransform)>,
+) {
+    if let Some(index_start) = current_action.index_start {
+        let (camera, camera_transform) = extract_ok!(q_camera.get_single());
+        let window = extract_ok!(q_windows.get_single());
+        let cursor_position = extract_some!(window.cursor_position());
+        let world_position =
+            extract_ok!(camera.viewport_to_world_2d(camera_transform, cursor_position));
+        let index = (world_position / TILE_SIZE).floor().as_ivec2();
+
+        let from = Vec2::new(index_start.x as f32, index_start.y as f32) * TILE_SIZE;
+        let to = Vec2::new(index.x as f32, index.y as f32) * TILE_SIZE;
+
+        let center = (from + to) / 2. + TILE_SIZE / 2.;
+        let size = (to - from).abs() + TILE_SIZE / 2.;
+
+        gizmos.rect_2d(center, size, Color::WHITE);
     }
 }

@@ -765,6 +765,7 @@ pub fn update_pickups(
     q_tasks: Query<(Ref<Task>, Ref<TaskNeeds>)>,
     q_dwellers: Query<(Entity, &Dweller)>,
 ) {
+    // FIXME: task.is_changed() || task_needs.is_changed() seems to always return true
     let mut updated = false;
 
     // Precompute existing pickup objects
@@ -787,7 +788,6 @@ pub fn update_pickups(
     }
 
     if !updated {
-        info!("No new pickups to update");
         return;
     }
 
