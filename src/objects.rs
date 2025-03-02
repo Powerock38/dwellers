@@ -44,22 +44,18 @@ impl ObjectData {
         Self::new(filename, false, ObjectSlot::Armor)
     }
 
-    #[inline]
     pub fn is_carriable(&self) -> bool {
         !matches!(self.slot, ObjectSlot::Uncarriable)
     }
 
-    #[inline]
     pub fn is_blocking(&self) -> bool {
         self.blocking
     }
 
-    #[inline]
     pub fn filename(&self) -> &'static str {
         self.filename
     }
 
-    #[inline]
     pub fn slot(&self) -> &ObjectSlot {
         &self.slot
     }

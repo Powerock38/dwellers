@@ -54,7 +54,7 @@ pub fn spawn_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
                 for task_kind in [
                     TaskKind::Dig,
                     TaskKind::Harvest,
-                    TaskKind::Hunt,
+                    TaskKind::Attack,
                     TaskKind::Pickup,
                     TaskKind::Stockpile,
                     TaskKind::Smoothen,

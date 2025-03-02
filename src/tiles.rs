@@ -40,12 +40,10 @@ impl TileData {
         Self::new(filename, true)
     }
 
-    #[inline]
     pub fn is_wall(&self) -> bool {
         self.wall
     }
 
-    #[inline]
     pub fn filename(&self) -> &'static str {
         self.filename
     }
@@ -72,14 +70,6 @@ impl TileId {
             id: self,
             object: None,
         }
-    }
-
-    pub fn s(self) -> Option<TilePlaced> {
-        Some(self.place())
-    }
-
-    pub fn i(self, object_id: ObjectId) -> Option<TilePlaced> {
-        Some(self.with(object_id))
     }
 
     pub fn is_transparent(self) -> bool {

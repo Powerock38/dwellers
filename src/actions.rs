@@ -168,10 +168,10 @@ pub fn terrain_pointer_up(
                                 TaskKind::Stockpile
                                 | TaskKind::Pickup
                                 | TaskKind::Harvest
-                                | TaskKind::Hunt
+                                | TaskKind::Attack
                                 | TaskKind::Workstation { .. },
                             )
-                            | (TaskKind::Hunt, _) => false,
+                            | (TaskKind::Attack, _) => false,
                             _ => true,
                         },
                     ) {
@@ -229,7 +229,7 @@ pub fn terrain_pointer_up(
                             debug!("Picking up task at {index:?}");
                         }
 
-                        TaskKind::Hunt => {
+                        TaskKind::Attack => {
                             if let Some((entity_mob, _)) =
                                 q_mobs.iter().find(|(_, mob_transform)| {
                                     mob_transform.translation.distance(
@@ -245,7 +245,7 @@ pub fn terrain_pointer_up(
                                 });
 
                                 max_tasks = max_tasks.saturating_sub(1);
-                                debug!("Hunting task at {index:?}");
+                                debug!("Attacking task at {index:?}");
                             }
                         }
 

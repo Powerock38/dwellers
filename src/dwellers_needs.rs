@@ -69,12 +69,10 @@ impl DwellerNeeds {
         self.cached_speed_ratio = health_speed.min(food_speed.min(sleep_speed).max(0.1));
     }
 
-    #[inline]
     pub fn speed_ratio(&self) -> f32 {
         self.cached_speed_ratio
     }
 
-    #[inline]
     pub fn is_fully_rested(&self) -> bool {
         self.sleep == NEEDS_MAX
     }

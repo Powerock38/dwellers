@@ -29,7 +29,7 @@ pub enum TaskKind {
     Smoothen,
     Harvest,
     Pickup,
-    Hunt,
+    Attack,
     Stockpile,
     Build {
         result: BuildResult,
@@ -72,7 +72,7 @@ impl TaskKind {
                         .object
                         .is_some_and(|object| object.data().is_carriable())
             }
-            TaskKind::Hunt => true,
+            TaskKind::Attack => true,
             TaskKind::Stockpile => {
                 !tile.id.data().is_wall()
                     && tile
@@ -410,11 +410,7 @@ pub fn event_task_completion(
                 if let Some(object) = tile.object {
                     let drop_object = match object {
                         ObjectId::Tree | ObjectId::PalmTree | ObjectId::Cactus => {
-                            if rng.random_bool(0.3) {
-                                Some(ObjectId::Wood)
-                            } else {
-                                None
-                            }
+                            Some(ObjectId::Wood)
                         }
 
                         ObjectId::TallGrass => Some(ObjectId::Seeds),
@@ -537,7 +533,7 @@ pub fn event_task_completion(
                 success = true;
             }
 
-            TaskKind::Hunt => {
+            TaskKind::Attack => {
                 if let Some(task_parent) = task_parent.map(Parent::get) {
                     if let Ok((entity_mob, mob, mob_transform)) = q_mobs.get(task_parent) {
                         let mob_pos = (mob_transform.translation / TILE_SIZE)
@@ -558,7 +554,10 @@ pub fn event_task_completion(
                                         TaskNeeds::EmptyHands,
                                     ));
                                 } else {
-                                    debug!("Hunted mob at {:?} but loot tile is occupied", mob_pos);
+                                    debug!(
+                                        "Attacked mob at {:?} but loot tile is occupied",
+                                        mob_pos
+                                    );
                                 }
                             }
 
@@ -567,7 +566,7 @@ pub fn event_task_completion(
                             dweller_needs.sleep(-5);
                             dweller_needs.food(-5);
 
-                            debug!("Hunted mob at {:?}", mob_transform.translation);
+                            debug!("Attacked mob at {:?}", mob_transform.translation);
                             success = true;
                         } else {
                             task.pos = mob_pos;

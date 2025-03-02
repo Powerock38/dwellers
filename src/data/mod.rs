@@ -1,9 +1,12 @@
 use std::sync::LazyLock;
 
 use bevy::{prelude::*, utils::hashbrown::HashMap};
-use bitcode::{Decode, Encode};
 
-use crate::{enum_map, structures::StructureData, BuildResult, MobData, ObjectData, TileData};
+use crate::{enum_map, BuildResult, MobData, ObjectData, TileData};
+
+mod macros;
+mod structures;
+pub use structures::*;
 
 enum_map! {
     ObjectId => ObjectData {
@@ -32,6 +35,7 @@ enum_map! {
         Sword = ObjectData::tool("sword"),
         Armor = ObjectData::armor("armor"),
         Scarecrow = ObjectData::blocking("scarecrow"),
+        Haystack = ObjectData::blocking("haystack"),
     }
 }
 
@@ -42,6 +46,7 @@ enum_map! {
         DungeonFloor = TileData::floor("dungeon"),
         Bridge = TileData::floor("bridge"),
         SandFloor = TileData::floor("sand"),
+        WoodFloor = TileData::floor("wood"),
 
         DirtWall = TileData::wall("dirt"),
         StoneWall = TileData::wall("stone"),
@@ -62,6 +67,7 @@ enum_map! {
 #[rustfmt::skip]
 pub const BUILD_RECIPES: &[(BuildResult, &[ObjectId])] = &[
     (BuildResult::Tile(TileId::WoodWall), &[ObjectId::Wood]),
+    (BuildResult::Tile(TileId::WoodFloor), &[ObjectId::Wood]),
     (BuildResult::Tile(TileId::DungeonWall), &[ObjectId::Rock]),
     (BuildResult::Tile(TileId::Bridge), &[ObjectId::Wood]),
     (BuildResult::Object(ObjectId::Table), &[ObjectId::Wood, ObjectId::Wood]),
@@ -74,6 +80,7 @@ pub const BUILD_RECIPES: &[(BuildResult, &[ObjectId])] = &[
     (BuildResult::Object(ObjectId::Forge), &[ObjectId::Rock, ObjectId::Rock, ObjectId::Rock, ObjectId::CopperOre, ObjectId::CopperOre]),
     (BuildResult::Object(ObjectId::Anvil), &[ObjectId::CopperIngot, ObjectId::CopperIngot, ObjectId::CopperIngot, ObjectId::CopperIngot]),
     (BuildResult::Object(ObjectId::Grindstone), &[ObjectId::Rock, ObjectId::Wood]),
+    (BuildResult::Object(ObjectId::Haystack), &[ObjectId::Wheat, ObjectId::Wheat, ObjectId::Wheat]),
 ];
 
 #[rustfmt::skip]
@@ -84,29 +91,3 @@ LazyLock::new(|| HashMap::from([
     (ObjectId::Grindstone, (ObjectId::Sword, vec![ObjectId::CopperIngot, ObjectId::CopperIngot])),
     (ObjectId::Anvil, (ObjectId::Armor, vec![ObjectId::CopperIngot, ObjectId::CopperIngot, ObjectId::CopperIngot])),
 ]));
-
-enum_map! {
-    StructureId => StructureData {
-        SmallHouse = StructureData::new(vec![
-                vec![TileId::DungeonWall.s(), TileId::DungeonWall.s(),               TileId::DungeonWall.s(),              TileId::DungeonWall.s()],
-                vec![TileId::DungeonWall.s(), TileId::DungeonFloor.s(),              TileId::DungeonFloor.i(ObjectId::Bed), TileId::DungeonWall.s()],
-                vec![TileId::DungeonWall.s(), TileId::DungeonFloor.s(),              TileId::DungeonFloor.s(),             TileId::DungeonWall.s()],
-                vec![TileId::DungeonWall.s(), TileId::DungeonFloor.i(ObjectId::Door), TileId::DungeonWall.s(),              TileId::DungeonWall.s()],
-            ],
-            vec![((1,1), MobId::Sheep)],
-        ),
-
-        SmallOutpost = StructureData::new(vec![
-                vec![None,                 None,                     TileId::WoodWall.s(),     TileId::WoodWall.s(),     TileId::WoodWall.s(),                       TileId::WoodWall.s(),     TileId::WoodWall.s()],
-                vec![None,                 TileId::WoodWall.s(),     TileId::DungeonFloor.s(), TileId::DungeonFloor.s(), TileId::DungeonFloor.s(),                   TileId::DungeonFloor.s(), TileId::DungeonFloor.s(), TileId::WoodWall.s()],
-                vec![TileId::WoodWall.s(), TileId::DungeonFloor.s(), TileId::DungeonFloor.s(), TileId::DungeonFloor.s(), TileId::DungeonFloor.s(),                   TileId::DungeonFloor.s(), TileId::DungeonFloor.s(), TileId::DungeonFloor.s(), TileId::WoodWall.s()],
-                vec![TileId::WoodWall.s(), TileId::DungeonFloor.s(), TileId::DungeonFloor.s(), TileId::DungeonFloor.s(), TileId::DungeonFloor.s(),                   TileId::DungeonFloor.s(), TileId::DungeonFloor.s(), TileId::DungeonFloor.s(), TileId::WoodWall.s()],
-                vec![TileId::WoodWall.s(), TileId::DungeonFloor.s(), TileId::DungeonFloor.s(), TileId::DungeonFloor.s(), TileId::DungeonFloor.s(),                   TileId::DungeonFloor.s(), TileId::DungeonFloor.s(), TileId::DungeonFloor.s(), TileId::WoodWall.s()],
-                vec![TileId::WoodWall.s(), TileId::DungeonFloor.s(), TileId::DungeonFloor.s(), TileId::DungeonFloor.s(), TileId::DungeonFloor.s(),                   TileId::DungeonFloor.s(), TileId::DungeonFloor.s(), TileId::DungeonFloor.s(), TileId::WoodWall.s()],
-                vec![None,                 TileId::WoodWall.s(),     TileId::DungeonFloor.s(), TileId::DungeonFloor.s(), TileId::DungeonFloor.s(),                   TileId::DungeonFloor.s(), TileId::DungeonFloor.s(), TileId::WoodWall.s()],
-                vec![None,                 None,                     TileId::WoodWall.s(),     TileId::WoodWall.s(),     TileId::DungeonFloor.i(ObjectId::Door),     TileId::WoodWall.s(),     TileId::WoodWall.s()],
-            ],
-            vec![((4,4), MobId::Undead)],
-        ),
-    }
-}

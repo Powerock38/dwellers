@@ -19,7 +19,6 @@ const CLIMATE_SCALE: f64 = 0.01;
 const DESERT_THRESHOLD: f64 = 0.5;
 
 const STRUCTURES_SCALE: f64 = 0.2;
-const STRUCTURES_THRESHOLD: f64 = 0.0;
 
 const MOUNTAINS_SCALE: f64 = 0.004;
 const MOUNTAINS_DIRT_THRESHOLD: f64 = 0.2;
@@ -210,54 +209,58 @@ pub fn load_chunks(
                 chunk_index.y as f64 * STRUCTURES_SCALE,
             ]);
 
-            let mut forbidden_positions: Vec<(IVec2, IVec2)> = vec![];
+            let mut rng: StdRng =
+                SeedableRng::seed_from_u64((seed as i32 + chunk_index.x + chunk_index.y) as u64);
 
-            if structure_noise_value > STRUCTURES_THRESHOLD {
-                let structure = StructureId::SmallOutpost.data(); //TODO: random structure
+            let mut structure = match structure_noise_value {
+                0.0..=0.5 => StructureId::DungeonCircleRoom,
+                0.5..1.0 => StructureId::Outpost,
+                _ => continue,
+            }
+            .data();
 
-                let mut rng: StdRng = SeedableRng::seed_from_u64(
-                    (seed as i32 + chunk_index.x + chunk_index.y) as u64,
-                );
+            if rng.random_bool(0.5) {
+                structure = structure.flip_horizontal();
+            }
 
-                let structure_local_pos = IVec2::new(
-                    rng.random_range(0..CHUNK_SIZE as i32 - structure.x_size() as i32),
-                    rng.random_range(0..CHUNK_SIZE as i32 - structure.y_size() as i32),
-                );
+            if rng.random_bool(0.5) {
+                structure = structure.flip_vertical();
+            }
 
-                let structure_pos =
-                    TilemapData::local_index_to_global(*chunk_index, structure_local_pos);
+            let rotation = rng.random_range(0..=3);
+            let clockwise = rng.random_bool(0.5);
+            for _ in 0..rotation {
+                structure = structure.rotate(clockwise);
+            }
 
-                for x in 0..structure.x_size() {
-                    for y in 0..structure.y_size() {
+            let structure_size = structure.size().as_ivec2();
+
+            let structure_local_pos = IVec2::new(
+                rng.random_range(0..CHUNK_SIZE as i32 - structure_size.x),
+                rng.random_range(0..CHUNK_SIZE as i32 - structure_size.y),
+            );
+
+            let structure_pos =
+                TilemapData::local_index_to_global(*chunk_index, structure_local_pos);
+
+            for x in 0..structure.x_size() {
+                for y in 0..structure.y_size() {
+                    if let Some(tile) = structure.get_tile(x, y) {
                         let index = structure_pos + IVec2::new(x as i32, y as i32);
-
-                        if forbidden_positions.iter().any(|(start, end)| {
-                            index.x >= start.x
-                                && index.x <= end.x
-                                && index.y >= start.y
-                                && index.y <= end.y
-                        }) {
-                            continue;
-                        }
-
-                        if let Some(tile) = structure.get_tile(x, y) {
-                            tilemap_data.set(index, *tile);
-                        }
+                        tilemap_data.set(index, *tile);
                     }
                 }
+            }
 
-                forbidden_positions.push((structure_pos, structure_pos + structure.size() - 1));
+            // Add mobs to the structure
+            for (pos, mob) in structure.mobs() {
+                let index = structure_pos + pos.as_ivec2();
 
-                // Add mobs to the structure
-                for (pos, mob) in structure.mobs() {
-                    let index = structure_pos + *pos;
-
-                    if let Some(tile) = tilemap_data.get(index) {
-                        if tile.is_blocking() {
-                            error!("Can't spawn mob on blocking tile {:?}", index);
-                        } else {
-                            commands.spawn(MobBundle::new(*mob, index));
-                        }
+                if let Some(tile) = tilemap_data.get(index) {
+                    if tile.is_blocking() {
+                        error!("Can't spawn mob on blocking tile {:?}", index);
+                    } else {
+                        commands.spawn(MobBundle::new(*mob, index));
                     }
                 }
             }
@@ -271,9 +274,7 @@ pub fn load_chunks(
 
         debug!("Unloading chunk {}", chunk_index);
 
-        let chunk = chunk.iter().filter_map(|t| *t).collect::<Vec<_>>();
-
-        let chunk_encoded = bitcode::encode(&chunk);
+        let chunk_encoded = bitcode::encode(chunk);
 
         let save_folder = save_folder.clone();
         let x = chunk_index.x;
@@ -296,6 +297,8 @@ pub fn update_terrain(
 ) {
     let mut to_set = vec![]; //because cant modify tilemap_data while iterating
 
+    let mut rng = rand::rng();
+
     for (chunk_index, _chunk) in &tilemap_data.chunks {
         for x in 0..CHUNK_SIZE {
             for y in 0..CHUNK_SIZE {
@@ -308,9 +311,12 @@ pub fn update_terrain(
                     if let Some(object) = tile.object {
                         match object {
                             ObjectId::Farm => {
-                                let mut rng = rand::rng();
+                                let chance = match tile.id {
+                                    TileId::GrassFloor => 0.03,
+                                    _ => 0.01,
+                                };
 
-                                if rng.random_bool(0.01) {
+                                if rng.random_bool(chance) {
                                     to_set.push((index, tile.id.with(ObjectId::WheatPlant)));
                                 }
                             }

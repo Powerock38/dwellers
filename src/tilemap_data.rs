@@ -4,13 +4,12 @@ use crate::{utils::div_to_floor, TilePlaced, CHUNK_SIZE};
 
 #[derive(Resource, Default)]
 pub struct TilemapData {
-    pub chunks: HashMap<IVec2, Vec<Option<TilePlaced>>>,
+    pub chunks: HashMap<IVec2, Vec<TilePlaced>>,
     pub tiles_to_update: HashMap<IVec2, TilePlaced>,
     pub chunks_to_remove: Vec<IVec2>,
 }
 
 impl TilemapData {
-    #[inline]
     pub fn index_to_chunk(index: IVec2) -> (IVec2, usize) {
         let isize = IVec2::splat(CHUNK_SIZE as i32);
         let c = div_to_floor(index, isize);
@@ -18,7 +17,6 @@ impl TilemapData {
         (c, (idx.y * isize.x + idx.x) as usize)
     }
 
-    #[inline]
     pub fn chunk_to_index(chunk_index: IVec2, local_index: usize) -> IVec2 {
         chunk_index * CHUNK_SIZE as i32
             + IVec2::new(
@@ -34,16 +32,13 @@ impl TilemapData {
         let idx = Self::index_to_chunk(index);
         self.chunks
             .entry(idx.0)
-            .or_insert_with(|| vec![None; (CHUNK_SIZE * CHUNK_SIZE) as usize])[idx.1] = Some(tile);
+            .or_insert_with(|| vec![TilePlaced::default(); (CHUNK_SIZE * CHUNK_SIZE) as usize])
+            [idx.1] = tile;
     }
 
     pub fn get(&self, index: IVec2) -> Option<TilePlaced> {
         let idx = Self::index_to_chunk(index);
-        self.chunks
-            .get(&idx.0)
-            .and_then(|c| c.get(idx.1))
-            .copied()
-            .flatten()
+        self.chunks.get(&idx.0).and_then(|c| c.get(idx.1)).copied()
     }
 
     pub fn set_chunk(&mut self, chunk_index: IVec2, chunk_data: Vec<TilePlaced>) {
@@ -54,11 +49,10 @@ impl TilemapData {
                 .map(|(i, tile)| (Self::chunk_to_index(chunk_index, i), *tile)),
         );
 
-        self.chunks
-            .insert(chunk_index, chunk_data.into_iter().map(Some).collect());
+        self.chunks.insert(chunk_index, chunk_data);
     }
 
-    pub fn remove_chunk(&mut self, index: IVec2) -> Option<Vec<Option<TilePlaced>>> {
+    pub fn remove_chunk(&mut self, index: IVec2) -> Option<Vec<TilePlaced>> {
         self.chunks_to_remove.push(index);
         self.chunks.remove(&index)
     }
