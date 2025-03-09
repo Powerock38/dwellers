@@ -1,5 +1,8 @@
 use bevy::prelude::*;
-use noise::{Billow, NoiseFn, Perlin, Simplex, Worley};
+use noise::{
+    core::worley::distance_functions::euclidean_squared, Abs, Billow, NoiseFn, OpenSimplex, Perlin,
+    Simplex, Worley,
+};
 use rand::{rngs::StdRng, Rng, SeedableRng};
 
 use crate::{
@@ -24,6 +27,11 @@ const MOUNTAINS_STONE_THRESHOLD: f64 = -0.2;
 const RIVER_THRESHOLD: f64 = 0.7;
 const RIVER_SHORE_THRESHOLD: f64 = 0.65;
 
+const CAVES_TUNNELS_SCALE: f64 = 0.05;
+const CAVES_TUNNELS_THRESHOLD: f64 = 0.05;
+const CAVES_ROOMS_SCALE: f64 = 0.1;
+const CAVES_ROOMS_THRESHOLD: f64 = 0.9;
+
 const ORES_SCALE: f64 = 0.2;
 const ORES_THRESHOLD: f64 = 0.7;
 
@@ -41,6 +49,8 @@ pub fn generate_terrain(commands: &mut Commands, seed: u32, chunk_index: IVec2) 
     let noise_ores = Perlin::new(seed);
     let noise_vegetation = Worley::new(seed);
     let noise_vegetation_zones = Perlin::new(seed + 1);
+    let noise_caves_tunnels = Abs::new(OpenSimplex::new(seed));
+    let noise_caves_rooms = Worley::new(seed + 1).set_distance_function(euclidean_squared);
 
     // Generate mobs
     if noise_climate.get([
@@ -74,12 +84,25 @@ pub fn generate_terrain(commands: &mut Commands, seed: u32, chunk_index: IVec2) 
 
             if mountain_noise_value > MOUNTAINS_DIRT_THRESHOLD {
                 let tile = if mountain_noise_value > MOUNTAINS_STONE_THRESHOLD {
-                    let ores_noise_value = noise_ores.get([u * ORES_SCALE, v * ORES_SCALE]);
+                    // Caves
+                    let tunnels_noise_value =
+                        noise_caves_tunnels.get([u * CAVES_TUNNELS_SCALE, v * CAVES_TUNNELS_SCALE]);
+                    let rooms_noise_value =
+                        noise_caves_rooms.get([u * CAVES_ROOMS_SCALE, v * CAVES_ROOMS_SCALE]);
 
-                    if ores_noise_value > ORES_THRESHOLD {
-                        TileId::StoneWall.with(ObjectId::CopperOre)
+                    if tunnels_noise_value < CAVES_TUNNELS_THRESHOLD
+                        || rooms_noise_value > CAVES_ROOMS_THRESHOLD
+                    {
+                        TileId::StoneFloor.place()
                     } else {
-                        TileId::StoneWall.place()
+                        // Ore
+                        let ores_noise_value = noise_ores.get([u * ORES_SCALE, v * ORES_SCALE]);
+
+                        if ores_noise_value > ORES_THRESHOLD {
+                            TileId::StoneWall.with(ObjectId::CopperOre)
+                        } else {
+                            TileId::StoneWall.place()
+                        }
                     }
                 } else {
                     TileId::DirtWall.place()

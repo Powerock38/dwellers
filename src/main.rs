@@ -4,7 +4,6 @@ use bevy::{
     log::LogPlugin,
     prelude::*,
     remote::{http::RemoteHttpPlugin, RemotePlugin},
-    sprite::Material2dPlugin,
     time::common_conditions::on_timer,
 };
 use bevy_ecs_tilemap::TilemapPlugin;
@@ -49,7 +48,6 @@ fn main() {
             SaveLoadPlugin,
             RemotePlugin::default(),
             RemoteHttpPlugin::default(),
-            Material2dPlugin::<BackgroundMaterial>::default(),
         ))
         .init_resource::<CameraControl>()
         .add_event::<LoadChunk>()
