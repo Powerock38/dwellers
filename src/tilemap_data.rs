@@ -12,9 +12,9 @@ pub struct TilemapData {
 impl TilemapData {
     pub fn index_to_chunk(index: IVec2) -> (IVec2, usize) {
         let isize = IVec2::splat(CHUNK_SIZE as i32);
-        let c = div_to_floor(index, isize);
-        let idx = index - c * isize;
-        (c, (idx.y * isize.x + idx.x) as usize)
+        let chunk_index = div_to_floor(index, isize);
+        let idx = index - chunk_index * isize;
+        (chunk_index, (idx.y * isize.x + idx.x) as usize)
     }
 
     pub fn chunk_to_index(chunk_index: IVec2, local_index: usize) -> IVec2 {

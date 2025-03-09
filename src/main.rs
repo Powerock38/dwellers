@@ -11,12 +11,13 @@ use bevy_ecs_tilemap::TilemapPlugin;
 use rand::{distr::Alphanumeric, Rng};
 
 use crate::{
-    actions::*, camera::*, dwellers::*, dwellers_needs::*, mobs::*, objects::*, preview_sprites::*,
-    save_load::*, state::*, tasks::*, terrain::*, tilemap::*, tiles::*, ui::*,
+    actions::*, camera::*, chunks::*, dwellers::*, dwellers_needs::*, mobs::*, objects::*,
+    preview_sprites::*, save_load::*, state::*, tasks::*, terrain::*, tilemap::*, tiles::*, ui::*,
 };
 
 mod actions;
 mod camera;
+mod chunks;
 mod data;
 mod dwellers;
 mod dwellers_needs;
