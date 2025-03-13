@@ -48,10 +48,11 @@ enum_map! {
         SandFloor = TileData::floor("sand"),
         WoodFloor = TileData::floor("wood"),
 
+        Water = TileData::wall("water"),
+        Lava = TileData::wall("lava"),
         DirtWall = TileData::wall("dirt"),
         StoneWall = TileData::wall("stone"),
         DungeonWall = TileData::wall("dungeon"),
-        Water = TileData::wall("water"),
         WoodWall = TileData::wall("wood"),
     }
 }

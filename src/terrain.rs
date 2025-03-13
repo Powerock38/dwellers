@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use noise::{
-    core::worley::distance_functions::euclidean_squared, Abs, Billow, NoiseFn, OpenSimplex, Perlin,
-    Simplex, Worley,
+    core::worley::distance_functions::euclidean_squared, Abs, Billow, Fbm, NoiseFn, OpenSimplex,
+    Perlin, Simplex, Worley,
 };
 use rand::{rngs::StdRng, Rng, SeedableRng};
 
@@ -24,16 +24,22 @@ const STRUCTURES_SCALE: f64 = 0.2;
 const MOUNTAINS_SCALE: f64 = 0.004;
 const MOUNTAINS_DIRT_THRESHOLD: f64 = -0.3;
 const MOUNTAINS_STONE_THRESHOLD: f64 = -0.2;
-const RIVER_THRESHOLD: f64 = 0.7;
-const RIVER_SHORE_THRESHOLD: f64 = 0.65;
 
+const MOUNTAINS_CAVES_THRESHOLD: f64 = 0.0;
 const CAVES_TUNNELS_SCALE: f64 = 0.05;
 const CAVES_TUNNELS_THRESHOLD: f64 = 0.05;
 const CAVES_ROOMS_SCALE: f64 = 0.1;
 const CAVES_ROOMS_THRESHOLD: f64 = 0.9;
 
+const MOUNTAINS_LAVA_THRESHOLD: f64 = 0.5;
+const LAVA_SCALE: f64 = 0.1;
+const LAVA_THRESHOLD: f64 = 0.0;
+
 const ORES_SCALE: f64 = 0.2;
 const ORES_THRESHOLD: f64 = 0.7;
+
+const RIVER_THRESHOLD: f64 = 0.7;
+const RIVER_SHORE_THRESHOLD: f64 = 0.65;
 
 const VEGETATION_ZONES_SCALE: f64 = 0.05;
 const VEGETATION_ZONES_THRESHOLD: f64 = 0.4;
@@ -51,6 +57,7 @@ pub fn generate_terrain(commands: &mut Commands, seed: u32, chunk_index: IVec2) 
     let noise_vegetation_zones = Perlin::new(seed + 1);
     let noise_caves_tunnels = Abs::new(OpenSimplex::new(seed));
     let noise_caves_rooms = Worley::new(seed + 1).set_distance_function(euclidean_squared);
+    let noise_lava = Fbm::<Perlin>::new(seed);
 
     // Generate mobs
     if noise_climate.get([
@@ -83,30 +90,39 @@ pub fn generate_terrain(commands: &mut Commands, seed: u32, chunk_index: IVec2) 
                 noise_mountains.get([u * MOUNTAINS_SCALE, v * MOUNTAINS_SCALE]);
 
             if mountain_noise_value > MOUNTAINS_DIRT_THRESHOLD {
-                let tile = if mountain_noise_value > MOUNTAINS_STONE_THRESHOLD {
+                let mut tile = TileId::DirtWall.place();
+
+                if mountain_noise_value > MOUNTAINS_STONE_THRESHOLD {
+                    // Ore
+                    let ores_noise_value = noise_ores.get([u * ORES_SCALE, v * ORES_SCALE]);
+
+                    if ores_noise_value > ORES_THRESHOLD {
+                        tile = TileId::StoneWall.with(ObjectId::CopperOre);
+                    } else {
+                        tile = TileId::StoneWall.place();
+                    }
+
                     // Caves
                     let tunnels_noise_value =
                         noise_caves_tunnels.get([u * CAVES_TUNNELS_SCALE, v * CAVES_TUNNELS_SCALE]);
                     let rooms_noise_value =
                         noise_caves_rooms.get([u * CAVES_ROOMS_SCALE, v * CAVES_ROOMS_SCALE]);
 
-                    if tunnels_noise_value < CAVES_TUNNELS_THRESHOLD
-                        || rooms_noise_value > CAVES_ROOMS_THRESHOLD
+                    if mountain_noise_value > MOUNTAINS_CAVES_THRESHOLD
+                        && (tunnels_noise_value < CAVES_TUNNELS_THRESHOLD
+                            || rooms_noise_value > CAVES_ROOMS_THRESHOLD)
                     {
-                        TileId::StoneFloor.place()
-                    } else {
-                        // Ore
-                        let ores_noise_value = noise_ores.get([u * ORES_SCALE, v * ORES_SCALE]);
-
-                        if ores_noise_value > ORES_THRESHOLD {
-                            TileId::StoneWall.with(ObjectId::CopperOre)
-                        } else {
-                            TileId::StoneWall.place()
-                        }
+                        tile = TileId::StoneFloor.place();
                     }
-                } else {
-                    TileId::DirtWall.place()
-                };
+                }
+
+                // Lava
+                if mountain_noise_value > MOUNTAINS_LAVA_THRESHOLD {
+                    let lava_noise_value = noise_lava.get([u * LAVA_SCALE, v * LAVA_SCALE]);
+                    if lava_noise_value > LAVA_THRESHOLD {
+                        tile = TileId::Lava.place();
+                    }
+                }
 
                 tiles.push(tile);
                 mountainy_count += 1;
