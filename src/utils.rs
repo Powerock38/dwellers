@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use bevy::math::IVec2;
+use bevy::{math::IVec2, prelude::*};
 
 #[macro_export]
 macro_rules! extract_ok {
@@ -53,4 +53,11 @@ pub fn pascal_case_to_title_case(input: &str) -> String {
     }
 
     result
+}
+
+pub fn transform_to_index(transform: &Transform) -> IVec2 {
+    IVec2::new(
+        (transform.translation.x / crate::TILE_SIZE) as i32,
+        (transform.translation.y / crate::TILE_SIZE) as i32,
+    )
 }

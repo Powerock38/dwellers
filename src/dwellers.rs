@@ -14,6 +14,7 @@ use crate::{
     tasks::{BuildResult, Task, TaskCompletionEvent, TaskKind, TaskNeeds},
     tilemap::TILE_SIZE,
     tilemap_data::TilemapData,
+    utils::transform_to_index,
     LoadChunk, SpriteLoader, UnloadChunk, CHUNK_SIZE,
 };
 
@@ -52,7 +53,7 @@ impl Dweller {
             TaskNeeds::Objects(objects) => match self.object {
                 None => return false,
                 Some(dweller_object) => {
-                    if !objects.iter().any(|object| *object == dweller_object)
+                    if !objects.contains(&dweller_object)
                         && !matches!(
                             task_kind,
                             TaskKind::Build {
@@ -197,10 +198,7 @@ pub fn update_dwellers(
             continue;
         }
 
-        let index = IVec2::new(
-            (transform.translation.x / TILE_SIZE) as i32,
-            (transform.translation.y / TILE_SIZE) as i32,
-        );
+        let index = transform_to_index(transform);
 
         // Check if dweller has a task assigned in all tasks
         let task = q_tasks
@@ -211,7 +209,7 @@ pub fn update_dwellers(
             });
 
         if let Some((entity_task, mut task, _)) = task {
-            if task.reachable_positions.iter().any(|pos| *pos == index) {
+            if task.reachable_positions.contains(&index) {
                 // Reached task location
                 ev_task_completion.send(TaskCompletionEvent { task: entity_task });
             } else {
@@ -252,26 +250,28 @@ pub fn assign_tasks_to_dwellers(
         .filter_map(|(_, task, _)| task.dweller)
         .collect();
 
-    let mut dwellers = q_dwellers
-        .iter_mut()
-        .filter_map(|(entity, dweller, transform)| {
-            if assigned_dwellers.contains(&entity) {
-                return None;
-            }
-            let index = IVec2::new(
-                (transform.translation.x / TILE_SIZE) as i32,
-                (transform.translation.y / TILE_SIZE) as i32,
-            );
-            Some((entity, dweller, index))
-        })
-        .collect::<Vec<_>>();
-
     let mut tasks = q_tasks
         .iter_mut()
         .filter(|(_, task, _)| {
             task.dweller.is_none()
                 && !task.reachable_positions.is_empty()
                 && task.reachable_pathfinding
+                // Do not assign tasks that will produce a blocking object where a dweller is standing
+                && (!matches!(task.kind, TaskKind::Build { result } if result.is_blocking())
+                    || !q_dwellers
+                        .iter()
+                        .any(|(_, _, t)| task.pos == transform_to_index(t)))
+        })
+        .collect::<Vec<_>>();
+
+    let mut dwellers = q_dwellers
+        .iter_mut()
+        .filter_map(|(entity, dweller, transform)| {
+            if assigned_dwellers.contains(&entity) {
+                return None;
+            }
+            let index = transform_to_index(transform);
+            Some((entity, dweller, index))
         })
         .collect::<Vec<_>>();
 
@@ -357,10 +357,7 @@ pub fn update_dwellers_load_chunks(
     let mut sent_event_for = vec![];
 
     for transform in &q_dwellers {
-        let index = IVec2::new(
-            (transform.translation.x / TILE_SIZE) as i32,
-            (transform.translation.y / TILE_SIZE) as i32,
-        );
+        let index = transform_to_index(transform);
 
         // Load new chunks if needed
         let (chunk_index, _) = TilemapData::index_to_chunk(index);

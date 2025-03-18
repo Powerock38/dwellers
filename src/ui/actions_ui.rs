@@ -8,6 +8,9 @@ use crate::{
 #[derive(Component)]
 pub struct DwellersSelectedUi;
 
+#[derive(Component)]
+pub struct CoordinatesUi;
+
 pub fn spawn_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn(Node {
@@ -22,6 +25,12 @@ pub fn spawn_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
         .with_children(|c| {
             c.spawn((
                 DwellersSelectedUi,
+                Text::new(""),
+                BackgroundColor(Color::BLACK.with_alpha(0.5)),
+            ));
+
+            c.spawn((
+                CoordinatesUi,
                 Text::new(""),
                 BackgroundColor(Color::BLACK.with_alpha(0.5)),
             ));
@@ -55,6 +64,7 @@ pub fn spawn_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
                     TaskKind::Dig,
                     TaskKind::Harvest,
                     TaskKind::Attack,
+                    TaskKind::Fish,
                     TaskKind::Pickup,
                     TaskKind::Stockpile,
                     TaskKind::Smoothen,

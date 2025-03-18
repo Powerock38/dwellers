@@ -5,6 +5,8 @@ use bevy::{
 
 use crate::{dwellers::Dweller, CHUNK_SIZE, TILE_SIZE};
 
+const CAMERA_KEYBOARD_SPEED: f32 = 3.0;
+
 #[derive(Resource)]
 pub struct CameraControl {
     pub target_pos: Vec2,
@@ -53,7 +55,7 @@ pub fn update_camera(
         if input_keyboard.pressed(KeyCode::KeyA) {
             x -= 1;
         }
-        control.target_pos += Vec2::new(x as f32 * step, 0.);
+        control.target_pos += x as f32 * step * Vec2::X * CAMERA_KEYBOARD_SPEED;
 
         let mut y = 0;
         if input_keyboard.pressed(KeyCode::KeyW) {
@@ -62,7 +64,7 @@ pub fn update_camera(
         if input_keyboard.pressed(KeyCode::KeyS) {
             y -= 1;
         }
-        control.target_pos += y as f32 * step * Vec2::Y;
+        control.target_pos += y as f32 * step * Vec2::Y * CAMERA_KEYBOARD_SPEED;
     }
 
     let target = control.target_pos.extend(0.);

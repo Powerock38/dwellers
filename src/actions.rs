@@ -7,7 +7,8 @@ use crate::{
     tasks::{Task, TaskBundle, TaskKind, TaskNeeds},
     tilemap::TILE_SIZE,
     tilemap_data::TilemapData,
-    ui::UiButton,
+    ui::{CoordinatesUi, UiButton},
+    utils::transform_to_index,
     Dweller, DwellersSelected, OpenWorkstationUi,
 };
 
@@ -65,6 +66,7 @@ pub fn terrain_pointer_down(
     mut current_action: ResMut<CurrentAction>,
     q_camera: Query<(&Camera, &GlobalTransform)>,
     q_ui_buttons: Query<(), With<UiButton>>,
+    mut coordinates_ui: Single<&mut Text, With<CoordinatesUi>>,
 ) {
     let event = trigger.event();
 
@@ -79,6 +81,8 @@ pub fn terrain_pointer_down(
                 camera.viewport_to_world_2d(camera_transform, event.pointer_location.position)
             );
             let index = (world_position / TILE_SIZE).floor().as_ivec2();
+
+            coordinates_ui.0 = format!("({}, {})", index.x, index.y);
 
             // Start selection
             current_action.index_start = Some(index);
@@ -249,6 +253,16 @@ pub fn terrain_pointer_up(
                             }
                         }
 
+                        TaskKind::Fish => {
+                            commands.spawn(TaskBundle::new(
+                                Task::new(index, *task_kind, dweller, &tilemap_data),
+                                TaskNeeds::Nothing,
+                            ));
+
+                            max_tasks = max_tasks.saturating_sub(1);
+                            debug!("Fishing task at {index:?}");
+                        }
+
                         TaskKind::Stockpile => {
                             let needs = if tile.object.is_none() {
                                 TaskNeeds::AnyObject
@@ -345,9 +359,7 @@ pub fn terrain_pointer_up(
 
                         // else select dwellers
                         for (entity, _, transform) in &q_dwellers {
-                            if index.x == (transform.translation.x / TILE_SIZE) as i32
-                                && index.y == (transform.translation.y / TILE_SIZE) as i32
-                            {
+                            if index == transform_to_index(transform) {
                                 dwellers_selected.add(entity);
                             }
                         }

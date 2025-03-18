@@ -73,6 +73,6 @@ impl TileId {
     }
 
     pub fn is_transparent(self) -> bool {
-        !self.data().is_wall() || self == Self::Water || self == Self::Lava
+        !self.data().is_wall() || matches!(self, Self::Water | Self::Lava)
     }
 }

@@ -38,6 +38,7 @@ const LAVA_THRESHOLD: f64 = 0.0;
 const ORES_SCALE: f64 = 0.2;
 const ORES_THRESHOLD: f64 = 0.7;
 
+const RIVER_DEEP_THRESHOLD: f64 = 0.75;
 const RIVER_THRESHOLD: f64 = 0.7;
 const RIVER_SHORE_THRESHOLD: f64 = 0.65;
 
@@ -89,13 +90,13 @@ pub fn generate_terrain(commands: &mut Commands, seed: u32, chunk_index: IVec2) 
             let mountain_noise_value =
                 noise_mountains.get([u * MOUNTAINS_SCALE, v * MOUNTAINS_SCALE]);
 
+            // Ore
+            let ores_noise_value = noise_ores.get([u * ORES_SCALE, v * ORES_SCALE]);
+
             if mountain_noise_value > MOUNTAINS_DIRT_THRESHOLD {
                 let mut tile = TileId::DirtWall.place();
 
                 if mountain_noise_value > MOUNTAINS_STONE_THRESHOLD {
-                    // Ore
-                    let ores_noise_value = noise_ores.get([u * ORES_SCALE, v * ORES_SCALE]);
-
                     if ores_noise_value > ORES_THRESHOLD {
                         tile = TileId::StoneWall.with(ObjectId::CopperOre);
                     } else {
@@ -131,16 +132,23 @@ pub fn generate_terrain(commands: &mut Commands, seed: u32, chunk_index: IVec2) 
             }
 
             // Rivers
-            if mountain_noise_value < -RIVER_THRESHOLD {
-                tiles.push(TileId::Water.place());
+            if mountain_noise_value < -RIVER_DEEP_THRESHOLD {
+                if ores_noise_value > ORES_THRESHOLD {
+                    tiles.push(TileId::Water.with(ObjectId::FishingSpot));
+                } else {
+                    tiles.push(TileId::Water.place());
+                }
+                continue;
+            }
 
+            if mountain_noise_value < -RIVER_THRESHOLD {
+                tiles.push(TileId::ShallowWater.place());
                 continue;
             }
 
             // River shores
             if mountain_noise_value < -RIVER_SHORE_THRESHOLD {
                 tiles.push(TileId::SandFloor.place());
-
                 continue;
             }
 
@@ -265,8 +273,24 @@ pub fn update_terrain(
                 );
 
                 if let Some(tile) = tilemap_data.get(index) {
+                    match tile.id {
+                        TileId::Water => {
+                            if tile.object.is_none() && rng.random_bool(0.01) {
+                                to_set.push((index, tile.id.with(ObjectId::FishingSpot)));
+                            }
+                        }
+
+                        _ => {}
+                    }
+
                     if let Some(object) = tile.object {
                         match object {
+                            ObjectId::FishingSpot => {
+                                if rng.random_bool(0.1) {
+                                    to_set.push((index, tile.id.place()));
+                                }
+                            }
+
                             ObjectId::Farm => {
                                 let chance = match tile.id {
                                     TileId::GrassFloor => 0.03,

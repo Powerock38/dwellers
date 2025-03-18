@@ -5,6 +5,7 @@ use crate::{
     data::{MobId, ObjectId},
     tilemap::TILE_SIZE,
     tilemap_data::TilemapData,
+    utils::transform_to_index,
     SpriteLoader, CHUNK_SIZE,
 };
 
@@ -120,10 +121,7 @@ pub fn update_mobs(mut q_mobs: Query<(&mut Mob, &Transform)>, tilemap_data: Res<
             continue;
         }
 
-        let index = IVec2::new(
-            (transform.translation.x / TILE_SIZE) as i32,
-            (transform.translation.y / TILE_SIZE) as i32,
-        );
+        let index = transform_to_index(transform);
 
         // Wander around
         let mut rng = rand::rng();

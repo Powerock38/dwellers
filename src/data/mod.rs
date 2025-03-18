@@ -36,6 +36,8 @@ enum_map! {
         Armor = ObjectData::armor("armor"),
         Scarecrow = ObjectData::blocking("scarecrow"),
         Haystack = ObjectData::blocking("haystack"),
+        FishingSpot = ObjectData::passable_non_carriable("fishing_spot"),
+        Fish = ObjectData::passable("fish"),
     }
 }
 
@@ -47,6 +49,7 @@ enum_map! {
         Bridge = TileData::floor("bridge"),
         SandFloor = TileData::floor("sand"),
         WoodFloor = TileData::floor("wood"),
+        ShallowWater = TileData::floor("shallow_water"),
 
         Water = TileData::wall("water"),
         Lava = TileData::wall("lava"),

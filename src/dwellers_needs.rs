@@ -3,9 +3,9 @@ use bevy::prelude::*;
 use crate::{
     data::ObjectId,
     tasks::{Task, TaskBundle, TaskKind, TaskNeeds},
-    tilemap::TILE_SIZE,
     tilemap_data::TilemapData,
     tiles::TilePlaced,
+    utils::transform_to_index,
 };
 
 const NEEDS_MAX: u32 = 1000;
@@ -98,10 +98,7 @@ pub fn update_dweller_needs(
             continue;
         }
 
-        let pos = IVec2::new(
-            (transform.translation.x / TILE_SIZE) as i32,
-            (transform.translation.y / TILE_SIZE) as i32,
-        );
+        let pos = transform_to_index(transform);
 
         if needs.food < NEEDS_MAX / 2 {
             if let Some(pos) = TilemapData::find_from_center_chunk_size(pos, |index| {

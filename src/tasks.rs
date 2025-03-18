@@ -17,6 +17,7 @@ use crate::{
     tilemap::{CHUNK_SIZE, TILE_SIZE},
     tilemap_data::TilemapData,
     tiles::TilePlaced,
+    utils::transform_to_index,
     ObjectSlot, SpriteLoader,
 };
 
@@ -30,6 +31,7 @@ pub enum TaskKind {
     Harvest,
     Pickup,
     Attack,
+    Fish,
     Stockpile,
     Build {
         result: BuildResult,
@@ -72,6 +74,7 @@ impl TaskKind {
                         .object
                         .is_some_and(|object| object.data().is_carriable())
             }
+            TaskKind::Fish => matches!(tile.object, Some(ObjectId::FishingSpot)),
             TaskKind::Attack => true,
             TaskKind::Stockpile => {
                 !tile.id.data().is_wall()
@@ -121,6 +124,13 @@ impl BuildResult {
         match self {
             BuildResult::Object(object) => format!("{object:?}"),
             BuildResult::Tile(tile) => format!("{tile:?}"),
+        }
+    }
+
+    pub fn is_blocking(self) -> bool {
+        match self {
+            BuildResult::Object(object) => object.data().is_blocking(),
+            BuildResult::Tile(tile) => tile.data().is_wall(),
         }
     }
 }
@@ -339,6 +349,8 @@ pub fn event_task_completion(
         else {
             continue;
         };
+
+        let dweller_pos = transform_to_index(dweller_transform);
 
         let Some(tile) = tilemap_data.get(task.pos) else {
             continue;
@@ -574,6 +586,23 @@ pub fn event_task_completion(
                         }
                     }
                 }
+            }
+
+            TaskKind::Fish => {
+                //TODO: more fishing loot
+                if dweller.object.is_none() {
+                    dweller.object = Some(ObjectId::Fish);
+                } else if let Some(tile) = tilemap_data.get(dweller_pos) {
+                    if tile.is_floor_free() {
+                        tilemap_data.set(dweller_pos, tile.id.with(ObjectId::Fish));
+                    }
+                }
+
+                dweller_needs.sleep(-3);
+                dweller_needs.food(-2);
+
+                debug!("Fished at {:?}", dweller_pos);
+                success = true;
             }
 
             TaskKind::Stockpile => {
