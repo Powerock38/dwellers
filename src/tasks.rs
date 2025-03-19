@@ -254,17 +254,9 @@ impl Task {
 
     fn compute_reachable_positions(&self, pos: IVec2, tilemap_data: &TilemapData) -> Vec<IVec2> {
         if let Some(tile) = tilemap_data.get(pos) {
-            let will_build_wall = if let TaskKind::Build {
-                result: BuildResult::Tile(tile_id),
-                ..
-            } = self.kind
+            if !tile.is_blocking()
+                && !matches!(self.kind, TaskKind::Build { result } if result.is_blocking())
             {
-                tile_id.data().is_wall()
-            } else {
-                false
-            };
-
-            if !tile.is_blocking() && !will_build_wall {
                 return vec![pos];
             }
         }
