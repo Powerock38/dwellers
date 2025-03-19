@@ -10,10 +10,14 @@ pub static NAMES: LazyLock<ProbabilityTable> = LazyLock::new(|| {
     ProbabilityTable::from_reader(include_bytes!("../assets/names.txt").as_ref(), 3)
 });
 
+pub static WORLD_NAMES: LazyLock<ProbabilityTable> = LazyLock::new(|| {
+    ProbabilityTable::from_reader(include_bytes!("../assets/world_names.txt").as_ref(), 3)
+});
+
 #[derive(Debug, Clone)]
 pub struct ProbabilityTable {
-    pub(crate) table: HashMap<String, HashMap<char, u32>>,
-    pub(crate) accuracy: usize,
+    table: HashMap<String, HashMap<char, u32>>,
+    accuracy: usize,
 }
 
 impl ProbabilityTable {
@@ -36,12 +40,7 @@ fn add_space<T: BufRead>(reader: T, accuracy: usize) -> String {
         .lines()
         .map(|line| {
             line.map_or(String::new(), |line| {
-                format!(
-                    "{:accuracy$}{}",
-                    " ",
-                    line.to_lowercase(),
-                    accuracy = accuracy
-                )
+                format!("{:accuracy$}{}", " ", line.to_lowercase())
             })
         })
         .collect()
@@ -88,21 +87,3 @@ pub fn generate_word(table: &ProbabilityTable, rng: &mut ThreadRng) -> String {
     }
     out.trim().to_string()
 }
-
-// fn generate_multiple_words(matrix: &ProbabilityTable, number: u32) -> Vec<String> {
-//     let mut vec_string = Vec::new();
-//     let mut rng = thread_rng();
-//     for _ in 0..number {
-//         vec_string.push(generate_word(matrix, &mut rng));
-//     }
-//     vec_string
-// }
-
-// pub fn generate_words<T: BufRead>(reader: T, accuracy: usize, amout: u32) -> Vec<String> {
-//     let mut out = generate_multiple_words(
-//         &generate_table(add_space(reader, accuracy), accuracy),
-//         amout,
-//     );
-//     out.sort_by_key(String::len);
-//     out
-// }

@@ -7,7 +7,6 @@ use bevy::{
     time::common_conditions::on_timer,
 };
 use bevy_ecs_tilemap::TilemapPlugin;
-use rand::{distr::Alphanumeric, Rng};
 
 use crate::{
     actions::*, camera::*, chunks::*, dwellers::*, dwellers_needs::*, mobs::*, objects::*,
@@ -110,13 +109,6 @@ fn main() {
         .add_observer(terrain_pointer_up)
         .add_observer(observe_open_workstation_ui)
         .init_state::<GameState>()
-        .insert_resource(SaveName({
-            rand::rng()
-                .sample_iter(&Alphanumeric)
-                .take(10)
-                .map(char::from)
-                .collect()
-        }))
         .init_resource::<CurrentAction>()
         .init_resource::<DwellersSelected>()
         .run();
