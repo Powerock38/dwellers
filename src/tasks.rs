@@ -350,9 +350,9 @@ pub fn event_task_completion(
 
         let mut success = false;
 
-        // just to be sure
+        // Some tasks can become invalid if the tile has changed (for example Fish task if the FishingSpot is gone)
         if !task.kind.is_valid_on_tile(tile) {
-            error!("SHOULD NEVER HAPPEN: removing invalid task {task:?} on tile {tile:?}");
+            error!("Removing invalid task {task:?} on tile {tile:?}");
             commands.entity(entity).despawn_recursive();
             continue;
         }

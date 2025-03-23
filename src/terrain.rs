@@ -264,7 +264,7 @@ pub fn update_terrain(
 
     let mut rng = rand::rng();
 
-    for (chunk_index, _chunk) in &tilemap_data.chunks {
+    for (chunk_index, chunk) in &tilemap_data.chunks {
         for x in 0..CHUNK_SIZE {
             for y in 0..CHUNK_SIZE {
                 let index = TilemapData::local_index_to_global(
@@ -272,59 +272,58 @@ pub fn update_terrain(
                     IVec2::new(x as i32, y as i32),
                 );
 
-                if let Some(tile) = tilemap_data.get(index) {
-                    match tile.id {
-                        TileId::Water => {
-                            if tile.object.is_none() && rng.random_bool(0.01) {
-                                to_set.push((index, tile.id.with(ObjectId::FishingSpot)));
+                let (_, i) = TilemapData::index_to_chunk(index);
+                let tile = chunk[i];
+
+                match tile.id {
+                    TileId::Water => {
+                        if tile.object.is_none() && rng.random_bool(0.01) {
+                            to_set.push((index, tile.id.with(ObjectId::FishingSpot)));
+                        }
+                    }
+
+                    _ => {}
+                }
+
+                if let Some(object) = tile.object {
+                    match object {
+                        ObjectId::FishingSpot => {
+                            if rng.random_bool(0.1) {
+                                to_set.push((index, tile.id.place()));
+                            }
+                        }
+
+                        ObjectId::Farm => {
+                            let chance = match tile.id {
+                                TileId::GrassFloor => 0.03,
+                                _ => 0.01,
+                            };
+
+                            if rng.random_bool(chance) {
+                                to_set.push((index, tile.id.with(ObjectId::WheatPlant)));
+                            }
+                        }
+
+                        ObjectId::Scarecrow => {
+                            if let Some(index) = TilemapData::find_from_center(index, 4, |index| {
+                                if let Some(TilePlaced {
+                                    object: Some(ObjectId::WheatPlant),
+                                    ..
+                                }) = tilemap_data.get(index)
+                                {
+                                    return !q_tasks.iter().any(|task| task.pos == index);
+                                }
+
+                                false
+                            }) {
+                                commands.spawn(TaskBundle::new(
+                                    Task::new(index, TaskKind::Harvest, None, &tilemap_data),
+                                    TaskNeeds::EmptyHands,
+                                ));
                             }
                         }
 
                         _ => {}
-                    }
-
-                    if let Some(object) = tile.object {
-                        match object {
-                            ObjectId::FishingSpot => {
-                                if rng.random_bool(0.1) {
-                                    to_set.push((index, tile.id.place()));
-                                }
-                            }
-
-                            ObjectId::Farm => {
-                                let chance = match tile.id {
-                                    TileId::GrassFloor => 0.03,
-                                    _ => 0.01,
-                                };
-
-                                if rng.random_bool(chance) {
-                                    to_set.push((index, tile.id.with(ObjectId::WheatPlant)));
-                                }
-                            }
-
-                            ObjectId::Scarecrow => {
-                                if let Some(index) =
-                                    TilemapData::find_from_center(index, 4, |index| {
-                                        if let Some(TilePlaced {
-                                            object: Some(ObjectId::WheatPlant),
-                                            ..
-                                        }) = tilemap_data.get(index)
-                                        {
-                                            return !q_tasks.iter().any(|task| task.pos == index);
-                                        }
-
-                                        false
-                                    })
-                                {
-                                    commands.spawn(TaskBundle::new(
-                                        Task::new(index, TaskKind::Harvest, None, &tilemap_data),
-                                        TaskNeeds::EmptyHands,
-                                    ));
-                                }
-                            }
-
-                            _ => {}
-                        }
                     }
                 }
             }
