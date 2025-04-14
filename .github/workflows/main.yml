@@ -35,7 +35,7 @@ jobs:
 
       - name: Build
         run: |
-          cargo build --release --target x86_64-unknown-linux-gnu
+          cargo build --release --target x86_64-unknown-linux-gnu --config /dev/null
 
       - name: Prepare package
         run: |
@@ -81,7 +81,7 @@ jobs:
 
       - name: Build
         run: |
-          cargo build --release --target x86_64-pc-windows-msvc
+          cargo build --release --target x86_64-pc-windows-msvc --config /dev/null
 
       - name: Prepare package
         run: |
@@ -131,7 +131,7 @@ jobs:
 
       - name: Build
         run: |
-          cargo build --release --target x86_64-apple-darwin
+          cargo build --release --target x86_64-apple-darwin --config /dev/null
 
       - name: Prepare Package
         run: |
@@ -177,7 +177,7 @@ jobs:
 
       - name: Build
         run: |
-          cargo build --release --target aarch64-apple-darwin
+          cargo build --release --target aarch64-apple-darwin --config /dev/null
 
       - name: Prepare Package
         run: |
