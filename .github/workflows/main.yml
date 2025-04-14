@@ -35,7 +35,8 @@ jobs:
 
       - name: Build
         run: |
-          cargo build --release --target x86_64-unknown-linux-gnu --config .cargo/release.toml
+          rm .cargo/config.toml
+          cargo build --release --target x86_64-unknown-linux-gnu
 
       - name: Prepare package
         run: |
@@ -81,7 +82,8 @@ jobs:
 
       - name: Build
         run: |
-          cargo build --release --target x86_64-pc-windows-msvc --config .cargo/release.toml
+          rm .cargo/config.toml
+          cargo build --release --target x86_64-pc-windows-msvc
 
       - name: Prepare package
         run: |
@@ -131,7 +133,8 @@ jobs:
 
       - name: Build
         run: |
-          cargo build --release --target x86_64-apple-darwin --config .cargo/release.toml
+          rm .cargo/config.toml
+          cargo build --release --target x86_64-apple-darwin
 
       - name: Prepare Package
         run: |
@@ -177,7 +180,8 @@ jobs:
 
       - name: Build
         run: |
-          cargo build --release --target aarch64-apple-darwin --config .cargo/release.toml
+          rm .cargo/config.toml
+          cargo build --release --target aarch64-apple-darwin
 
       - name: Prepare Package
         run: |
