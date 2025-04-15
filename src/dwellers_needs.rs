@@ -1,10 +1,10 @@
 use bevy::prelude::*;
 
 use crate::{
-    data::ObjectId,
+    data::EAT_VALUES,
+    dwellers::Dweller,
     tasks::{Task, TaskBundle, TaskKind, TaskNeeds},
     tilemap_data::TilemapData,
-    tiles::TilePlaced,
     utils::transform_to_index,
 };
 
@@ -81,10 +81,10 @@ impl DwellerNeeds {
 pub fn update_dweller_needs(
     mut commands: Commands,
     tilemap_data: Res<TilemapData>,
-    mut q_needs: Query<(Entity, &mut DwellerNeeds, &Transform)>,
+    mut q_needs: Query<(Entity, &mut Dweller, &mut DwellerNeeds, &Transform)>,
     q_tasks: Query<&Task>,
 ) {
-    for (entity, mut needs, transform) in &mut q_needs {
+    for (entity, mut dweller, mut needs, transform) in &mut q_needs {
         if needs.health == 0 {
             continue;
         }
@@ -93,7 +93,7 @@ pub fn update_dweller_needs(
         needs.food(-1);
         needs.sleep(-1);
 
-        // If they are not working on something already... (especially an UseToSatisfyNeed task)
+        // If they are not working on something already... (especially an Eat / Sleep task)
         if q_tasks.iter().any(|task| task.dweller == Some(entity)) {
             continue;
         }
@@ -101,24 +101,23 @@ pub fn update_dweller_needs(
         let pos = transform_to_index(transform);
 
         if needs.food < NEEDS_MAX / 2 {
-            if let Some(pos) = TilemapData::find_from_center_chunk_size(pos, |index| {
-                matches!(
-                    tilemap_data.get(index),
-                    Some(TilePlaced {
-                        object: Some(ObjectId::Bread),
-                        ..
-                    })
-                ) && !q_tasks
-                    .iter()
-                    .filter(|t| {
-                        !(matches!(t.kind, TaskKind::Pickup | TaskKind::Stockpile)
-                            && t.dweller.is_none())
-                    })
-                    .any(|t| t.pos == index)
+            if let Some(value) = dweller.object.and_then(|object| EAT_VALUES.get(&object)) {
+                needs.food(*value);
+                dweller.object = None;
+            } else if let Some(pos) = TilemapData::find_from_center_chunk_size(pos, |index| {
+                tilemap_data
+                    .get(index)
+                    .is_some_and(|tile| TaskKind::Eat.is_valid_on_tile(tile))
+                    && !q_tasks
+                        .iter()
+                        .filter(|t| {
+                            !(matches!(t.kind, TaskKind::Pickup | TaskKind::Stockpile)
+                                && t.dweller.is_none())
+                        })
+                        .any(|t| t.pos == index)
             }) {
                 commands.spawn(TaskBundle::new(
-                    Task::new(pos, TaskKind::UseToSatisfyNeed, Some(entity), &tilemap_data)
-                        .with_priority(1),
+                    Task::new(pos, TaskKind::Eat, Some(entity), &tilemap_data).with_priority(1),
                     TaskNeeds::Nothing,
                 ));
             }
@@ -126,17 +125,13 @@ pub fn update_dweller_needs(
 
         if needs.sleep < NEEDS_MAX / 4 {
             if let Some(pos) = TilemapData::find_from_center_chunk_size(pos, |index| {
-                matches!(
-                    tilemap_data.get(index),
-                    Some(TilePlaced {
-                        object: Some(ObjectId::Bed),
-                        ..
-                    })
-                ) && !q_tasks.iter().any(|t| t.pos == index)
+                tilemap_data
+                    .get(index)
+                    .is_some_and(|tile| TaskKind::Sleep.is_valid_on_tile(tile))
+                    && !q_tasks.iter().any(|t| t.pos == index)
             }) {
                 commands.spawn(TaskBundle::new(
-                    Task::new(pos, TaskKind::UseToSatisfyNeed, Some(entity), &tilemap_data)
-                        .with_priority(1),
+                    Task::new(pos, TaskKind::Sleep, Some(entity), &tilemap_data).with_priority(1),
                     TaskNeeds::Nothing,
                 ));
             }

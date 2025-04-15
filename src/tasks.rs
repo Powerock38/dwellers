@@ -10,7 +10,7 @@ use pathfinding::directed::astar::astar;
 use rand::Rng;
 
 use crate::{
-    data::{ObjectId, TileId, WORKSTATIONS},
+    data::{ObjectId, TileId, EAT_VALUES, SLEEP_VALUES, WORKSTATIONS},
     dwellers::Dweller,
     dwellers_needs::DwellerNeeds,
     mobs::Mob,
@@ -40,7 +40,8 @@ pub enum TaskKind {
         amount: u32,
     },
     Walk,
-    UseToSatisfyNeed,
+    Eat,
+    Sleep,
 }
 
 impl TaskKind {
@@ -86,9 +87,12 @@ impl TaskKind {
                 .object
                 .is_some_and(|object| WORKSTATIONS.contains_key(&object)),
             TaskKind::Walk => !tile.is_blocking(),
-            TaskKind::UseToSatisfyNeed => {
-                matches!(tile.object, Some(ObjectId::Bed | ObjectId::Bread))
-            }
+            TaskKind::Eat => tile
+                .object
+                .is_some_and(|object| EAT_VALUES.contains_key(&object)),
+            TaskKind::Sleep => tile
+                .object
+                .is_some_and(|object| SLEEP_VALUES.contains_key(&object)),
         }
     }
 
@@ -350,7 +354,7 @@ pub fn event_task_completion(
 
         let mut success = false;
 
-        // Some tasks can become invalid if the tile has changed (for example Fish task if the FishingSpot is gone)
+        // Some tasks can become invalid if the tile has changed
         if !task.kind.is_valid_on_tile(tile) {
             error!("Removing invalid task {task:?} on tile {tile:?}");
             commands.entity(entity).despawn_recursive();
@@ -590,6 +594,11 @@ pub fn event_task_completion(
                     }
                 }
 
+                // remove fishing spot
+                if rng.random_bool(0.05) {
+                    tilemap_data.set(task.pos, tile.id.place());
+                }
+
                 dweller_needs.sleep(-3);
                 dweller_needs.food(-2);
 
@@ -642,27 +651,23 @@ pub fn event_task_completion(
                 success = true;
             }
 
-            TaskKind::UseToSatisfyNeed => {
-                if let Some(object) = tile.object {
-                    match object {
-                        ObjectId::Bread => {
-                            tilemap_data.set(task.pos, tile.id.place());
-                            dweller_needs.food(500);
+            TaskKind::Eat => {
+                if let Some(value) = tile.object.and_then(|object| EAT_VALUES.get(&object)) {
+                    tilemap_data.set(task.pos, tile.id.place());
+                    dweller_needs.food(*value);
 
-                            debug!("Ate bread {:?}", dweller_needs);
-                            success = true;
-                        }
+                    debug!("Ate {:?}", dweller_needs);
+                    success = true;
+                }
+            }
 
-                        ObjectId::Bed => {
-                            dweller_needs.sleep(100);
+            TaskKind::Sleep => {
+                if let Some(value) = tile.object.and_then(|object| SLEEP_VALUES.get(&object)) {
+                    dweller_needs.sleep(*value);
 
-                            debug!("Zzzzz {:?}", dweller_needs);
-                            if dweller_needs.is_fully_rested() {
-                                success = true;
-                            }
-                        }
-
-                        _ => {}
+                    debug!("Zzzzz {:?}", dweller_needs);
+                    if dweller_needs.is_fully_rested() {
+                        success = true;
                     }
                 }
             }

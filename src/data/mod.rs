@@ -95,3 +95,20 @@ LazyLock::new(|| HashMap::from([
     (ObjectId::Grindstone, (ObjectId::Sword, vec![ObjectId::CopperIngot, ObjectId::CopperIngot])),
     (ObjectId::Anvil, (ObjectId::Armor, vec![ObjectId::CopperIngot, ObjectId::CopperIngot, ObjectId::CopperIngot])),
 ]));
+
+pub static EAT_VALUES: LazyLock<HashMap<ObjectId, i32>> = LazyLock::new(|| {
+    HashMap::from([
+        (ObjectId::Bread, 500),
+        (ObjectId::Fish, 600),
+        (ObjectId::Wheat, 50),
+    ])
+});
+
+pub static SLEEP_VALUES: LazyLock<HashMap<ObjectId, i32>> = LazyLock::new(|| {
+    HashMap::from([
+        (ObjectId::Bed, 100),
+        (ObjectId::Haystack, 60),
+        (ObjectId::Stool, 10),
+        (ObjectId::Table, 20),
+    ])
+});
