@@ -268,27 +268,30 @@ impl Task {
         tilemap_data.non_blocking_neighbours_pos(pos, true)
     }
 
-    pub fn pathfind(
-        &self,
-        dweller_pos: IVec2,
-        tilemap_data: &TilemapData,
-    ) -> Option<(Vec<IVec2>, i32)> {
-        self.reachable_positions
-            .iter()
-            .filter_map(|pos| {
-                astar(
-                    pos,
-                    |p| {
-                        tilemap_data
-                            .non_blocking_neighbours_pos(*p, true)
-                            .into_iter()
-                            .map(|p| (p, 1))
-                    },
-                    |p| (p.x - dweller_pos.x).abs() + (p.y - dweller_pos.y).abs(),
-                    |p| *p == dweller_pos,
-                )
-            })
-            .min_by_key(|path| path.1)
+    pub fn pathfind(&self, dweller_pos: IVec2, tilemap_data: &TilemapData) -> Option<Vec<IVec2>> {
+        let goals: HashSet<IVec2> = self.reachable_positions.iter().copied().collect();
+
+        astar(
+            &dweller_pos,
+            |p| {
+                tilemap_data
+                    .non_blocking_neighbours_pos(*p, true)
+                    .into_iter()
+                    .map(|neighbor| (neighbor, 1))
+            },
+            |p| {
+                goals
+                    .iter()
+                    .map(|g| (p.x - g.x).abs() + (p.y - g.y).abs())
+                    .min()
+                    .unwrap_or(0)
+            },
+            |p| goals.contains(p),
+        )
+        .map(|(mut path, _)| {
+            path.reverse();
+            path
+        })
     }
 }
 

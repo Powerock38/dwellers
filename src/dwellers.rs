@@ -216,7 +216,7 @@ pub fn update_dwellers(
                 // Task moved, try to pathfind again
                 if let Some(path) = task.pathfind(index, &tilemap_data) {
                     debug!("Dweller {} can re-pathfind to {:?}", dweller.name, task);
-                    dweller.move_queue = path.0;
+                    dweller.move_queue = path;
                 } else {
                     info!("Dweller {} gives up {:?}", dweller.name, task);
                     task.dweller = None;
@@ -304,7 +304,7 @@ pub fn assign_tasks_to_dwellers(
         // Try pathfinding to task
         if let Some(path) = task.pathfind(*dweller_pos, &tilemap_data) {
             task.dweller = Some(*dweller_entity);
-            dweller.move_queue = path.0;
+            dweller.move_queue = path;
 
             assigned_dwellers.insert(dweller_i);
             assigned_tasks.insert(task_i);
