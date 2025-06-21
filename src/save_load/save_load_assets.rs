@@ -3,7 +3,7 @@ use bevy::{prelude::*, sprite::Anchor};
 use crate::TILE_SIZE;
 
 #[derive(Component, Reflect, Default)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 #[require(Transform, Visibility)]
 pub struct SpriteLoader {
     pub texture_path: String,

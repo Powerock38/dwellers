@@ -31,7 +31,7 @@ impl MobData {
 }
 
 #[derive(Component, Reflect, Default)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct Mob {
     speed: f32,
     pub loot: ObjectId,

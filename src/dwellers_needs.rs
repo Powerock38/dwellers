@@ -9,6 +9,7 @@ use crate::{
 };
 
 const NEEDS_MAX: u32 = 1000;
+const SPEED_MIN: f32 = 0.3;
 
 #[derive(Component, Reflect, Debug)]
 #[reflect(Component, Default)]
@@ -66,7 +67,7 @@ impl DwellerNeeds {
         let sleep_ratio = self.sleep as f32 / NEEDS_MAX as f32;
         let sleep_speed = 1.0 - (sleep_ratio - 1.0).abs().powi(3);
 
-        self.cached_speed_ratio = health_speed.min(food_speed.min(sleep_speed).max(0.1));
+        self.cached_speed_ratio = health_speed.min(food_speed.min(sleep_speed).max(SPEED_MIN));
     }
 
     pub fn speed_ratio(&self) -> f32 {

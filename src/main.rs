@@ -69,6 +69,7 @@ fn main() {
                 update_camera,
                 toggle_state,
                 load_chunks,
+                spawn_cheats_ui,
                 (spawn_dwellers, spawn_mobs).after(load_chunks),
                 (
                     // Game UI / "reactive" systems

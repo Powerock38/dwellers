@@ -3,87 +3,57 @@ use bevy::{platform::collections::HashMap, prelude::*, sprite::Anchor};
 use crate::{Dweller, Task, TaskKind, TaskNeeds, TILE_SIZE};
 
 #[derive(Component)]
-pub struct DwellerObjectPreview;
-
-#[derive(Component)]
-pub struct DwellerToolPreview;
-
-#[derive(Component)]
-pub struct DwellerArmorPreview;
+pub enum DwellerEquipmentPreview {
+    Object,
+    Tool,
+    Armor,
+}
 
 pub fn update_dwellers_equipment_sprites(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     q_dwellers: Query<(Entity, &Dweller, &Sprite, &Children), Changed<Dweller>>,
-    q_object_previews: Query<&DwellerObjectPreview>,
-    q_tool_previews: Query<&DwellerToolPreview>,
-    q_armor_previews: Query<&DwellerArmorPreview>,
+    q_previews: Query<&DwellerEquipmentPreview>,
 ) {
     for (entity, dweller, sprite, children) in &q_dwellers {
-        if let Some(object_preview) = children
+        for preview in children
             .iter()
-            .find(|child| q_object_previews.get(*child).is_ok())
+            .filter(|child| q_previews.get(*child).is_ok())
         {
-            commands.entity(object_preview).despawn();
+            commands.entity(preview).despawn();
         }
 
-        if let Some(object) = dweller.object {
-            commands.entity(entity).with_child((
-                DwellerObjectPreview,
-                Sprite {
-                    image: asset_server.load(object.data().sprite_path()),
-                    anchor: Anchor::BottomLeft,
-                    flip_x: sprite.flip_x,
-                    ..default()
-                },
-                Transform::from_translation(Vec3::new(
-                    if sprite.flip_x { TILE_SIZE / 2.0 } else { 0.0 },
-                    0.0,
-                    1.25,
-                ))
-                .with_scale(Vec3::splat(0.5)),
-            ));
-        }
-
-        if let Some(tool_preview) = children
-            .iter()
-            .find(|child| q_tool_previews.get(*child).is_ok())
-        {
-            commands.entity(tool_preview).despawn();
-        }
-
-        if let Some(tool) = dweller.tool {
-            commands.entity(entity).with_child((
-                DwellerToolPreview,
-                Sprite {
-                    image: asset_server.load(tool.data().sprite_path()),
-                    anchor: Anchor::BottomLeft,
-                    flip_x: sprite.flip_x,
-                    ..default()
-                },
+        for (preview_variant, equipment, transform) in [
+            (
+                DwellerEquipmentPreview::Object,
+                dweller.object,
+                Transform::from_xyz(if sprite.flip_x { TILE_SIZE / 2.0 } else { 0.0 }, 0.0, 1.25)
+                    .with_scale(Vec3::splat(0.5)),
+            ),
+            (
+                DwellerEquipmentPreview::Tool,
+                dweller.tool,
                 Transform::from_xyz(if sprite.flip_x { 5.0 } else { 19.0 }, 2.0, 1.5)
                     .with_scale(Vec3::new(-0.5, 0.5, 0.5)),
-            ));
-        }
-
-        if let Some(armor_preview) = children
-            .iter()
-            .find(|child| q_armor_previews.get(*child).is_ok())
-        {
-            commands.entity(armor_preview).despawn();
-        }
-
-        if let Some(armor) = dweller.armor {
-            commands.entity(entity).with_child((
-                DwellerArmorPreview,
-                Sprite {
-                    image: asset_server.load(armor.data().sprite_path()),
-                    anchor: Anchor::BottomLeft,
-                    flip_x: sprite.flip_x,
-                    ..default()
-                },
+            ),
+            (
+                DwellerEquipmentPreview::Armor,
+                dweller.armor,
                 Transform::from_translation(Vec3::Z),
-            ));
+            ),
+        ] {
+            if let Some(equipment) = equipment {
+                commands.entity(entity).with_child((
+                    preview_variant,
+                    Sprite {
+                        image: asset_server.load(equipment.data().sprite_path()),
+                        anchor: Anchor::BottomLeft,
+                        flip_x: sprite.flip_x,
+                        ..default()
+                    },
+                    transform,
+                ));
+            }
         }
     }
 }

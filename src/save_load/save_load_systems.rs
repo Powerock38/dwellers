@@ -1,18 +1,15 @@
-use bevy::{
-    prelude::*,
-    render::camera::{CameraMainTextureUsages, CameraRenderGraph},
-    tasks::IoTaskPool,
-};
+use bevy::{prelude::*, tasks::IoTaskPool};
 
 use crate::{
-    init_tilemap, tilemap_data::TilemapData, utils::write_to_file, ChunkObjectLayer,
-    ChunkTileLayer, Dweller, GameState, Mob, Task, UnloadChunk,
+    dwellers_needs::DwellerNeeds, init_tilemap, save_load::SpriteLoader, tasks::TaskNeeds,
+    tilemap_data::TilemapData, utils::write_to_file, ChunkObjectLayer, ChunkTileLayer, Dweller,
+    GameState, Mob, Task, UnloadChunk,
 };
 
 pub const SAVE_DIR: &str = "saves";
 
 #[derive(Resource, Reflect, Default)]
-#[reflect(Resource)]
+#[reflect(Resource, Default)]
 pub struct SaveName(pub String);
 
 #[derive(Resource)]
@@ -56,13 +53,23 @@ pub fn save_world(
 
             let app_type_registry = world.resource::<AppTypeRegistry>().clone();
 
+            // Small caveat: we save Children components referencing entities that are not saved.
+            // Could also happen with ChildOf, which may be even more problematic.
+
             let scene = DynamicSceneBuilder::from_world(world)
                 .deny_all_resources()
-                .allow_all_components()
+                .deny_all_components()
                 .allow_resource::<SaveName>()
-                .deny_component::<CameraRenderGraph>()
-                .deny_component::<CameraMainTextureUsages>()
-                .deny_component::<Sprite>()
+                .allow_component::<Dweller>()
+                .allow_component::<DwellerNeeds>()
+                .allow_component::<Mob>()
+                .allow_component::<Task>()
+                .allow_component::<TaskNeeds>()
+                .allow_component::<SpriteLoader>()
+                .allow_component::<Transform>()
+                .allow_component::<GlobalTransform>()
+                .allow_component::<Children>()
+                .allow_component::<ChildOf>()
                 .extract_resources()
                 .extract_entities(q_dwellers.iter())
                 .extract_entities(q_tasks.iter())
