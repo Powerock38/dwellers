@@ -2,8 +2,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use bevy::{
     ecs::{entity::MapEntities, reflect::ReflectMapEntities},
+    platform::collections::HashSet,
     prelude::*,
-    utils::hashbrown::HashSet,
 };
 use dashmap::DashSet;
 use pathfinding::directed::astar::astar;
@@ -184,7 +184,7 @@ pub enum TaskNeeds {
     Impossible,
 }
 
-#[derive(Component, Reflect, Default, Debug)]
+#[derive(Component, Reflect, MapEntities, Default, Debug)]
 #[reflect(Component, MapEntities)]
 pub struct Task {
     id: u64,
@@ -192,16 +192,9 @@ pub struct Task {
     pub pos: IVec2,
     pub reachable_pathfinding: bool,
     pub reachable_positions: Vec<IVec2>,
+    #[entities]
     pub dweller: Option<Entity>,
     pub priority: i32,
-}
-
-impl MapEntities for Task {
-    fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
-        if let Some(entity) = self.dweller {
-            self.dweller = Some(entity_mapper.map_entity(entity));
-        }
-    }
 }
 
 impl Ord for Task {
@@ -324,7 +317,7 @@ pub fn event_task_completion(
     mut tilemap_data: ResMut<TilemapData>,
     q_mobs: Query<(Entity, &Mob, &Transform)>,
     mut q_dwellers: Query<(&mut Dweller, &mut DwellerNeeds, &Transform)>,
-    mut q_tasks: Query<(Entity, &mut Task, &mut TaskNeeds, Option<&Parent>)>,
+    mut q_tasks: Query<(Entity, &mut Task, &mut TaskNeeds, Option<&ChildOf>)>,
 ) {
     let mut rng = rand::rng();
 
@@ -338,7 +331,7 @@ pub fn event_task_completion(
         .collect::<HashSet<_>>();
 
     for event in events.read() {
-        let Ok((entity, mut task, mut task_needs, task_parent)) = q_tasks.get_mut(event.task)
+        let Ok((entity, mut task, mut task_needs, task_child_of)) = q_tasks.get_mut(event.task)
         else {
             continue;
         };
@@ -360,7 +353,7 @@ pub fn event_task_completion(
         // Some tasks can become invalid if the tile has changed
         if !task.kind.is_valid_on_tile(tile) {
             error!("Removing invalid task {task:?} on tile {tile:?}");
-            commands.entity(entity).despawn_recursive();
+            commands.entity(entity).despawn();
             continue;
         }
 
@@ -545,7 +538,7 @@ pub fn event_task_completion(
             }
 
             TaskKind::Attack => {
-                if let Some(task_parent) = task_parent.map(Parent::get) {
+                if let Some(task_parent) = task_child_of.map(ChildOf::parent) {
                     if let Ok((entity_mob, mob, mob_transform)) = q_mobs.get(task_parent) {
                         let mob_pos = (mob_transform.translation / TILE_SIZE)
                             .truncate()
@@ -572,7 +565,7 @@ pub fn event_task_completion(
                                 }
                             }
 
-                            commands.entity(entity_mob).despawn_recursive();
+                            commands.entity(entity_mob).despawn();
 
                             dweller_needs.sleep(-5);
                             dweller_needs.food(-5);
@@ -747,7 +740,7 @@ pub fn event_task_completion(
             }
 
             if remove_task {
-                commands.entity(entity).despawn_recursive();
+                commands.entity(entity).despawn();
             } else {
                 task.dweller = None;
             }
@@ -781,7 +774,7 @@ pub fn event_task_completion(
                     .get(task.pos)
                     .is_some_and(TilePlaced::is_floor_free)
             {
-                commands.entity(entity).despawn_recursive();
+                commands.entity(entity).despawn();
             }
         }
     }

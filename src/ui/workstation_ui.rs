@@ -1,6 +1,6 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use bevy::{prelude::*, utils::HashMap};
+use bevy::{platform::collections::HashMap, prelude::*};
 
 use crate::{
     data::WORKSTATIONS, extract_ok, tilemap_data::TilemapData, Task, TaskKind, TilePlaced,
@@ -12,30 +12,30 @@ pub struct OpenWorkstationUi;
 
 #[derive(Component)]
 #[require(
-    Node(|| Node {
+    Node {
         width: Val::Percent(100.),
         height: Val::Percent(100.),
         position_type: PositionType::Absolute,
         justify_content: JustifyContent::Center,
         align_items: AlignItems::Center,
         ..default()
-    }),
-    BackgroundColor(|| BackgroundColor(BG_PRIMARY.with_alpha(0.7)))
+    },
+    BackgroundColor(BG_PRIMARY.with_alpha(0.7))
 )]
 pub struct UiBackground;
 
 #[derive(Component)]
 #[require(
-    Node(|| Node {
+    Node {
         width: Val::Px(200.),
         justify_content: JustifyContent::SpaceBetween,
         align_items: AlignItems::Center,
         padding: UiRect::all(Val::Px(5.0)),
         border: UiRect::all(Val::Px(4.0)),
         ..default()
-    }),
-    BorderColor(|| BorderColor(Color::BLACK)),
-    BackgroundColor(|| BackgroundColor(BG_PRIMARY))
+    },
+    BorderColor(Color::BLACK),
+    BackgroundColor(BG_PRIMARY)
 )]
 pub struct WorkstationUi(pub Entity, pub u128);
 
@@ -46,10 +46,10 @@ pub fn observe_open_workstation_ui(
     q_tasks: Query<&Task>,
 ) {
     for entity in &q_workstation_ui {
-        commands.entity(entity).despawn_recursive();
+        commands.entity(entity).despawn();
     }
 
-    let entity = trigger.entity();
+    let entity = trigger.target();
     let task = extract_ok!(q_tasks.get(entity));
 
     if let TaskKind::Workstation { .. } = task.kind {
@@ -57,7 +57,7 @@ pub fn observe_open_workstation_ui(
         commands
             .spawn(UiBackground)
             .observe(|trigger: Trigger<Pointer<Click>>, mut commands: Commands| {
-                commands.entity(trigger.entity()).despawn_recursive();
+                commands.entity(trigger.target()).despawn();
             })
             .with_child(WorkstationUi(
                 entity,
@@ -101,7 +101,7 @@ pub fn update_workstation_ui(
             continue;
         };
 
-        let Some(mut ec) = commands.get_entity(ui_entity) else {
+        let Ok(mut ec) = commands.get_entity(ui_entity) else {
             continue;
         };
 
@@ -113,7 +113,7 @@ pub fn update_workstation_ui(
 
         changes.insert(workstation_ui.1, amount);
 
-        ec.despawn_descendants().with_children(|c| {
+        ec.despawn_related::<Children>().with_children(|c| {
             // Minus button
             c.spawn((
                 Button,

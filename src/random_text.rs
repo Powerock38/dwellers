@@ -1,6 +1,6 @@
 use std::{io::BufRead, sync::LazyLock};
 
-use bevy::utils::HashMap;
+use bevy::platform::collections::HashMap;
 use rand::{
     distr::{weighted::WeightedIndex, Distribution},
     rngs::ThreadRng,

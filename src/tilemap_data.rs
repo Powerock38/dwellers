@@ -1,4 +1,4 @@
-use bevy::{prelude::*, utils::HashMap};
+use bevy::{platform::collections::HashMap, prelude::*};
 
 use crate::{utils::div_to_floor, TilePlaced, CHUNK_SIZE};
 

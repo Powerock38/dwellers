@@ -14,16 +14,16 @@ pub fn init_font(asset_server: Res<AssetServer>, mut query: Query<&mut TextFont,
 #[derive(Component)]
 #[require(
     Button,
-    Node(|| Node {
+    Node {
         padding: UiRect::all(Val::Px(5.0)),
         border: UiRect::all(Val::Px(4.0)),
         justify_content: JustifyContent::Center,
         align_items: AlignItems::Center,
         column_gap: Val::Px(5.0),
         ..default()
-    }),
-    BorderColor(|| BorderColor(Color::BLACK)),
-    BackgroundColor(|| BackgroundColor(BG_PRIMARY))
+    },
+    BorderColor(Color::BLACK),
+    BackgroundColor(BG_PRIMARY)
 )]
 pub struct UiButton;
 
@@ -33,14 +33,14 @@ pub const BG_TERTIARY: Color = Color::srgb(0.35, 0.75, 0.35);
 
 #[derive(Component)]
 #[require(
-    Node(|| Node {
+    Node {
         width: Val::Percent(100.),
         height: Val::Percent(100.),
         flex_direction: FlexDirection::Column,
         padding: UiRect::all(Val::Px(10.)),
         ..default()
-    }),
-    BackgroundColor(|| Color::srgba(0.1, 0.1, 0.1, 0.5))
+    },
+    BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.5))
 )]
 pub struct UiWindow;
 

@@ -11,7 +11,7 @@ pub fn spawn_load_save_ui(
 ) {
     if keyboard_input.just_pressed(KeyCode::KeyM) {
         if let Some(window) = q_windows.iter().next() {
-            commands.entity(window).despawn_recursive();
+            commands.entity(window).despawn();
             next_state.set(GameState::Running);
         } else {
             commands.spawn(UiWindow).with_children(|c| {
@@ -26,7 +26,7 @@ pub fn spawn_load_save_ui(
                             commands.insert_resource(SaveGame);
 
                             if let Some(window) = q_windows.iter().next() {
-                                commands.entity(window).despawn_recursive();
+                                commands.entity(window).despawn();
                             }
 
                             next_state.set(GameState::Running);
@@ -59,7 +59,7 @@ pub fn spawn_load_save_ui(
                                     commands.insert_resource(LoadGame(save_file.clone()));
 
                                     if let Some(window) = q_windows.iter().next() {
-                                        commands.entity(window).despawn_recursive();
+                                        commands.entity(window).despawn();
                                     }
                                 },
                             );

@@ -29,7 +29,7 @@ pub fn save_world_before(
     if let Some(save_game) = save_game {
         if save_game.is_added() {
             for chunk_index in tilemap_data.chunks.keys() {
-                ev_unload_w.send(UnloadChunk(*chunk_index));
+                ev_unload_w.write(UnloadChunk(*chunk_index));
             }
         }
     }
@@ -109,23 +109,23 @@ pub fn load_world(
 
             // Despawn current scene
             for chunk_layer in q_chunks_tile_layer.iter() {
-                commands.entity(chunk_layer).despawn_recursive();
+                commands.entity(chunk_layer).despawn();
             }
 
             for chunk_layer in q_chunks_object_layer.iter() {
-                commands.entity(chunk_layer).despawn_recursive();
+                commands.entity(chunk_layer).despawn();
             }
 
             for dweller in q_dwellers.iter() {
-                commands.entity(dweller).despawn_recursive();
+                commands.entity(dweller).despawn();
             }
 
             for task in q_tasks.iter() {
-                commands.entity(task).despawn_recursive();
+                commands.entity(task).despawn();
             }
 
             for mob in q_mobs.iter() {
-                commands.entity(mob).despawn_recursive();
+                commands.entity(mob).despawn();
             }
 
             // Spawn new scene

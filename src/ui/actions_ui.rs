@@ -104,7 +104,7 @@ pub fn get_observer_action_button(
             border.0 = Color::BLACK;
         }
 
-        if let Ok(mut border) = q_borders.get_mut(trigger.entity()) {
+        if let Ok(mut border) = q_borders.get_mut(trigger.target()) {
             border.0 = bevy::color::palettes::css::RED.into();
         }
     }
@@ -116,7 +116,7 @@ pub fn update_dwellers_selected(
     mut q_dwellers_selected_ui: Query<&mut Text, With<DwellersSelectedUi>>,
 ) {
     if dwellers_selected.is_changed() {
-        let mut dwellers_selected_ui = extract_ok!(q_dwellers_selected_ui.get_single_mut());
+        let mut dwellers_selected_ui = extract_ok!(q_dwellers_selected_ui.single_mut());
 
         dwellers_selected_ui.0 = dwellers_selected
             .list()

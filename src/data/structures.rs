@@ -1,6 +1,6 @@
 use std::sync::LazyLock;
 
-use bevy::{prelude::*, utils::HashMap};
+use bevy::{platform::collections::HashMap, prelude::*};
 
 use crate::{
     data::{MobId, ObjectId, TileId},

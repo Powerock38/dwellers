@@ -34,8 +34,8 @@ pub fn spawn_new_terrain(
     commands.insert_resource(SaveName(name));
     init_tilemap(commands, asset_server);
 
-    ev_load_chunk.send(LoadChunk(IVec2::ZERO));
-    ev_spawn_dwellers.send(SpawnDwellersOnChunk(IVec2::ZERO));
+    ev_load_chunk.write(LoadChunk(IVec2::ZERO));
+    ev_spawn_dwellers.write(SpawnDwellersOnChunk(IVec2::ZERO));
 }
 
 pub fn load_chunks(

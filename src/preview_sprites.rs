@@ -1,4 +1,4 @@
-use bevy::{prelude::*, sprite::Anchor, utils::HashMap};
+use bevy::{platform::collections::HashMap, prelude::*, sprite::Anchor};
 
 use crate::{Dweller, Task, TaskKind, TaskNeeds, TILE_SIZE};
 
@@ -22,9 +22,9 @@ pub fn update_dwellers_equipment_sprites(
     for (entity, dweller, sprite, children) in &q_dwellers {
         if let Some(object_preview) = children
             .iter()
-            .find(|child| q_object_previews.get(**child).is_ok())
+            .find(|child| q_object_previews.get(*child).is_ok())
         {
-            commands.entity(*object_preview).despawn();
+            commands.entity(object_preview).despawn();
         }
 
         if let Some(object) = dweller.object {
@@ -47,9 +47,9 @@ pub fn update_dwellers_equipment_sprites(
 
         if let Some(tool_preview) = children
             .iter()
-            .find(|child| q_tool_previews.get(**child).is_ok())
+            .find(|child| q_tool_previews.get(*child).is_ok())
         {
-            commands.entity(*tool_preview).despawn();
+            commands.entity(tool_preview).despawn();
         }
 
         if let Some(tool) = dweller.tool {
@@ -68,9 +68,9 @@ pub fn update_dwellers_equipment_sprites(
 
         if let Some(armor_preview) = children
             .iter()
-            .find(|child| q_armor_previews.get(**child).is_ok())
+            .find(|child| q_armor_previews.get(*child).is_ok())
         {
-            commands.entity(*armor_preview).despawn();
+            commands.entity(armor_preview).despawn();
         }
 
         if let Some(armor) = dweller.armor {
@@ -225,5 +225,5 @@ pub fn update_task_workstation_preview(
         }
     }
 
-    changes.retain(|entity, _| commands.get_entity(*entity).is_some());
+    changes.retain(|entity, _| commands.get_entity(*entity).is_ok());
 }

@@ -1,9 +1,9 @@
 use std::collections::BinaryHeap;
 
 use bevy::{
+    platform::collections::{HashMap, HashSet},
     prelude::*,
     sprite::Anchor,
-    utils::{HashMap, HashSet},
 };
 use rand::{seq::IndexedRandom, Rng};
 
@@ -211,7 +211,7 @@ pub fn update_dwellers(
         if let Some((entity_task, mut task, _)) = task {
             if task.reachable_positions.contains(&index) {
                 // Reached task location
-                ev_task_completion.send(TaskCompletionEvent { task: entity_task });
+                ev_task_completion.write(TaskCompletionEvent { task: entity_task });
             } else {
                 // Task moved, try to pathfind again
                 if let Some(path) = task.pathfind(index, &tilemap_data) {
@@ -367,7 +367,7 @@ pub fn update_dwellers_load_chunks(
                 let chunk_index = chunk_index + IVec2::new(dx, dy);
 
                 if !sent_event_for.contains(&chunk_index) {
-                    ev_load_chunk.send(LoadChunk(chunk_index));
+                    ev_load_chunk.write(LoadChunk(chunk_index));
                     sent_event_for.push(chunk_index);
                     chunks_ttl.insert(chunk_index, 10);
                 }
@@ -387,7 +387,7 @@ pub fn update_dwellers_load_chunks(
             !sent_event_for.contains(chunk_index) && !chunks_ttl.contains_key(*chunk_index)
         })
         .for_each(|chunk_index| {
-            ev_unload_chunk.send(UnloadChunk(*chunk_index));
+            ev_unload_chunk.write(UnloadChunk(*chunk_index));
         });
 
     // Decrease chunk TTL

@@ -27,7 +27,7 @@ pub fn spawn_camera(mut commands: Commands) {
 }
 
 pub fn update_camera(
-    query: Single<(&mut Transform, &mut OrthographicProjection)>,
+    query: Single<(&mut Transform, &mut Projection)>,
     input_keyboard: Res<ButtonInput<KeyCode>>,
     input_mouse: Res<ButtonInput<MouseButton>>,
     mut event_wheel: EventReader<MouseWheel>,
@@ -36,6 +36,10 @@ pub fn update_camera(
     mut control: ResMut<CameraControl>,
 ) {
     let (mut transform, mut projection) = query.into_inner();
+
+    let Projection::Orthographic(projection) = projection.as_mut() else {
+        return;
+    };
 
     if input_mouse.pressed(MouseButton::Right) {
         for ev in event_move.read() {

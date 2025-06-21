@@ -62,7 +62,7 @@ impl CurrentAction {
 }
 
 pub fn terrain_pointer_down(
-    trigger: Trigger<Pointer<Down>>,
+    trigger: Trigger<Pointer<Pressed>>,
     mut current_action: ResMut<CurrentAction>,
     q_camera: Query<(&Camera, &GlobalTransform)>,
     q_ui_buttons: Query<(), With<UiButton>>,
@@ -70,13 +70,13 @@ pub fn terrain_pointer_down(
 ) {
     let event = trigger.event();
 
-    if q_ui_buttons.contains(trigger.entity()) {
+    if q_ui_buttons.contains(trigger.target()) {
         return;
     }
 
     match event.event.button {
         PointerButton::Primary => {
-            let (camera, camera_transform) = extract_ok!(q_camera.get_single());
+            let (camera, camera_transform) = extract_ok!(q_camera.single());
             let world_position = extract_ok!(
                 camera.viewport_to_world_2d(camera_transform, event.pointer_location.position)
             );
@@ -98,7 +98,7 @@ pub fn terrain_pointer_down(
 }
 
 pub fn terrain_pointer_up(
-    trigger: Trigger<Pointer<Up>>,
+    trigger: Trigger<Pointer<Released>>,
     mut commands: Commands,
     mut current_action: ResMut<CurrentAction>,
     mut dwellers_selected: ResMut<DwellersSelected>,
@@ -110,7 +110,7 @@ pub fn terrain_pointer_up(
 ) {
     let event = trigger.event();
 
-    let (camera, camera_transform) = extract_ok!(q_camera.get_single());
+    let (camera, camera_transform) = extract_ok!(q_camera.single());
     let world_position =
         extract_ok!(camera.viewport_to_world_2d(camera_transform, event.pointer_location.position));
     let index = (world_position / TILE_SIZE).floor().as_ivec2();
@@ -162,7 +162,7 @@ pub fn terrain_pointer_up(
                     if q_tasks.iter().filter(|(_, t)| t.pos == index).any(
                         |(entity_other_task, other_task)| match (task_kind, other_task.kind) {
                             (TaskKind::Stockpile, TaskKind::Pickup) => {
-                                commands.entity(entity_other_task).despawn_recursive();
+                                commands.entity(entity_other_task).despawn();
                                 // Stockpile task will be correctly marked TaskNeeds::Impossible below
                                 false
                             }
@@ -241,12 +241,12 @@ pub fn terrain_pointer_up(
                                     ) < TILE_SIZE
                                 })
                             {
-                                commands.entity(entity_mob).with_children(|c| {
-                                    c.spawn(TaskBundle::new_as_child(
+                                commands.entity(entity_mob).insert(children![
+                                    TaskBundle::new_as_child(
                                         Task::new(index, *task_kind, dweller, &tilemap_data),
                                         TaskNeeds::Nothing,
-                                    ));
-                                });
+                                    )
+                                ]);
 
                                 max_tasks = max_tasks.saturating_sub(1);
                                 debug!("Attacking task at {index:?}");
@@ -312,7 +312,7 @@ pub fn terrain_pointer_up(
                         if let Some((entity_task, task)) =
                             q_tasks.iter().find(|(_, task)| task.pos == index)
                         {
-                            commands.entity(entity_task).despawn_recursive();
+                            commands.entity(entity_task).despawn();
 
                             // stop dweller from moving towards this task
                             if let Some(dweller) = task.dweller {
@@ -379,8 +379,8 @@ pub fn terrain_draw_selection(
     q_camera: Query<(&Camera, &GlobalTransform)>,
 ) {
     if let Some(index_start) = current_action.index_start {
-        let (camera, camera_transform) = extract_ok!(q_camera.get_single());
-        let window = extract_ok!(q_windows.get_single());
+        let (camera, camera_transform) = extract_ok!(q_camera.single());
+        let window = extract_ok!(q_windows.single());
         let cursor_position = extract_some!(window.cursor_position());
         let world_position =
             extract_ok!(camera.viewport_to_world_2d(camera_transform, cursor_position));

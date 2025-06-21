@@ -1,4 +1,4 @@
-use bevy::{prelude::*, utils::HashMap};
+use bevy::{platform::collections::HashMap, prelude::*};
 use bevy_ecs_tilemap::{
     map::{
         TilemapGridSize, TilemapId, TilemapRenderSettings, TilemapSize, TilemapTexture,
@@ -97,14 +97,14 @@ pub fn manage_chunks(
             .iter()
             .find(|(_, t)| chunk_index_is_translation(chunk_index, t.translation))
         {
-            commands.entity(entity).despawn_recursive();
+            commands.entity(entity).despawn();
         }
 
         if let Some((entity, _)) = q_chunks_object_layer
             .iter()
             .find(|(_, t)| chunk_index_is_translation(chunk_index, t.translation))
         {
-            commands.entity(entity).despawn_recursive();
+            commands.entity(entity).despawn();
         }
     }
 }
@@ -183,7 +183,7 @@ pub fn update_tilemap_from_data(
 
         // add or update tile
         if let Some(tile_entity) = tile_layer_chunk_storage.get(&tile_pos) {
-            if let Some(mut ec) = commands.get_entity(tile_entity) {
+            if let Ok(mut ec) = commands.get_entity(tile_entity) {
                 ec.insert((tilemap_textures.get_atlas_index_tile(tile.id.data()), color));
             }
         } else {
@@ -223,7 +223,7 @@ pub fn update_tilemap_from_data(
                 object_layer_chunk_storage.set(&tile_pos, tile_entity);
             }
         } else if let Some(object_entity) = object_layer_chunk_storage.get(&tile_pos) {
-            commands.entity(object_entity).despawn_recursive();
+            commands.entity(object_entity).despawn();
             object_layer_chunk_storage.remove(&tile_pos);
         }
     }
