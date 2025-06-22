@@ -15,18 +15,22 @@ const Z_INDEX: f32 = 11.0;
 pub struct SpawnMobsOnChunk(pub IVec2);
 
 pub struct MobData {
-    sprite_name: &'static str,
+    filename: &'static str,
     speed: f32,
     loot: ObjectId,
 }
 
 impl MobData {
-    pub fn new(sprite_name: &'static str, speed: f32, loot: ObjectId) -> Self {
+    pub fn new(filename: &'static str, speed: f32, loot: ObjectId) -> Self {
         MobData {
-            sprite_name,
+            filename,
             speed,
             loot,
         }
+    }
+
+    pub fn sprite_path(&self) -> String {
+        format!("sprites/{}.png", self.filename)
     }
 }
 
@@ -54,7 +58,7 @@ impl MobBundle {
                 move_queue: Vec::new(),
             },
             sprite: SpriteLoader {
-                texture_path: format!("sprites/{}.png", id.data().sprite_name),
+                texture_path: id.data().sprite_path(),
             },
             transform: Transform::from_xyz(
                 index.x as f32 * TILE_SIZE,

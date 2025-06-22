@@ -2,8 +2,8 @@ use bevy::prelude::*;
 
 use crate::{
     actions::ActionKind,
-    data::{ObjectId, TileId},
-    tasks::{BuildResult, TaskKind, TaskNeeds},
+    data::{MobId, ObjectId, TileId},
+    tasks::BuildResult,
     ui::{get_observer_action_button, UiButton, UiWindow},
     utils::pascal_case_to_title_case,
 };
@@ -37,10 +37,14 @@ pub fn spawn_cheats_ui(
                         c.spawn(UiButton)
                             .with_child(Text::new(pascal_case_to_title_case(&result.debug_name())))
                             .with_child(ImageNode::new(asset_server.load(result.sprite_path())))
-                            .observe(get_observer_action_button(ActionKind::TaskWithNeeds(
-                                TaskKind::Build { result },
-                                TaskNeeds::Nothing,
-                            )));
+                            .observe(get_observer_action_button(ActionKind::DebugBuild(result)));
+                    }
+
+                    for mob in MobId::ALL {
+                        c.spawn(UiButton)
+                            .with_child(Text::new(pascal_case_to_title_case(&format!("{mob:?}"))))
+                            .with_child(ImageNode::new(asset_server.load(mob.data().sprite_path())))
+                            .observe(get_observer_action_button(ActionKind::DebugSpawn(*mob)));
                     }
                 });
             });

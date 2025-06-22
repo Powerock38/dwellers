@@ -1,10 +1,10 @@
 use bevy::prelude::*;
 
 use crate::{
-    data::ObjectId,
+    data::{MobId, ObjectId},
     extract_ok, extract_some,
-    mobs::Mob,
-    tasks::{Task, TaskBundle, TaskKind, TaskNeeds},
+    mobs::{Mob, MobBundle},
+    tasks::{BuildResult, Task, TaskBundle, TaskKind, TaskNeeds},
     tilemap::TILE_SIZE,
     tilemap_data::TilemapData,
     ui::{CoordinatesUi, UiButton},
@@ -21,6 +21,8 @@ pub enum ActionKind {
     Cancel,
     Task(TaskKind),
     TaskWithNeeds(TaskKind, TaskNeeds),
+    DebugBuild(BuildResult),
+    DebugSpawn(MobId),
 }
 
 pub fn keyboard_current_action(
@@ -102,7 +104,7 @@ pub fn terrain_pointer_up(
     mut commands: Commands,
     mut current_action: ResMut<CurrentAction>,
     mut dwellers_selected: ResMut<DwellersSelected>,
-    tilemap_data: Res<TilemapData>,
+    mut tilemap_data: ResMut<TilemapData>,
     q_camera: Query<(&Camera, &GlobalTransform)>,
     q_tasks: Query<(Entity, &Task)>,
     q_mobs: Query<(Entity, &Transform), With<Mob>>,
@@ -363,6 +365,23 @@ pub fn terrain_pointer_up(
                                 dwellers_selected.add(entity);
                             }
                         }
+                    }
+
+                    ActionKind::DebugBuild(result) => {
+                        if let Some(tile) = tilemap_data.get(index) {
+                            match result {
+                                BuildResult::Object(object_id) => {
+                                    tilemap_data.set(index, tile.id.with(*object_id));
+                                }
+                                BuildResult::Tile(tile_id) => {
+                                    tilemap_data.set(index, tile_id.place());
+                                }
+                            }
+                        }
+                    }
+
+                    ActionKind::DebugSpawn(mob_id) => {
+                        commands.spawn(MobBundle::new(*mob_id, index));
                     }
                 }
             }
