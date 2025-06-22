@@ -9,11 +9,13 @@ use bevy::{
 use bevy_ecs_tilemap::TilemapPlugin;
 
 use crate::{
-    actions::*, camera::*, chunks::*, dwellers::*, dwellers_needs::*, mobs::*, objects::*,
-    preview_sprites::*, save_load::*, state::*, tasks::*, terrain::*, tilemap::*, tiles::*, ui::*,
+    actions::*, animation::*, camera::*, chunks::*, dwellers::*, dwellers_needs::*, mobs::*,
+    objects::*, preview_sprites::*, save_load::*, state::*, tasks::*, terrain::*, tilemap::*,
+    tiles::*, ui::*,
 };
 
 mod actions;
+mod animation;
 mod camera;
 mod chunks;
 mod data;
@@ -82,6 +84,7 @@ fn main() {
                     update_task_needs_preview,
                     update_task_build_preview,
                     update_task_workstation_preview,
+                    update_taking_damage,
                 )
                     .in_set(GameplaySet),
             ),

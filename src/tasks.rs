@@ -10,6 +10,7 @@ use pathfinding::directed::astar::astar;
 use rand::Rng;
 
 use crate::{
+    animation::TakingDamage,
     data::{ObjectId, TileId, EAT_VALUES, SLEEP_VALUES, WORKSTATIONS},
     dwellers::Dweller,
     dwellers_needs::DwellerNeeds,
@@ -551,7 +552,8 @@ pub fn event_task_completion(
                         {
                             // Damage the mob
                             mob.health = mob.health.saturating_sub(1);
-                            // TODO: add damage animation
+                            commands.entity(entity_mob).insert(TakingDamage::new());
+
                             dweller_needs.sleep(-5);
                             dweller_needs.food(-5);
 
