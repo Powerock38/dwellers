@@ -18,14 +18,16 @@ pub struct MobData {
     filename: &'static str,
     speed: f32,
     loot: ObjectId,
+    health: u32,
 }
 
 impl MobData {
-    pub fn new(filename: &'static str, speed: f32, loot: ObjectId) -> Self {
+    pub fn new(filename: &'static str, health: u32, speed: f32, loot: ObjectId) -> Self {
         MobData {
             filename,
             speed,
             loot,
+            health,
         }
     }
 
@@ -40,6 +42,7 @@ pub struct Mob {
     speed: f32,
     pub loot: ObjectId,
     move_queue: Vec<IVec2>, // next move is at the end
+    pub health: u32,
 }
 
 #[derive(Bundle)]
@@ -55,6 +58,7 @@ impl MobBundle {
             mob: Mob {
                 speed: id.data().speed,
                 loot: id.data().loot,
+                health: id.data().health,
                 move_queue: Vec::new(),
             },
             sprite: SpriteLoader {

@@ -245,7 +245,8 @@ pub fn terrain_pointer_up(
                             {
                                 commands.entity(entity_mob).insert(children![
                                     TaskBundle::new_as_child(
-                                        Task::new(index, *task_kind, dweller, &tilemap_data),
+                                        Task::new(index, *task_kind, dweller, &tilemap_data)
+                                            .with_priority(1),
                                         TaskNeeds::Nothing,
                                     )
                                 ]);
@@ -337,9 +338,9 @@ pub fn terrain_pointer_up(
                                     TaskNeeds::EmptyHands,
                                 ));
 
-                                debug!("Cancelling stockpile/workstation at {index:?} and marking object for pickup");
+                                debug!("Cancelling {task:?} at {index:?} and marking object for pickup");
                             } else {
-                                debug!("Cancelling task at {index:?}");
+                                debug!("Cancelling {task:?} at {index:?}");
                             }
                         }
                     }

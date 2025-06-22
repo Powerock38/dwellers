@@ -1,6 +1,9 @@
 use bevy::prelude::*;
 
-use crate::{GameState, LoadGame, SaveGame, SaveName, UiButton, UiWindow, SAVE_DIR};
+use crate::{
+    chunks::UnloadChunk, tilemap_data::TilemapData, GameState, LoadGame, SaveGame, SaveName,
+    UiButton, UiWindow, SAVE_DIR,
+};
 
 pub fn spawn_load_save_ui(
     mut commands: Commands,
@@ -21,15 +24,19 @@ pub fn spawn_load_save_ui(
                     .observe(
                         |_: Trigger<Pointer<Click>>,
                          mut commands: Commands,
-                         q_windows: Query<Entity, With<UiWindow>>,
-                         mut next_state: ResMut<NextState<GameState>>| {
-                            commands.insert_resource(SaveGame);
-
+                         tilemap_data: Res<TilemapData>,
+                         q_windows: Query<Entity, With<UiWindow>>| {
                             if let Some(window) = q_windows.iter().next() {
                                 commands.entity(window).despawn();
                             }
 
-                            next_state.set(GameState::Running);
+                            // Unload all chunks to save them to disk
+                            for chunk_index in tilemap_data.chunks.keys() {
+                                commands.send_event(UnloadChunk(*chunk_index));
+                            }
+
+                            // Trigger `save_world` to save entities
+                            commands.insert_resource(SaveGame);
                         },
                     );
 

@@ -16,7 +16,6 @@ impl Plugin for SaveLoadPlugin {
         app.add_systems(
             Update,
             (
-                save_world_before.before(save_world),
                 save_world,
                 load_world,
                 spawn_load_save_ui,

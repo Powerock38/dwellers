@@ -100,7 +100,7 @@ pub fn get_observer_action_button(
             commands.insert_resource(CurrentAction::new(action.clone()));
         }
 
-        println!("Current action: {:?}", current_action.kind);
+        info!("Current action: {:?}", current_action.kind);
 
         for mut border in &mut q_borders {
             border.0 = Color::BLACK;

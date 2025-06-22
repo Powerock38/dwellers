@@ -40,7 +40,7 @@ fn main() {
             DefaultPlugins
                 .set(ImagePlugin::default_nearest())
                 .set(LogPlugin {
-                    filter: "wgpu=error,naga=warn,dungeons=debug".into(),
+                    filter: "wgpu=error,naga=warn,dwellers=debug".into(),
                     ..default()
                 }),
             TilemapPlugin,

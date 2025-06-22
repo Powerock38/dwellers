@@ -62,9 +62,9 @@ enum_map! {
 
 enum_map! {
     MobId => MobData {
-        Sheep = MobData::new("sheep", 60.0, ObjectId::Hide),
-        Boar = MobData::new("boar", 50.0, ObjectId::Hide),
-        Undead = MobData::new("undead", 40.0, ObjectId::CopperIngot),
+        Sheep = MobData::new("sheep", 2, 60.0, ObjectId::Hide),
+        Boar = MobData::new("boar", 3, 50.0, ObjectId::Hide),
+        Undead = MobData::new("undead", 5, 40.0, ObjectId::CopperIngot),
     }
 }
 

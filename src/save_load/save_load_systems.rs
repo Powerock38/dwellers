@@ -3,7 +3,7 @@ use bevy::{prelude::*, tasks::IoTaskPool};
 use crate::{
     dwellers_needs::DwellerNeeds, init_tilemap, save_load::SpriteLoader, tasks::TaskNeeds,
     tilemap_data::TilemapData, utils::write_to_file, ChunkObjectLayer, ChunkTileLayer, Dweller,
-    GameState, Mob, Task, UnloadChunk,
+    GameState, Mob, Task,
 };
 
 pub const SAVE_DIR: &str = "saves";
@@ -17,20 +17,6 @@ pub struct SaveGame;
 
 #[derive(Resource)]
 pub struct LoadGame(pub String);
-
-pub fn save_world_before(
-    save_game: Option<Res<SaveGame>>,
-    tilemap_data: Res<TilemapData>,
-    mut ev_unload_w: EventWriter<UnloadChunk>,
-) {
-    if let Some(save_game) = save_game {
-        if save_game.is_added() {
-            for chunk_index in tilemap_data.chunks.keys() {
-                ev_unload_w.write(UnloadChunk(*chunk_index));
-            }
-        }
-    }
-}
 
 pub fn save_world(
     mut commands: Commands,
@@ -93,6 +79,11 @@ pub fn save_world(
                     error!("Error while serializing the scene: {e:?}");
                 }
             }
+
+            commands.queue(|world: &mut World| {
+                let mut next_state = world.resource_mut::<NextState<GameState>>();
+                next_state.set(GameState::Running);
+            });
         }
     }
 }

@@ -315,7 +315,7 @@ pub fn event_task_completion(
     mut commands: Commands,
     mut events: EventReader<TaskCompletionEvent>,
     mut tilemap_data: ResMut<TilemapData>,
-    q_mobs: Query<(Entity, &Mob, &Transform)>,
+    mut q_mobs: Query<(Entity, &mut Mob, &Transform)>,
     mut q_dwellers: Query<(&mut Dweller, &mut DwellerNeeds, &Transform)>,
     mut q_tasks: Query<(Entity, &mut Task, &mut TaskNeeds, Option<&ChildOf>)>,
 ) {
@@ -538,8 +538,8 @@ pub fn event_task_completion(
             }
 
             TaskKind::Attack => {
-                if let Some(task_parent) = task_child_of.map(ChildOf::parent) {
-                    if let Ok((entity_mob, mob, mob_transform)) = q_mobs.get(task_parent) {
+                if let Some(parent) = task_child_of.map(ChildOf::parent) {
+                    if let Ok((entity_mob, mut mob, mob_transform)) = q_mobs.get_mut(parent) {
                         let mob_pos = (mob_transform.translation / TILE_SIZE)
                             .truncate()
                             .as_ivec2();
@@ -549,34 +549,50 @@ pub fn event_task_completion(
                             .distance(mob_transform.translation)
                             < TILE_SIZE
                         {
-                            if let Some(loot_tile) = tilemap_data.get(mob_pos) {
-                                if loot_tile.object.is_none() {
-                                    tilemap_data.set(mob_pos, loot_tile.id.with(mob.loot));
-
-                                    commands.spawn(TaskBundle::new(
-                                        Task::new(mob_pos, TaskKind::Pickup, None, &tilemap_data),
-                                        TaskNeeds::EmptyHands,
-                                    ));
-                                } else {
-                                    debug!(
-                                        "Attacked mob at {:?} but loot tile is occupied",
-                                        mob_pos
-                                    );
-                                }
-                            }
-
-                            commands.entity(entity_mob).despawn();
-
+                            // Damage the mob
+                            mob.health = mob.health.saturating_sub(1);
+                            // TODO: add damage animation
                             dweller_needs.sleep(-5);
                             dweller_needs.food(-5);
 
                             debug!("Attacked mob at {:?}", mob_transform.translation);
-                            success = true;
+
+                            // If the mob is dead, drop loot and despawn
+                            if mob.health == 0 {
+                                if let Some(loot_tile) = tilemap_data.get(mob_pos) {
+                                    if loot_tile.object.is_none() {
+                                        tilemap_data.set(mob_pos, loot_tile.id.with(mob.loot));
+
+                                        commands.spawn(TaskBundle::new(
+                                            Task::new(
+                                                mob_pos,
+                                                TaskKind::Pickup,
+                                                None,
+                                                &tilemap_data,
+                                            ),
+                                            TaskNeeds::EmptyHands,
+                                        ));
+                                    } else {
+                                        debug!(
+                                            "Attacked mob at {:?} but loot tile is occupied",
+                                            mob_pos
+                                        );
+                                    }
+                                }
+
+                                commands.entity(entity_mob).despawn();
+
+                                debug!("Killed mob at {:?}", mob_transform.translation);
+                                success = true;
+                            }
                         } else {
                             task.pos = mob_pos;
                             task.recompute_reachable_positions(&tilemap_data);
                         }
                     }
+                } else {
+                    error!("SHOULD NEVER HAPPEN: {task:?} has no parent entity");
+                    success = true; // Remove the task anyway
                 }
             }
 
@@ -740,7 +756,7 @@ pub fn event_task_completion(
             }
 
             if remove_task {
-                commands.entity(entity).despawn();
+                commands.entity(entity).try_despawn();
             } else {
                 task.dweller = None;
             }
