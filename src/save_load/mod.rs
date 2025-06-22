@@ -3,7 +3,7 @@ pub use save_load_assets::*;
 pub use save_load_systems::*;
 pub use save_load_ui::*;
 
-use crate::{dwellers_needs::DwellerNeeds, Dweller, Mob, Task, TaskNeeds};
+use crate::{Dweller, Mob, Task, TaskNeeds};
 
 mod save_load_assets;
 mod save_load_systems;
@@ -24,7 +24,6 @@ impl Plugin for SaveLoadPlugin {
         )
         .register_type::<SaveName>()
         .register_type::<Dweller>()
-        .register_type::<DwellerNeeds>()
         .register_type::<Mob>()
         .register_type::<Task>()
         .register_type::<TaskNeeds>()

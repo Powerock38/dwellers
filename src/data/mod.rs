@@ -33,7 +33,7 @@ enum_map! {
         Anvil = ObjectData::blocking("anvil"),
         Grindstone = ObjectData::blocking("grindstone"),
         Sword = ObjectData::tool("sword"),
-        Armor = ObjectData::armor("armor"),
+        Armor = ObjectData::armor("armor", 2),
         Scarecrow = ObjectData::blocking("scarecrow"),
         Haystack = ObjectData::blocking("haystack"),
         FishingSpot = ObjectData::passable_non_carriable("fishing_spot"),

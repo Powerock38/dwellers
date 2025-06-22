@@ -13,7 +13,6 @@ use crate::{
     animation::TakingDamage,
     data::{ObjectId, TileId, EAT_VALUES, SLEEP_VALUES, WORKSTATIONS},
     dwellers::Dweller,
-    dwellers_needs::DwellerNeeds,
     mobs::Mob,
     tilemap::{CHUNK_SIZE, TILE_SIZE},
     tilemap_data::TilemapData,
@@ -317,7 +316,7 @@ pub fn event_task_completion(
     mut events: EventReader<TaskCompletionEvent>,
     mut tilemap_data: ResMut<TilemapData>,
     mut q_mobs: Query<(Entity, &mut Mob, &Transform)>,
-    mut q_dwellers: Query<(&mut Dweller, &mut DwellerNeeds, &Transform)>,
+    mut q_dwellers: Query<(&mut Dweller, &Transform)>,
     mut q_tasks: Query<(Entity, &mut Task, &mut TaskNeeds, Option<&ChildOf>)>,
 ) {
     let mut rng = rand::rng();
@@ -337,7 +336,7 @@ pub fn event_task_completion(
             continue;
         };
 
-        let Some((mut dweller, mut dweller_needs, dweller_transform)) =
+        let Some((mut dweller, dweller_transform)) =
             task.dweller.and_then(|d| q_dwellers.get_mut(d).ok())
         else {
             continue;
@@ -389,7 +388,7 @@ pub fn event_task_completion(
 
                 tilemap_data.set(task.pos, tile);
 
-                dweller_needs.sleep(-5);
+                dweller.sleep(-5);
 
                 debug!("Dug tile at {:?}", task.pos);
                 update_tasks_pos = true;
@@ -455,7 +454,7 @@ pub fn event_task_completion(
                         tilemap_data.set(task.pos, tile.id.place());
                     }
 
-                    dweller_needs.sleep(-2);
+                    dweller.sleep(-2);
 
                     debug!("Harvested object at {:?}", task.pos);
                     update_tasks_pos = true;
@@ -473,7 +472,7 @@ pub fn event_task_completion(
                             debug!("Picked up tool {:?} at {:?}", object, task.pos);
                         }
 
-                        (ObjectSlot::Armor, _, None) => {
+                        (ObjectSlot::Armor(_), _, None) => {
                             dweller.armor = Some(object);
                             debug!("Picked up armor {:?} at {:?}", object, task.pos);
                         }
@@ -530,8 +529,8 @@ pub fn event_task_completion(
                     }
                 }
 
-                dweller_needs.sleep(-3);
-                dweller_needs.food(-1);
+                dweller.sleep(-3);
+                dweller.food(-1);
 
                 debug!("Built {:?} at {:?}", result, task.pos);
                 update_tasks_pos = true;
@@ -554,8 +553,8 @@ pub fn event_task_completion(
                             mob.health = mob.health.saturating_sub(1);
                             commands.entity(entity_mob).insert(TakingDamage::new());
 
-                            dweller_needs.sleep(-5);
-                            dweller_needs.food(-5);
+                            dweller.sleep(-5);
+                            dweller.food(-5);
 
                             debug!("Attacked mob at {:?}", mob_transform.translation);
 
@@ -613,8 +612,8 @@ pub fn event_task_completion(
                     tilemap_data.set(task.pos, tile.id.place());
                 }
 
-                dweller_needs.sleep(-3);
-                dweller_needs.food(-2);
+                dweller.sleep(-3);
+                dweller.food(-2);
 
                 debug!("Fished at {:?}", dweller_pos);
                 success = true;
@@ -646,8 +645,8 @@ pub fn event_task_completion(
                                     ));
                                 }
 
-                                dweller_needs.sleep(-1);
-                                dweller_needs.food(-1);
+                                dweller.sleep(-1);
+                                dweller.food(-1);
 
                                 debug!("Workstation output at {:?}", pos);
                                 success = true;
@@ -668,19 +667,19 @@ pub fn event_task_completion(
             TaskKind::Eat => {
                 if let Some(value) = tile.object.and_then(|object| EAT_VALUES.get(&object)) {
                     tilemap_data.set(task.pos, tile.id.place());
-                    dweller_needs.food(*value);
+                    dweller.food(*value);
 
-                    debug!("Ate {:?}", dweller_needs);
+                    debug!("Ate {:?}", value);
                     success = true;
                 }
             }
 
             TaskKind::Sleep => {
                 if let Some(value) = tile.object.and_then(|object| SLEEP_VALUES.get(&object)) {
-                    dweller_needs.sleep(*value);
+                    dweller.sleep(*value);
 
-                    debug!("Zzzzz {:?}", dweller_needs);
-                    if dweller_needs.is_fully_rested() {
+                    debug!("Zzzzz {:?}", value);
+                    if dweller.is_fully_rested() {
                         success = true;
                     }
                 }

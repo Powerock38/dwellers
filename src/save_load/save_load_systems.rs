@@ -1,9 +1,8 @@
 use bevy::{prelude::*, tasks::IoTaskPool};
 
 use crate::{
-    dwellers_needs::DwellerNeeds, init_tilemap, save_load::SpriteLoader, tasks::TaskNeeds,
-    tilemap_data::TilemapData, utils::write_to_file, ChunkObjectLayer, ChunkTileLayer, Dweller,
-    GameState, Mob, Task,
+    init_tilemap, save_load::SpriteLoader, tasks::TaskNeeds, tilemap_data::TilemapData,
+    utils::write_to_file, ChunkObjectLayer, ChunkTileLayer, Dweller, GameState, Mob, Task,
 };
 
 pub const SAVE_DIR: &str = "saves";
@@ -47,7 +46,6 @@ pub fn save_world(
                 .deny_all_components()
                 .allow_resource::<SaveName>()
                 .allow_component::<Dweller>()
-                .allow_component::<DwellerNeeds>()
                 .allow_component::<Mob>()
                 .allow_component::<Task>()
                 .allow_component::<TaskNeeds>()

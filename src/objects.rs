@@ -8,7 +8,7 @@ pub enum ObjectSlot {
     Uncarriable,
     Object,
     Tool,
-    Armor,
+    Armor(u32),
 }
 
 impl ObjectData {
@@ -40,8 +40,8 @@ impl ObjectData {
         Self::new(filename, false, ObjectSlot::Tool)
     }
 
-    pub const fn armor(filename: &'static str) -> Self {
-        Self::new(filename, false, ObjectSlot::Armor)
+    pub const fn armor(filename: &'static str, hp: u32) -> Self {
+        Self::new(filename, false, ObjectSlot::Armor(hp))
     }
 
     pub fn is_carriable(&self) -> bool {

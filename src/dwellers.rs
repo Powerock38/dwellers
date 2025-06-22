@@ -9,7 +9,7 @@ use rand::{seq::IndexedRandom, Rng};
 
 use crate::{
     data::ObjectId,
-    dwellers_needs::DwellerNeeds,
+    objects::ObjectSlot,
     random_text::{generate_word, NAMES},
     tasks::{BuildResult, Task, TaskCompletionEvent, TaskKind, TaskNeeds},
     tilemap::TILE_SIZE,
@@ -20,8 +20,14 @@ use crate::{
 
 const LOAD_CHUNKS_RADIUS: i32 = 1;
 
-const SPEED: f32 = 120.0;
 const Z_INDEX: f32 = 10.0;
+
+const SPEED: f32 = 120.0;
+const SPEED_MIN: f32 = 0.3;
+
+pub const NEEDS_MAX: u32 = 1000;
+
+const HEALTH_BASE: u32 = 10;
 
 #[derive(Event)]
 pub struct SpawnDwellersOnChunk(pub IVec2);
@@ -34,9 +40,27 @@ pub struct Dweller {
     pub object: Option<ObjectId>,
     pub tool: Option<ObjectId>,
     pub armor: Option<ObjectId>,
+    pub health: u32,
+    pub food: u32,
+    pub sleep: u32,
+    pub cached_speed_ratio: f32,
 }
 
 impl Dweller {
+    pub fn new(name: String) -> Self {
+        Self {
+            name,
+            move_queue: Vec::new(),
+            object: None,
+            tool: None,
+            armor: None,
+            health: HEALTH_BASE,
+            food: NEEDS_MAX,
+            sleep: NEEDS_MAX,
+            cached_speed_ratio: 1.0,
+        }
+    }
+
     pub fn can_do(&self, task_kind: TaskKind, task_needs: &TaskNeeds) -> bool {
         match task_kind {
             TaskKind::Workstation { amount: 0 } => return false,
@@ -77,6 +101,60 @@ impl Dweller {
         }
 
         true
+    }
+
+    pub fn max_health(&self) -> u32 {
+        HEALTH_BASE
+            + self.armor.map_or(0, |a| match a.data().slot() {
+                ObjectSlot::Armor(hp) => *hp,
+                _ => 0,
+            })
+    }
+
+    pub fn health(&mut self, x: i32) {
+        self.health = self.health.saturating_add_signed(x).min(self.max_health());
+        self.compute_speed_ratio();
+    }
+
+    pub fn food(&mut self, x: i32) {
+        self.food = self.food.saturating_add_signed(x).min(NEEDS_MAX);
+
+        if self.food == 0 {
+            self.health(-1);
+        }
+
+        self.compute_speed_ratio();
+    }
+
+    pub fn sleep(&mut self, x: i32) {
+        self.sleep = self.sleep.saturating_add_signed(x).min(NEEDS_MAX);
+
+        if self.sleep == 0 {
+            self.health(-1);
+        }
+
+        self.compute_speed_ratio();
+    }
+
+    fn compute_speed_ratio(&mut self) {
+        let health_ratio = self.health as f32 / self.max_health() as f32;
+        let health_speed = 1.0 - (health_ratio - 1.0).abs().powi(2);
+
+        let food_ratio = self.food as f32 / NEEDS_MAX as f32;
+        let food_speed = 1.0 - (food_ratio - 1.0).abs().powi(5);
+
+        let sleep_ratio = self.sleep as f32 / NEEDS_MAX as f32;
+        let sleep_speed = 1.0 - (sleep_ratio - 1.0).abs().powi(3);
+
+        self.cached_speed_ratio = health_speed.min(food_speed.min(sleep_speed).max(SPEED_MIN));
+    }
+
+    pub fn speed_ratio(&self) -> f32 {
+        self.cached_speed_ratio
+    }
+
+    pub fn is_fully_rested(&self) -> bool {
+        self.sleep == NEEDS_MAX
     }
 }
 
@@ -153,8 +231,7 @@ pub fn spawn_dwellers(
             let sprite_i = rng.random_range(1..=4);
 
             commands.spawn((
-                Dweller { name, ..default() },
-                DwellerNeeds::default(),
+                Dweller::new(name),
                 SpriteLoader {
                     texture_path: format!("sprites/dweller{sprite_i}.png"),
                 },
@@ -317,9 +394,9 @@ pub fn assign_tasks_to_dwellers(
 
 pub fn update_dwellers_movement(
     time: Res<Time>,
-    mut q_dwellers: Query<(&mut Dweller, &DwellerNeeds, &mut Transform, &mut Sprite)>,
+    mut q_dwellers: Query<(&mut Dweller, &mut Transform, &mut Sprite)>,
 ) {
-    for (mut dweller, needs, mut transform, mut sprite) in &mut q_dwellers {
+    for (mut dweller, mut transform, mut sprite) in &mut q_dwellers {
         // Move to next position in queue
 
         if let Some(next_move) = dweller.move_queue.last() {
@@ -330,7 +407,7 @@ pub fn update_dwellers_movement(
 
             let direction = target - transform.translation.truncate();
 
-            let speed = SPEED * needs.speed_ratio() * time.delta_secs();
+            let speed = SPEED * dweller.speed_ratio() * time.delta_secs();
 
             if direction.length() < speed {
                 transform.translation.x = target.x;
