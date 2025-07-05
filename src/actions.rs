@@ -70,18 +70,16 @@ pub fn terrain_pointer_down(
     q_ui_buttons: Query<(), With<UiButton>>,
     mut coordinates_ui: Single<&mut Text, With<CoordinatesUi>>,
 ) {
-    let event = trigger.event();
-
     if q_ui_buttons.contains(trigger.target()) {
         return;
     }
 
-    match event.event.button {
+    match trigger.button {
         PointerButton::Primary => {
             let (camera, camera_transform) = extract_ok!(q_camera.single());
-            let world_position = extract_ok!(
-                camera.viewport_to_world_2d(camera_transform, event.pointer_location.position)
-            );
+            let world_position =
+                extract_ok!(camera
+                    .viewport_to_world_2d(camera_transform, trigger.pointer_location.position));
             let index = (world_position / TILE_SIZE).floor().as_ivec2();
 
             coordinates_ui.0 = format!("({}, {})", index.x, index.y);
@@ -110,14 +108,13 @@ pub fn terrain_pointer_up(
     q_mobs: Query<(Entity, &Transform), With<Mob>>,
     mut q_dwellers: Query<(Entity, &mut Dweller, &Transform)>,
 ) {
-    let event = trigger.event();
-
     let (camera, camera_transform) = extract_ok!(q_camera.single());
-    let world_position =
-        extract_ok!(camera.viewport_to_world_2d(camera_transform, event.pointer_location.position));
+    let world_position = extract_ok!(
+        camera.viewport_to_world_2d(camera_transform, trigger.pointer_location.position)
+    );
     let index = (world_position / TILE_SIZE).floor().as_ivec2();
 
-    if matches!(event.event.button, PointerButton::Primary) {
+    if matches!(trigger.button, PointerButton::Primary) {
         // Confirm selection
         let index_start = extract_some!(current_action.index_start);
 

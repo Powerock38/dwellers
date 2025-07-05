@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-bevy = { version = "0.16.1", features = ["bevy_remote"] }
+bevy = "0.16.1"
 bevy_ecs_tilemap = "0.16.0"
 bitcode = "0.6.6"
 dashmap = "6.1.0"
@@ -13,7 +13,7 @@ pathfinding = "4.14.0"
 rand = "0.9"
 
 [features]
-dev = ["bevy/dynamic_linking", "bevy/file_watcher"]
+dev = ["bevy/dynamic_linking", "bevy/file_watcher", "bevy/bevy_dev_tools", "bevy/bevy_remote"]
 
 [lints.clippy]
 pedantic = { level = "warn", priority = -1 }

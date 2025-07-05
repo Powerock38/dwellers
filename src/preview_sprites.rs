@@ -197,3 +197,43 @@ pub fn update_task_workstation_preview(
 
     changes.retain(|entity, _| commands.get_entity(*entity).is_ok());
 }
+
+#[derive(Component)]
+pub struct DwellerNeedsPreview;
+
+pub fn observe_dweller_hover(
+    trigger: Trigger<Pointer<Over>>,
+    mut commands: Commands,
+    q_dwellers: Query<&Dweller>,
+) {
+    let Ok(dweller) = q_dwellers.get(trigger.target) else {
+        return;
+    };
+
+    commands.entity(trigger.target).with_child((
+        DwellerNeedsPreview,
+        Text2d::new(format!(
+            "<3 {}\n><> {}\nzZ {}",
+            dweller.health, dweller.food, dweller.sleep
+        )),
+        Anchor::BottomCenter,
+        Transform::from_xyz(8., 26., 1.0).with_scale(Vec3::splat(0.25)),
+    ));
+}
+
+pub fn despawn_dweller_hover(
+    trigger: Trigger<Pointer<Out>>,
+    mut commands: Commands,
+    q_dwellers: Query<&Children, With<Dweller>>,
+    q_dwellers_hover: Query<(), With<DwellerNeedsPreview>>,
+) {
+    let Ok(children) = q_dwellers.get(trigger.target) else {
+        return;
+    };
+
+    for child in children {
+        if q_dwellers_hover.get(*child).is_ok() {
+            commands.entity(*child).despawn();
+        }
+    }
+}

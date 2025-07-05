@@ -13,15 +13,18 @@ pub struct CoordinatesUi;
 
 pub fn spawn_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
-        .spawn(Node {
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.0),
-            flex_direction: FlexDirection::Column,
-            align_items: AlignItems::Center,
-            justify_content: JustifyContent::FlexEnd,
-            row_gap: Val::Px(10.0),
-            ..default()
-        })
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::FlexEnd,
+                row_gap: Val::Px(10.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
         .with_children(|c| {
             c.spawn((
                 DwellersSelectedUi,

@@ -106,7 +106,7 @@ pub fn spawn_mobs(
                 true
             },
         ) else {
-            error!("No valid spawn position found for mobs");
+            warn!("No valid spawn position found for mobs");
             return;
         };
 

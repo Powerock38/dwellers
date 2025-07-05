@@ -1,11 +1,6 @@
 use std::time::Duration;
 
-use bevy::{
-    log::LogPlugin,
-    prelude::*,
-    remote::{http::RemoteHttpPlugin, RemotePlugin},
-    time::common_conditions::on_timer,
-};
+use bevy::{log::LogPlugin, prelude::*, time::common_conditions::on_timer};
 use bevy_ecs_tilemap::TilemapPlugin;
 
 use crate::{
@@ -47,9 +42,11 @@ fn main() {
                 }),
             TilemapPlugin,
             SaveLoadPlugin,
-            RemotePlugin::default(),
-            RemoteHttpPlugin::default(),
+            // RemotePlugin::default(),
+            // RemoteHttpPlugin::default().with_header("Access-Control-Allow-Origin", "*"),
+            // DebugPickingPlugin,
         ))
+        // .insert_resource(bevy::dev_tools::picking_debug::DebugPickingMode::Normal)
         .init_resource::<CameraControl>()
         .add_event::<LoadChunk>()
         .add_event::<UnloadChunk>()

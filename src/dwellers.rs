@@ -10,6 +10,7 @@ use rand::{seq::IndexedRandom, Rng};
 use crate::{
     data::ObjectId,
     objects::ObjectSlot,
+    preview_sprites::{despawn_dweller_hover, observe_dweller_hover},
     random_text::{generate_word, NAMES},
     tasks::{BuildResult, Task, TaskCompletionEvent, TaskKind, TaskNeeds},
     tilemap::TILE_SIZE,
@@ -230,17 +231,21 @@ pub fn spawn_dwellers(
 
             let sprite_i = rng.random_range(1..=4);
 
-            commands.spawn((
-                Dweller::new(name),
-                SpriteLoader {
-                    texture_path: format!("sprites/dweller{sprite_i}.png"),
-                },
-                Transform::from_xyz(
-                    spawn_pos.x as f32 * TILE_SIZE,
-                    spawn_pos.y as f32 * TILE_SIZE,
-                    Z_INDEX,
-                ),
-            ));
+            commands
+                .spawn((
+                    Dweller::new(name),
+                    SpriteLoader {
+                        texture_path: format!("sprites/dweller{sprite_i}.png"),
+                    },
+                    Transform::from_xyz(
+                        spawn_pos.x as f32 * TILE_SIZE,
+                        spawn_pos.y as f32 * TILE_SIZE,
+                        Z_INDEX,
+                    ),
+                    Pickable::default(),
+                ))
+                .observe(observe_dweller_hover)
+                .observe(despawn_dweller_hover);
         }
     }
 }
