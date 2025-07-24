@@ -69,6 +69,7 @@ fn main() {
                 toggle_state,
                 load_chunks,
                 spawn_cheats_ui,
+                update_new_tasks,
                 (spawn_dwellers, spawn_mobs).after(load_chunks),
                 (
                     // Game UI / "reactive" systems

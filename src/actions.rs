@@ -188,7 +188,7 @@ pub fn terrain_pointer_up(
                     ActionKind::Task(task_kind) => match task_kind {
                         TaskKind::Dig => {
                             commands.spawn(TaskBundle::new(
-                                Task::new(index, *task_kind, dweller, &tilemap_data),
+                                Task::new(index, *task_kind, dweller),
                                 TaskNeeds::Nothing,
                             ));
 
@@ -197,7 +197,7 @@ pub fn terrain_pointer_up(
                         }
 
                         TaskKind::Smoothen => {
-                            let task = Task::new(index, *task_kind, dweller, &tilemap_data);
+                            let task = Task::new(index, *task_kind, dweller);
 
                             if !task.reachable_positions.is_empty() {
                                 commands.spawn(TaskBundle::new(task, TaskNeeds::Nothing));
@@ -214,7 +214,7 @@ pub fn terrain_pointer_up(
                             };
 
                             commands.spawn(TaskBundle::new(
-                                Task::new(index, *task_kind, dweller, &tilemap_data),
+                                Task::new(index, *task_kind, dweller),
                                 needs,
                             ));
 
@@ -224,7 +224,7 @@ pub fn terrain_pointer_up(
 
                         TaskKind::Pickup => {
                             commands.spawn(TaskBundle::new(
-                                Task::new(index, *task_kind, dweller, &tilemap_data),
+                                Task::new(index, *task_kind, dweller),
                                 TaskNeeds::EmptyHands,
                             ));
 
@@ -242,8 +242,7 @@ pub fn terrain_pointer_up(
                             {
                                 commands.entity(entity_mob).insert(children![
                                     TaskBundle::new_as_child(
-                                        Task::new(index, *task_kind, dweller, &tilemap_data)
-                                            .with_priority(1),
+                                        Task::new(index, *task_kind, dweller).with_priority(1),
                                         TaskNeeds::Nothing,
                                     )
                                 ]);
@@ -255,7 +254,7 @@ pub fn terrain_pointer_up(
 
                         TaskKind::Fish => {
                             commands.spawn(TaskBundle::new(
-                                Task::new(index, *task_kind, dweller, &tilemap_data),
+                                Task::new(index, *task_kind, dweller),
                                 TaskNeeds::Nothing,
                             ));
 
@@ -271,8 +270,7 @@ pub fn terrain_pointer_up(
                             };
 
                             commands.spawn(TaskBundle::new(
-                                Task::new(index, *task_kind, dweller, &tilemap_data)
-                                    .with_priority(-1),
+                                Task::new(index, *task_kind, dweller).with_priority(-1),
                                 needs,
                             ));
 
@@ -282,8 +280,7 @@ pub fn terrain_pointer_up(
 
                         TaskKind::Walk => {
                             commands.spawn(TaskBundle::new(
-                                Task::new(index, *task_kind, dweller, &tilemap_data)
-                                    .with_priority(-1),
+                                Task::new(index, *task_kind, dweller).with_priority(-1),
                                 TaskNeeds::Nothing,
                             ));
 
@@ -297,7 +294,7 @@ pub fn terrain_pointer_up(
                     ActionKind::TaskWithNeeds(task_kind, needs) => match task_kind {
                         TaskKind::Build { .. } => {
                             commands.spawn(TaskBundle::new(
-                                Task::new(index, *task_kind, dweller, &tilemap_data),
+                                Task::new(index, *task_kind, dweller),
                                 needs.clone(),
                             ));
 
@@ -331,7 +328,7 @@ pub fn terrain_pointer_up(
                                 })
                             {
                                 commands.spawn(TaskBundle::new(
-                                    Task::new(index, TaskKind::Pickup, dweller, &tilemap_data),
+                                    Task::new(index, TaskKind::Pickup, dweller),
                                     TaskNeeds::EmptyHands,
                                 ));
 

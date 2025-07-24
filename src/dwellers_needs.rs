@@ -47,7 +47,7 @@ pub fn update_dweller_needs(
                         .any(|t| t.pos == index)
             }) {
                 commands.spawn(TaskBundle::new(
-                    Task::new(pos, TaskKind::Eat, Some(entity), &tilemap_data).with_priority(1),
+                    Task::new(pos, TaskKind::Eat, Some(entity)).with_priority(1),
                     TaskNeeds::Nothing,
                 ));
             }
@@ -61,7 +61,7 @@ pub fn update_dweller_needs(
                     && !q_tasks.iter().any(|t| t.pos == index)
             }) {
                 commands.spawn(TaskBundle::new(
-                    Task::new(pos, TaskKind::Sleep, Some(entity), &tilemap_data).with_priority(1),
+                    Task::new(pos, TaskKind::Sleep, Some(entity)).with_priority(1),
                     TaskNeeds::Nothing,
                 ));
             }

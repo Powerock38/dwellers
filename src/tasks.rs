@@ -218,13 +218,8 @@ impl PartialEq for Task {
 impl Eq for Task {}
 
 impl Task {
-    pub fn new(
-        pos: IVec2,
-        kind: TaskKind,
-        dweller: Option<Entity>,
-        tilemap_data: &TilemapData,
-    ) -> Self {
-        let mut task = Self {
+    pub fn new(pos: IVec2, kind: TaskKind, dweller: Option<Entity>) -> Self {
+        Self {
             id: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
@@ -235,9 +230,7 @@ impl Task {
             reachable_positions: vec![],
             dweller,
             priority: 0,
-        };
-        task.recompute_reachable_positions(tilemap_data);
-        task
+        }
     }
 
     pub fn with_priority(mut self, priority: i32) -> Self {
@@ -286,6 +279,15 @@ impl Task {
             path
         })
     }
+}
+
+pub fn update_new_tasks(
+    tilemap_data: Res<TilemapData>,
+    mut q_tasks: Query<&mut Task, Added<Task>>,
+) {
+    q_tasks.par_iter_mut().for_each(|mut task| {
+        task.recompute_reachable_positions(&tilemap_data);
+    });
 }
 
 pub fn update_unreachable_tasks(tilemap_data: Res<TilemapData>, mut q_tasks: Query<&mut Task>) {
@@ -377,7 +379,7 @@ pub fn event_task_completion(
 
                 let tile = if let Some(object) = object {
                     commands.spawn(TaskBundle::new(
-                        Task::new(task.pos, TaskKind::Pickup, None, &tilemap_data),
+                        Task::new(task.pos, TaskKind::Pickup, None),
                         TaskNeeds::EmptyHands,
                     ));
 
@@ -446,7 +448,7 @@ pub fn event_task_completion(
 
                         if object.data().is_carriable() {
                             commands.spawn(TaskBundle::new(
-                                Task::new(task.pos, TaskKind::Pickup, None, &tilemap_data),
+                                Task::new(task.pos, TaskKind::Pickup, None),
                                 TaskNeeds::EmptyHands,
                             ));
                         }
@@ -513,12 +515,7 @@ pub fn event_task_completion(
 
                             if let Some(workstation) = WORKSTATIONS.get(&object) {
                                 commands.spawn(TaskBundle::new(
-                                    Task::new(
-                                        task.pos,
-                                        TaskKind::Workstation { amount: 1 },
-                                        None,
-                                        &tilemap_data,
-                                    ),
+                                    Task::new(task.pos, TaskKind::Workstation { amount: 1 }, None),
                                     TaskNeeds::Objects(workstation.1.clone()),
                                 ));
                             }
@@ -565,12 +562,7 @@ pub fn event_task_completion(
                                         tilemap_data.set(mob_pos, loot_tile.id.with(mob.loot));
 
                                         commands.spawn(TaskBundle::new(
-                                            Task::new(
-                                                mob_pos,
-                                                TaskKind::Pickup,
-                                                None,
-                                                &tilemap_data,
-                                            ),
+                                            Task::new(mob_pos, TaskKind::Pickup, None),
                                             TaskNeeds::EmptyHands,
                                         ));
                                     } else {
@@ -640,7 +632,7 @@ pub fn event_task_completion(
 
                                 if recipe.0.data().is_carriable() {
                                     commands.spawn(TaskBundle::new(
-                                        Task::new(pos, TaskKind::Pickup, None, &tilemap_data),
+                                        Task::new(pos, TaskKind::Pickup, None),
                                         TaskNeeds::EmptyHands,
                                     ));
                                 }
@@ -909,7 +901,7 @@ pub fn update_pickups(
 
                     par_commands.command_scope(|mut commands| {
                         commands.spawn(TaskBundle::new(
-                            Task::new(*pos, TaskKind::Pickup, None, &tilemap_data),
+                            Task::new(*pos, TaskKind::Pickup, None),
                             TaskNeeds::EmptyHands,
                         ));
                     });

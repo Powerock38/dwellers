@@ -301,7 +301,7 @@ pub fn update_terrain(
                                 false
                             }) {
                                 commands.spawn(TaskBundle::new(
-                                    Task::new(index, TaskKind::Harvest, None, &tilemap_data),
+                                    Task::new(index, TaskKind::Harvest, None),
                                     TaskNeeds::EmptyHands,
                                 ));
                             }
