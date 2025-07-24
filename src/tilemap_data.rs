@@ -90,14 +90,14 @@ impl TilemapData {
             .collect();
 
         if diagonal {
-            let diagonal_directions = [
+            const DIAGONAL_DIRECTIONS: [IVec2; 4] = [
                 IVec2::new(1, 1),
                 IVec2::new(-1, 1),
                 IVec2::new(1, -1),
                 IVec2::new(-1, -1),
             ];
 
-            for diag_pos in diagonal_directions {
+            for diag_pos in DIAGONAL_DIRECTIONS {
                 let diag_index = pos + diag_pos;
 
                 if let Some(diag_tile) = self.get(diag_index) {

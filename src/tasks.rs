@@ -42,6 +42,7 @@ pub enum TaskKind {
     Walk,
     Eat,
     Sleep,
+    Flood,
 }
 
 impl TaskKind {
@@ -51,6 +52,7 @@ impl TaskKind {
                 tile.id,
                 TileId::DirtWall | TileId::StoneWall | TileId::DungeonWall | TileId::WoodWall
             ),
+            TaskKind::Flood => !tile.id.data().is_wall(),
             TaskKind::Smoothen => matches!(
                 tile.id,
                 TileId::DirtWall | TileId::StoneWall | TileId::StoneFloor
@@ -246,6 +248,7 @@ impl Task {
         if let Some(tile) = tilemap_data.get(pos) {
             if !tile.is_blocking()
                 && !matches!(self.kind, TaskKind::Build { result } if result.is_blocking())
+                && !matches!(self.kind, TaskKind::Flood)
             {
                 return vec![pos];
             }
@@ -393,6 +396,29 @@ pub fn event_task_completion(
                 dweller.sleep(-5);
 
                 debug!("Dug tile at {:?}", task.pos);
+                update_tasks_pos = true;
+                success = true;
+            }
+
+            TaskKind::Flood => {
+                if matches!(tile.id, TileId::ShallowWater) {
+                    tilemap_data.set(task.pos, TileId::Water.place());
+                } else if let Some((_, tile)) =
+                    tilemap_data.neighbours(task.pos).iter().find(|(_, tile)| {
+                        matches!(tile.id, TileId::Water | TileId::ShallowWater | TileId::Lava)
+                    })
+                {
+                    match tile.id {
+                        TileId::Water => {
+                            tilemap_data.set(task.pos, TileId::ShallowWater.place());
+                        }
+                        tile_id => tilemap_data.set(task.pos, tile_id.place()),
+                    }
+                }
+
+                dweller.sleep(-7);
+
+                debug!("Flooded tile at {:?}", task.pos);
                 update_tasks_pos = true;
                 success = true;
             }

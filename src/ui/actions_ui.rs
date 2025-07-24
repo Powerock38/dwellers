@@ -65,6 +65,7 @@ pub fn spawn_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
             .with_children(|c| {
                 for task_kind in [
                     TaskKind::Dig,
+                    TaskKind::Flood,
                     TaskKind::Harvest,
                     TaskKind::Attack,
                     TaskKind::Fish,
