@@ -52,10 +52,6 @@ impl ObjectData {
         self.blocking
     }
 
-    pub fn filename(&self) -> &'static str {
-        self.filename
-    }
-
     pub fn slot(&self) -> &ObjectSlot {
         &self.slot
     }

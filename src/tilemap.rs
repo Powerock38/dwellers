@@ -232,7 +232,7 @@ pub fn update_tilemap_from_data(
 #[derive(Resource)]
 pub struct TilemapTextures {
     pub textures: TilemapTexture,
-    cache: HashMap<(&'static str, &'static str), TileTextureIndex>,
+    cache: HashMap<String, TileTextureIndex>,
 }
 
 impl TilemapTextures {
@@ -244,39 +244,30 @@ impl TilemapTextures {
     }
 
     pub fn get_atlas_index_tile(&mut self, tile: TileData) -> TileTextureIndex {
-        let folder = if tile.is_wall() { "walls" } else { "floors" };
-        self.get_atlas_index(folder, tile.filename())
+        self.get_atlas_index(tile.sprite_path())
     }
 
     pub fn get_atlas_index_object(&mut self, object: ObjectData) -> TileTextureIndex {
-        self.get_atlas_index("objects", object.filename())
+        self.get_atlas_index(object.sprite_path())
     }
 
-    fn get_atlas_index(
-        &mut self,
-        folder: &'static str,
-        filename: &'static str,
-    ) -> TileTextureIndex {
-        if let Some(index) = self.cache.get(&(folder, filename)) {
+    fn get_atlas_index(&mut self, path: String) -> TileTextureIndex {
+        if let Some(index) = self.cache.get(&path) {
             return *index;
         }
 
-        debug!("Loading texture: {folder}/{filename}");
+        debug!("Loading texture: {path}");
 
         let index = TileTextureIndex(match &self.textures {
             TilemapTexture::Vector(textures) => textures
                 .iter()
-                .position(|t| {
-                    let paths_string = t.path().unwrap().to_string();
-                    paths_string.ends_with(format!("{folder}/{filename}.png").as_str())
-                        || paths_string.ends_with(format!("{folder}\\{filename}.png").as_str())
-                })
+                .position(|t| t.path().unwrap().to_string() == path)
                 .unwrap() as u32,
 
             _ => 0,
         });
 
-        self.cache.insert((folder, filename), index);
+        self.cache.insert(path, index);
         index
     }
 }

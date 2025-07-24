@@ -44,10 +44,6 @@ impl TileData {
         self.wall
     }
 
-    pub fn filename(&self) -> &'static str {
-        self.filename
-    }
-
     pub fn sprite_path(&self) -> String {
         format!(
             "tiles/{}/{}.png",
