@@ -1,6 +1,6 @@
 use bevy::{platform::collections::HashMap, prelude::*, sprite::Anchor};
 
-use crate::{Dweller, Task, TaskKind, TaskNeeds, TILE_SIZE};
+use crate::{Dweller, TILE_SIZE, Task, TaskKind, TaskNeeds};
 
 #[derive(Component)]
 pub enum DwellerEquipmentPreview {
@@ -167,10 +167,10 @@ pub fn update_task_workstation_preview(
         match task.kind {
             // Workstation amount preview
             TaskKind::Workstation { amount } => {
-                if let Some(old_amount) = changes.get(&entity) {
-                    if *old_amount == amount {
-                        continue;
-                    }
+                if let Some(old_amount) = changes.get(&entity)
+                    && *old_amount == amount
+                {
+                    continue;
                 }
 
                 changes.insert(entity, amount);

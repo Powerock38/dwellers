@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
 use crate::{
+    Dweller, DwellersSelected, OpenWorkstationUi,
     data::{MobId, ObjectId, TileId},
     extract_ok, extract_some,
     mobs::{Mob, MobBundle},
@@ -9,7 +10,6 @@ use crate::{
     tilemap_data::TilemapData,
     ui::{CoordinatesUi, UiButton},
     utils::transform_to_index,
-    Dweller, DwellersSelected, OpenWorkstationUi,
 };
 
 const MAX_ACTIONS: usize = 2048;
@@ -77,9 +77,9 @@ pub fn terrain_pointer_down(
     match trigger.button {
         PointerButton::Primary => {
             let (camera, camera_transform) = extract_ok!(q_camera.single());
-            let world_position =
-                extract_ok!(camera
-                    .viewport_to_world_2d(camera_transform, trigger.pointer_location.position));
+            let world_position = extract_ok!(
+                camera.viewport_to_world_2d(camera_transform, trigger.pointer_location.position)
+            );
             let index = (world_position / TILE_SIZE).floor().as_ivec2();
 
             coordinates_ui.0 = format!("({}, {})", index.x, index.y);
@@ -328,10 +328,10 @@ pub fn terrain_pointer_up(
                             commands.entity(entity_task).despawn();
 
                             // stop dweller from moving towards this task
-                            if let Some(dweller) = task.dweller {
-                                if let Ok((_, mut dweller, _)) = q_dwellers.get_mut(dweller) {
-                                    dweller.move_queue = Vec::new();
-                                }
+                            if let Some(dweller) = task.dweller
+                                && let Ok((_, mut dweller, _)) = q_dwellers.get_mut(dweller)
+                            {
+                                dweller.move_queue = Vec::new();
                             }
 
                             // if we are cancelling a Stockpile or Workstation task, mark object for pickup (if not already marked)
@@ -359,17 +359,13 @@ pub fn terrain_pointer_up(
 
                     ActionKind::Select => {
                         // if single click on workstation, open workstation ui
-                        if index_min == index_max {
-                            if let Some(entity) = q_tasks.iter().find_map(|(entity, task)| {
-                                if task.pos == pos {
-                                    Some(entity)
-                                } else {
-                                    None
-                                }
-                            }) {
-                                commands.trigger_targets(OpenWorkstationUi, entity);
-                                break;
-                            }
+                        if index_min == index_max
+                            && let Some(entity) = q_tasks.iter().find_map(|(entity, task)| {
+                                if task.pos == pos { Some(entity) } else { None }
+                            })
+                        {
+                            commands.trigger_targets(OpenWorkstationUi, entity);
+                            break;
                         }
 
                         // else select dwellers

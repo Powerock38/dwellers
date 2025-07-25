@@ -3,8 +3,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use bevy::{platform::collections::HashMap, prelude::*};
 
 use crate::{
-    data::WORKSTATIONS, extract_ok, tilemap_data::TilemapData, Task, TaskKind, TilePlaced,
-    BG_PRIMARY,
+    BG_PRIMARY, Task, TaskKind, TilePlaced, data::WORKSTATIONS, extract_ok,
+    tilemap_data::TilemapData,
 };
 
 #[derive(Event)]
@@ -105,10 +105,10 @@ pub fn update_workstation_ui(
             continue;
         };
 
-        if let Some(old_amount) = changes.get(&workstation_ui.1) {
-            if *old_amount == amount {
-                continue;
-            }
+        if let Some(old_amount) = changes.get(&workstation_ui.1)
+            && *old_amount == amount
+        {
+            continue;
         }
 
         changes.insert(workstation_ui.1, amount);

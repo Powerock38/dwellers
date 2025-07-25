@@ -1,6 +1,6 @@
 use bevy::{platform::collections::HashMap, prelude::*};
 
-use crate::{utils::div_to_floor, TilePlaced, CHUNK_SIZE};
+use crate::{CHUNK_SIZE, TilePlaced, utils::div_to_floor};
 
 #[derive(Resource, Default)]
 pub struct TilemapData {
@@ -100,18 +100,18 @@ impl TilemapData {
             for diag_pos in DIAGONAL_DIRECTIONS {
                 let diag_index = pos + diag_pos;
 
-                if let Some(diag_tile) = self.get(diag_index) {
-                    if !diag_tile.is_blocking() {
-                        let adj_blocking = [IVec2::new(diag_pos.x, 0), IVec2::new(0, diag_pos.y)]
-                            .into_iter()
-                            .any(|adj| {
-                                self.get(pos + adj).is_none_or(|t| t.id.data().is_wall())
-                                // Do not allow diagonal movement if there is a wall, but allow if it's a blocking object
-                            });
+                if let Some(diag_tile) = self.get(diag_index)
+                    && !diag_tile.is_blocking()
+                {
+                    let adj_blocking = [IVec2::new(diag_pos.x, 0), IVec2::new(0, diag_pos.y)]
+                        .into_iter()
+                        .any(|adj| {
+                            self.get(pos + adj).is_none_or(|t| t.id.data().is_wall())
+                            // Do not allow diagonal movement if there is a wall, but allow if it's a blocking object
+                        });
 
-                        if !adj_blocking {
-                            result.push(diag_index);
-                        }
+                    if !adj_blocking {
+                        result.push(diag_index);
                     }
                 }
             }

@@ -53,18 +53,18 @@ pub fn update_dweller_needs(
             }
         }
 
-        if dweller.sleep < NEEDS_MAX / 4 {
-            if let Some(pos) = TilemapData::find_from_center_chunk_size(pos, |index| {
+        if dweller.sleep < NEEDS_MAX / 4
+            && let Some(pos) = TilemapData::find_from_center_chunk_size(pos, |index| {
                 tilemap_data
                     .get(index)
                     .is_some_and(|tile| TaskKind::Sleep.is_valid_on_tile(tile))
                     && !q_tasks.iter().any(|t| t.pos == index)
-            }) {
-                commands.spawn(TaskBundle::new(
-                    Task::new(pos, TaskKind::Sleep, Some(entity)).with_priority(1),
-                    TaskNeeds::Nothing,
-                ));
-            }
+            })
+        {
+            commands.spawn(TaskBundle::new(
+                Task::new(pos, TaskKind::Sleep, Some(entity)).with_priority(1),
+                TaskNeeds::Nothing,
+            ));
         }
     }
 }

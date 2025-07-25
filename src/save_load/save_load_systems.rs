@@ -1,8 +1,8 @@
 use bevy::{prelude::*, tasks::IoTaskPool};
 
 use crate::{
-    init_tilemap, save_load::SpriteLoader, tasks::TaskNeeds, tilemap_data::TilemapData,
-    utils::write_to_file, ChunkObjectLayer, ChunkTileLayer, Dweller, GameState, Mob, Task,
+    ChunkObjectLayer, ChunkTileLayer, Dweller, GameState, Mob, Task, init_tilemap,
+    save_load::SpriteLoader, tasks::TaskNeeds, tilemap_data::TilemapData, utils::write_to_file,
 };
 
 pub const SAVE_DIR: &str = "saves";
@@ -98,41 +98,41 @@ pub fn load_world(
     q_mobs: Query<Entity, With<Mob>>,
     mut next_state: ResMut<NextState<GameState>>,
 ) {
-    if let Some(load_game) = load_game {
-        if load_game.is_added() {
-            commands.remove_resource::<LoadGame>();
-            info!("Loading scene: {}", load_game.0);
+    if let Some(load_game) = load_game
+        && load_game.is_added()
+    {
+        commands.remove_resource::<LoadGame>();
+        info!("Loading scene: {}", load_game.0);
 
-            // Despawn current scene
-            for chunk_layer in q_chunks_tile_layer.iter() {
-                commands.entity(chunk_layer).despawn();
-            }
-
-            for chunk_layer in q_chunks_object_layer.iter() {
-                commands.entity(chunk_layer).despawn();
-            }
-
-            for dweller in q_dwellers.iter() {
-                commands.entity(dweller).despawn();
-            }
-
-            for task in q_tasks.iter() {
-                commands.entity(task).despawn();
-            }
-
-            for mob in q_mobs.iter() {
-                commands.entity(mob).despawn();
-            }
-
-            // Spawn new scene
-            scene_spawner.spawn_dynamic(
-                asset_server.load(format!("{SAVE_DIR}/{}/entities.ron", load_game.0.clone())),
-            );
-
-            // Init tilemap, chunks will be loaded from disk
-            init_tilemap(commands, asset_server);
-
-            next_state.set(GameState::Running);
+        // Despawn current scene
+        for chunk_layer in q_chunks_tile_layer.iter() {
+            commands.entity(chunk_layer).despawn();
         }
+
+        for chunk_layer in q_chunks_object_layer.iter() {
+            commands.entity(chunk_layer).despawn();
+        }
+
+        for dweller in q_dwellers.iter() {
+            commands.entity(dweller).despawn();
+        }
+
+        for task in q_tasks.iter() {
+            commands.entity(task).despawn();
+        }
+
+        for mob in q_mobs.iter() {
+            commands.entity(mob).despawn();
+        }
+
+        // Spawn new scene
+        scene_spawner.spawn_dynamic(
+            asset_server.load(format!("{SAVE_DIR}/{}/entities.ron", load_game.0.clone())),
+        );
+
+        // Init tilemap, chunks will be loaded from disk
+        init_tilemap(commands, asset_server);
+
+        next_state.set(GameState::Running);
     }
 }

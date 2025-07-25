@@ -10,15 +10,15 @@ use pathfinding::directed::astar::astar;
 use rand::Rng;
 
 use crate::{
+    ObjectSlot, SpriteLoader,
     animation::TakingDamage,
-    data::{ObjectId, TileId, EAT_VALUES, SLEEP_VALUES, WORKSTATIONS},
+    data::{EAT_VALUES, ObjectId, SLEEP_VALUES, TileId, WORKSTATIONS},
     dwellers::Dweller,
     mobs::Mob,
     tilemap::{CHUNK_SIZE, TILE_SIZE},
     tilemap_data::TilemapData,
     tiles::TilePlaced,
     utils::transform_to_index,
-    ObjectSlot, SpriteLoader,
 };
 
 const Z_INDEX: f32 = 2.0;
@@ -245,13 +245,12 @@ impl Task {
     }
 
     fn compute_reachable_positions(&self, pos: IVec2, tilemap_data: &TilemapData) -> Vec<IVec2> {
-        if let Some(tile) = tilemap_data.get(pos) {
-            if !tile.is_blocking()
-                && !matches!(self.kind, TaskKind::Build { result } if result.is_blocking())
-                && !matches!(self.kind, TaskKind::Flood)
-            {
-                return vec![pos];
-            }
+        if let Some(tile) = tilemap_data.get(pos)
+            && !tile.is_blocking()
+            && !matches!(self.kind, TaskKind::Build { result } if result.is_blocking())
+            && !matches!(self.kind, TaskKind::Flood)
+        {
+            return vec![pos];
         }
 
         tilemap_data.non_blocking_neighbours_pos(pos, true)
@@ -619,10 +618,10 @@ pub fn event_task_completion(
                 //TODO: more fishing loot
                 if dweller.object.is_none() {
                     dweller.object = Some(ObjectId::Fish);
-                } else if let Some(tile) = tilemap_data.get(dweller_pos) {
-                    if tile.is_floor_free() {
-                        tilemap_data.set(dweller_pos, tile.id.with(ObjectId::Fish));
-                    }
+                } else if let Some(tile) = tilemap_data.get(dweller_pos)
+                    && tile.is_floor_free()
+                {
+                    tilemap_data.set(dweller_pos, tile.id.with(ObjectId::Fish));
                 }
 
                 // remove fishing spot
@@ -638,14 +637,14 @@ pub fn event_task_completion(
             }
 
             TaskKind::Stockpile => {
-                if tile.object.is_none() {
-                    if let Some(object) = dweller.object {
-                        tilemap_data.set(task.pos, tile.id.with(object));
+                if tile.object.is_none()
+                    && let Some(object) = dweller.object
+                {
+                    tilemap_data.set(task.pos, tile.id.with(object));
 
-                        debug!("Stockpiled object at {:?}", task.pos);
-                        update_tasks_pos = true;
-                        success = true;
-                    }
+                    debug!("Stockpiled object at {:?}", task.pos);
+                    update_tasks_pos = true;
+                    success = true;
                 }
             }
 
@@ -726,10 +725,16 @@ pub fn event_task_completion(
                             objects.swap_remove(i);
                             remove_task = objects.is_empty();
                         } else {
-                            error!("SHOULD NEVER HAPPEN: Dweller {} completed task TaskNeeds::Objects {:?} with object {:?} not in list", dweller.name, task.kind, dweller_object);
+                            error!(
+                                "SHOULD NEVER HAPPEN: Dweller {} completed task TaskNeeds::Objects {:?} with object {:?} not in list",
+                                dweller.name, task.kind, dweller_object
+                            );
                         }
                     } else {
-                        error!("SHOULD NEVER HAPPEN: Dweller {} completed task TaskNeeds::Objects {:?} without any object", dweller.name, task.kind);
+                        error!(
+                            "SHOULD NEVER HAPPEN: Dweller {} completed task TaskNeeds::Objects {:?} without any object",
+                            dweller.name, task.kind
+                        );
                     }
                 }
 
@@ -737,7 +742,10 @@ pub fn event_task_completion(
                     if dweller.object.is_some() {
                         dweller.object = None;
                     } else {
-                        error!("SHOULD NEVER HAPPEN: Dweller {} completed task {:?} without any object", dweller.name, task);
+                        error!(
+                            "SHOULD NEVER HAPPEN: Dweller {} completed task {:?} without any object",
+                            dweller.name, task
+                        );
                     }
                 }
 
