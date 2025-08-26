@@ -227,7 +227,9 @@ pub fn terrain_pointer_up(
 
                         TaskKind::Harvest => {
                             let needs = match tile.object {
-                                Some(ObjectId::WheatPlant) => TaskNeeds::EmptyHands,
+                                Some(ObjectId::WheatPlant | ObjectId::BerryBush) => {
+                                    TaskNeeds::EmptyHands
+                                }
                                 _ => TaskNeeds::Nothing,
                             };
 
@@ -302,6 +304,16 @@ pub fn terrain_pointer_up(
 
                             max_tasks = max_tasks.saturating_sub(1);
                             debug!("Walk task at {pos:?}");
+                        }
+
+                        TaskKind::Scoop => {
+                            commands.spawn(TaskBundle::new(
+                                Task::new(pos, *task_kind, dweller),
+                                TaskNeeds::EmptyHands,
+                            ));
+
+                            max_tasks = max_tasks.saturating_sub(1);
+                            debug!("Scooping task at {pos:?}");
                         }
 
                         _ => {}

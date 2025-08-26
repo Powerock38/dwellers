@@ -1,8 +1,8 @@
 use bevy::prelude::*;
 
 use crate::{
-    actions::CurrentAction, data::BUILD_RECIPES, extract_ok, utils::pascal_case_to_title_case,
-    ActionKind, Dweller, DwellersSelected, TaskKind, TaskNeeds, UiButton,
+    ActionKind, Dweller, DwellersSelected, TaskKind, TaskNeeds, UiButton, actions::CurrentAction,
+    data::BUILD_RECIPES, extract_ok, utils::pascal_case_to_title_case,
 };
 
 #[derive(Component)]
@@ -65,8 +65,9 @@ pub fn spawn_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
             .with_children(|c| {
                 for task_kind in [
                     TaskKind::Dig,
-                    TaskKind::Flood,
                     TaskKind::Harvest,
+                    TaskKind::Flood,
+                    TaskKind::Scoop,
                     TaskKind::Attack,
                     TaskKind::Fish,
                     TaskKind::Pickup,

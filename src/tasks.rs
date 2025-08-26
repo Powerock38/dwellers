@@ -43,6 +43,7 @@ pub enum TaskKind {
     Eat,
     Sleep,
     Flood,
+    Scoop,
 }
 
 impl TaskKind {
@@ -65,6 +66,7 @@ impl TaskKind {
                         | ObjectId::Cactus
                         | ObjectId::TallGrass
                         | ObjectId::WheatPlant
+                        | ObjectId::BerryBush
                 )
             ),
             TaskKind::Build {
@@ -95,6 +97,9 @@ impl TaskKind {
             TaskKind::Sleep => tile
                 .object
                 .is_some_and(|object| SLEEP_VALUES.contains_key(&object)),
+            TaskKind::Scoop => {
+                matches!(tile.id, TileId::ShallowWater | TileId::Water | TileId::Lava)
+            }
         }
     }
 
@@ -440,6 +445,8 @@ pub fn event_task_completion(
             TaskKind::Harvest => {
                 if let Some(object) = tile.object {
                     let drop_object = match object {
+                        ObjectId::Tree if rng.random_bool(0.03) => Some(ObjectId::Honeycomb),
+
                         ObjectId::Tree | ObjectId::PalmTree | ObjectId::Cactus => {
                             Some(ObjectId::Wood)
                         }
@@ -463,6 +470,11 @@ pub fn event_task_completion(
                             }
 
                             Some(ObjectId::Farm)
+                        }
+
+                        ObjectId::BerryBush => {
+                            dweller.object = Some(ObjectId::Berries);
+                            Some(ObjectId::Bush)
                         }
 
                         _ => None,
@@ -699,6 +711,29 @@ pub fn event_task_completion(
                     if dweller.is_fully_rested() {
                         success = true;
                     }
+                }
+            }
+
+            TaskKind::Scoop => {
+                if dweller.object.is_none() {
+                    match tile.id {
+                        TileId::ShallowWater | TileId::Water => {
+                            dweller.object = Some(if rng.random_bool(0.001) {
+                                ObjectId::Fish
+                            } else {
+                                ObjectId::WaterBucket
+                            });
+                            dweller.sleep(-5);
+                            debug!("Scooped water at {:?}", task.pos);
+                        }
+                        TileId::Lava => {
+                            dweller.health(-10);
+                            debug!("Scooped lava at {:?}", task.pos);
+                        }
+                        _ => unreachable!(),
+                    }
+
+                    success = true;
                 }
             }
         }

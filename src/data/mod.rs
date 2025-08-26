@@ -2,7 +2,7 @@ use std::sync::LazyLock;
 
 use bevy::{platform::collections::HashMap, prelude::*};
 
-use crate::{enum_map, BuildResult, MobData, ObjectData, TileData};
+use crate::{BuildResult, MobData, ObjectData, TileData, enum_map};
 
 mod macros;
 mod structures;
@@ -38,6 +38,14 @@ enum_map! {
         Haystack = ObjectData::blocking("haystack"),
         FishingSpot = ObjectData::passable_non_carriable("fishing_spot"),
         Fish = ObjectData::passable("fish"),
+        WaterBucket = ObjectData::passable("water_bucket"),
+        Bush = ObjectData::passable_non_carriable("bush"),
+        BerryBush = ObjectData::passable_non_carriable("berry_bush"),
+        Berries = ObjectData::passable("berries"),
+        Honeycomb = ObjectData::passable("honeycomb"),
+        Beehive = ObjectData::blocking("beehive"),
+        MeadVat = ObjectData::blocking("mead_vat"),
+        Hydromel = ObjectData::passable("hydromel"),
     }
 }
 
@@ -85,6 +93,9 @@ pub const BUILD_RECIPES: &[(BuildResult, &[ObjectId])] = &[
     (BuildResult::Object(ObjectId::Anvil), &[ObjectId::CopperIngot, ObjectId::CopperIngot, ObjectId::CopperIngot, ObjectId::CopperIngot]),
     (BuildResult::Object(ObjectId::Grindstone), &[ObjectId::Rock, ObjectId::Wood]),
     (BuildResult::Object(ObjectId::Haystack), &[ObjectId::Wheat, ObjectId::Wheat, ObjectId::Wheat]),
+    (BuildResult::Object(ObjectId::Bush), &[ObjectId::Berries]),
+    (BuildResult::Object(ObjectId::Beehive), &[ObjectId::Wood, ObjectId::Honeycomb, ObjectId::Wood]),
+    (BuildResult::Object(ObjectId::MeadVat), &[ObjectId::Wood, ObjectId::Wood, ObjectId::Wood, ObjectId::Honeycomb, ObjectId::Honeycomb]),
 ];
 
 #[rustfmt::skip]
@@ -94,6 +105,7 @@ LazyLock::new(|| HashMap::from([
     (ObjectId::Forge, (ObjectId::CopperIngot, vec![ObjectId::CopperOre, ObjectId::CopperOre])),
     (ObjectId::Grindstone, (ObjectId::Sword, vec![ObjectId::CopperIngot, ObjectId::CopperIngot])),
     (ObjectId::Anvil, (ObjectId::Armor, vec![ObjectId::CopperIngot, ObjectId::CopperIngot, ObjectId::CopperIngot])),
+    (ObjectId::MeadVat, (ObjectId::Hydromel, vec![ObjectId::Honeycomb, ObjectId::WaterBucket])),
 ]));
 
 pub static EAT_VALUES: LazyLock<HashMap<ObjectId, i32>> = LazyLock::new(|| {

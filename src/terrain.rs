@@ -1,16 +1,16 @@
-use bevy::prelude::*;
+use bevy::{platform::collections::HashSet, prelude::*};
 use noise::{
-    core::worley::distance_functions::euclidean_squared, Abs, Billow, Fbm, NoiseFn, OpenSimplex,
-    Perlin, Simplex, Worley,
+    Abs, Billow, Fbm, NoiseFn, OpenSimplex, Perlin, Simplex, Worley,
+    core::worley::distance_functions::euclidean_squared,
 };
-use rand::{rngs::StdRng, Rng, SeedableRng};
+use rand::{Rng, SeedableRng, rngs::StdRng};
 
 use crate::{
+    CHUNK_SIZE, MobBundle, SpawnMobsOnChunk,
     data::{ObjectId, StructureId, TileId},
     tasks::{Task, TaskBundle, TaskKind, TaskNeeds},
     tilemap_data::TilemapData,
     tiles::TilePlaced,
-    MobBundle, SpawnMobsOnChunk, CHUNK_SIZE,
 };
 
 const MOBS_SCALE: f64 = 0.1;
@@ -47,7 +47,7 @@ const VEGETATION_ZONES_THRESHOLD: f64 = 0.4;
 
 const VEGETATION_SCALE: f64 = 0.5;
 const TREE_THRESHOLD: f64 = 0.4;
-const PLANT_THRESHOLD: f64 = 0.7;
+const PLANT_THRESHOLD: f64 = 0.6;
 
 pub fn generate_terrain(commands: &mut Commands, seed: u32, chunk_index: IVec2) -> Vec<TilePlaced> {
     let noise_mountains = Billow::<Perlin>::new(seed);
@@ -170,7 +170,14 @@ pub fn generate_terrain(commands: &mut Commands, seed: u32, chunk_index: IVec2) 
                     if climate_noise_value > DESERT_THRESHOLD {
                         Some(ObjectId::Cactus)
                     } else {
-                        Some(ObjectId::TallGrass)
+                        let bush_chance = vegetation_noise_value * 100.0 % 2.0;
+                        if bush_chance > -0.3 {
+                            Some(ObjectId::BerryBush)
+                        } else if bush_chance > -0.4 {
+                            Some(ObjectId::Bush)
+                        } else {
+                            Some(ObjectId::TallGrass)
+                        }
                     }
                 } else {
                     None
@@ -264,15 +271,17 @@ pub fn update_terrain(
 
     let mut rng = rand::rng();
 
+    let tasks_positions = q_tasks.iter().map(|task| task.pos).collect::<HashSet<_>>();
+
     for (chunk_index, chunk) in &tilemap_data.chunks {
         for x in 0..CHUNK_SIZE {
             for y in 0..CHUNK_SIZE {
-                let index = TilemapData::local_index_to_global(
+                let pos = TilemapData::local_index_to_global(
                     *chunk_index,
                     IVec2::new(x as i32, y as i32),
                 );
 
-                let (_, i) = TilemapData::index_to_chunk(index);
+                let (_, i) = TilemapData::index_to_chunk(pos);
                 let tile = chunk[i];
 
                 if let Some(object) = tile.object {
@@ -284,26 +293,58 @@ pub fn update_terrain(
                             };
 
                             if rng.random_bool(chance) {
-                                to_set.push((index, tile.id.with(ObjectId::WheatPlant)));
+                                to_set.push((pos, tile.id.with(ObjectId::WheatPlant)));
                             }
                         }
 
                         ObjectId::Scarecrow => {
-                            if let Some(index) = TilemapData::find_from_center(index, 4, |index| {
+                            if let Some(pos) = TilemapData::find_from_center(pos, 4, |pos| {
                                 if let Some(TilePlaced {
                                     object: Some(ObjectId::WheatPlant),
                                     ..
-                                }) = tilemap_data.get(index)
+                                }) = tilemap_data.get(pos)
                                 {
-                                    return !q_tasks.iter().any(|task| task.pos == index);
+                                    return !tasks_positions.contains(&pos);
                                 }
 
                                 false
                             }) {
                                 commands.spawn(TaskBundle::new(
-                                    Task::new(index, TaskKind::Harvest, None),
+                                    Task::new(pos, TaskKind::Harvest, None),
                                     TaskNeeds::EmptyHands,
                                 ));
+                            }
+                        }
+
+                        ObjectId::Bush => {
+                            if rng.random_bool(0.005) {
+                                to_set.push((pos, tile.id.with(ObjectId::BerryBush)));
+                            }
+                        }
+
+                        ObjectId::Beehive => {
+                            if TilemapData::find_from_center(pos, 5, |pos| {
+                                matches!(
+                                    tilemap_data.get(pos),
+                                    Some(TilePlaced {
+                                        object: Some(ObjectId::BerryBush),
+                                        ..
+                                    })
+                                )
+                            })
+                            .is_some()
+                                && rng.random_bool(0.1)
+                            {
+                                for (pos, tile) in tilemap_data.neighbours(pos) {
+                                    if tile.is_floor_free() && !tasks_positions.contains(&pos) {
+                                        to_set.push((pos, tile.id.with(ObjectId::Honeycomb)));
+                                        commands.spawn(TaskBundle::new(
+                                            Task::new(pos, TaskKind::Pickup, None),
+                                            TaskNeeds::EmptyHands,
+                                        ));
+                                        break;
+                                    }
+                                }
                             }
                         }
 
