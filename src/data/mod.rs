@@ -46,6 +46,7 @@ enum_map! {
         Beehive = ObjectData::blocking("beehive"),
         MeadVat = ObjectData::blocking("mead_vat"),
         Hydromel = ObjectData::passable("hydromel"),
+        MobLair = ObjectData::blocking_non_carriable("mob_lair"),
     }
 }
 
@@ -73,6 +74,7 @@ enum_map! {
         Sheep = MobData::new("sheep", 2, 60.0, ObjectId::Hide),
         Boar = MobData::new("boar", 3, 50.0, ObjectId::Hide),
         Undead = MobData::new("undead", 5, 40.0, ObjectId::CopperIngot),
+        Snake = MobData::new("snake", 1, 70.0, ObjectId::Hide),
     }
 }
 

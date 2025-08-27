@@ -2,11 +2,11 @@ use bevy::prelude::*;
 use rand::prelude::*;
 
 use crate::{
+    CHUNK_SIZE, SpriteLoader,
     data::{MobId, ObjectId},
     tilemap::TILE_SIZE,
     tilemap_data::TilemapData,
     utils::transform_to_index,
-    SpriteLoader, CHUNK_SIZE,
 };
 
 const Z_INDEX: f32 = 11.0;
@@ -53,7 +53,7 @@ pub struct MobBundle {
 }
 
 impl MobBundle {
-    pub fn new(id: MobId, index: IVec2) -> Self {
+    pub fn new(id: MobId, pos: IVec2) -> Self {
         MobBundle {
             mob: Mob {
                 speed: id.data().speed,
@@ -65,8 +65,8 @@ impl MobBundle {
                 texture_path: id.data().sprite_path(),
             },
             transform: Transform::from_xyz(
-                index.x as f32 * TILE_SIZE,
-                index.y as f32 * TILE_SIZE,
+                pos.x as f32 * TILE_SIZE,
+                pos.y as f32 * TILE_SIZE,
                 Z_INDEX,
             ),
         }

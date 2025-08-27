@@ -7,7 +7,7 @@ use rand::{Rng, SeedableRng, rngs::StdRng};
 
 use crate::{
     CHUNK_SIZE, MobBundle, SpawnMobsOnChunk,
-    data::{ObjectId, StructureId, TileId},
+    data::{MobId, ObjectId, StructureId, TileId},
     tasks::{Task, TaskBundle, TaskKind, TaskNeeds},
     tilemap_data::TilemapData,
     tiles::TilePlaced,
@@ -50,6 +50,8 @@ const TREE_THRESHOLD: f64 = 0.4;
 const PLANT_THRESHOLD: f64 = 0.6;
 
 pub fn generate_terrain(commands: &mut Commands, seed: u32, chunk_index: IVec2) -> Vec<TilePlaced> {
+    let mut rng: StdRng =
+        SeedableRng::seed_from_u64((seed as i32 + chunk_index.x + chunk_index.y) as u64);
     let noise_mountains = Billow::<Perlin>::new(seed);
     let noise_climate = Simplex::new(seed);
     let noise_structures = Simplex::new(seed + 1);
@@ -182,6 +184,8 @@ pub fn generate_terrain(commands: &mut Commands, seed: u32, chunk_index: IVec2) 
                 } else {
                     None
                 }
+            } else if rng.random_bool(0.0002) {
+                Some(ObjectId::MobLair)
             } else {
                 None
             };
@@ -209,9 +213,6 @@ pub fn generate_terrain(commands: &mut Commands, seed: u32, chunk_index: IVec2) 
         chunk_index.x as f64 * STRUCTURES_SCALE,
         chunk_index.y as f64 * STRUCTURES_SCALE,
     ]);
-
-    let mut rng: StdRng =
-        SeedableRng::seed_from_u64((seed as i32 + chunk_index.x + chunk_index.y) as u64);
 
     let mut structure = match structure_noise_value {
         0.0..=0.5 if mountainy => StructureId::DungeonCircleRoom,
@@ -286,6 +287,17 @@ pub fn update_terrain(
 
                 if let Some(object) = tile.object {
                     match object {
+                        ObjectId::MobLair => {
+                            if rng.random_bool(0.001) {
+                                for (pos, tile) in tilemap_data.neighbours(pos) {
+                                    if tile.is_floor_free() && !tasks_positions.contains(&pos) {
+                                        commands.spawn(MobBundle::new(MobId::Snake, pos));
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+
                         ObjectId::Farm => {
                             let chance = match tile.id {
                                 TileId::GrassFloor => 0.03,
