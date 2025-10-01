@@ -1,26 +1,25 @@
 use bevy::{prelude::*, tasks::IoTaskPool};
 
 use crate::{
-    init_tilemap,
-    random_text::{generate_word, WORLD_NAMES},
+    SAVE_DIR, SaveName, SpawnDwellersOnChunk, init_tilemap,
+    random_text::{WORLD_NAMES, generate_word},
     terrain::generate_terrain,
     tilemap_data::TilemapData,
     tiles::TilePlaced,
     utils::write_to_file,
-    SaveName, SpawnDwellersOnChunk, SAVE_DIR,
 };
 
-#[derive(Event)]
+#[derive(Message)]
 pub struct LoadChunk(pub IVec2);
 
-#[derive(Event)]
+#[derive(Message)]
 pub struct UnloadChunk(pub IVec2);
 
 pub fn spawn_new_terrain(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut ev_load_chunk: EventWriter<LoadChunk>,
-    mut ev_spawn_dwellers: EventWriter<SpawnDwellersOnChunk>,
+    mut ev_load_chunk: MessageWriter<LoadChunk>,
+    mut ev_spawn_dwellers: MessageWriter<SpawnDwellersOnChunk>,
 ) {
     let mut rng = rand::rng();
     let name = (0..2)
@@ -40,8 +39,8 @@ pub fn spawn_new_terrain(
 
 pub fn load_chunks(
     mut commands: Commands,
-    mut ev_load: EventReader<LoadChunk>,
-    mut ev_unload: EventReader<UnloadChunk>,
+    mut ev_load: MessageReader<LoadChunk>,
+    mut ev_unload: MessageReader<UnloadChunk>,
     mut tilemap_data: ResMut<TilemapData>,
     save_name: Res<SaveName>,
 ) {

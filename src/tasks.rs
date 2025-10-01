@@ -315,14 +315,14 @@ pub fn update_unreachable_pathfinding_tasks(mut q_tasks: Query<&mut Task>) {
     });
 }
 
-#[derive(Event)]
+#[derive(Message)]
 pub struct TaskCompletionEvent {
     pub task: Entity,
 }
 
 pub fn event_task_completion(
     mut commands: Commands,
-    mut events: EventReader<TaskCompletionEvent>,
+    mut events: MessageReader<TaskCompletionEvent>,
     mut tilemap_data: ResMut<TilemapData>,
     mut q_mobs: Query<(Entity, &mut Mob, &Transform)>,
     mut q_dwellers: Query<(&mut Dweller, &Transform)>,

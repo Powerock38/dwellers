@@ -16,11 +16,13 @@ pub fn scan_sprite_loaders(
 ) {
     for (entity, sprite_loader) in query.iter() {
         let image = asset_server.load(sprite_loader.texture_path.clone());
-        commands.entity(entity).insert(Sprite {
-            image,
-            anchor: Anchor::BottomLeft,
-            custom_size: Some(Vec2::splat(TILE_SIZE)),
-            ..default()
-        });
+        commands.entity(entity).insert((
+            Sprite {
+                image,
+                custom_size: Some(Vec2::splat(TILE_SIZE)),
+                ..default()
+            },
+            Anchor::BOTTOM_LEFT,
+        ));
     }
 }

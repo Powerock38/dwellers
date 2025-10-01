@@ -8,7 +8,9 @@ use crate::{
 };
 
 #[derive(Event)]
-pub struct OpenWorkstationUi;
+pub struct OpenWorkstationUi {
+    pub entity: Entity,
+}
 
 #[derive(Component)]
 #[require(
@@ -34,13 +36,13 @@ pub struct UiBackground;
         border: UiRect::all(Val::Px(4.0)),
         ..default()
     },
-    BorderColor(Color::BLACK),
+    BorderColor::all(Color::BLACK),
     BackgroundColor(BG_PRIMARY)
 )]
 pub struct WorkstationUi(pub Entity, pub u128);
 
 pub fn observe_open_workstation_ui(
-    trigger: Trigger<OpenWorkstationUi>,
+    open_ui: On<OpenWorkstationUi>,
     mut commands: Commands,
     q_workstation_ui: Query<Entity, With<WorkstationUi>>,
     q_tasks: Query<&Task>,
@@ -49,16 +51,18 @@ pub fn observe_open_workstation_ui(
         commands.entity(entity).despawn();
     }
 
-    let entity = trigger.target();
+    let entity = open_ui.entity;
     let task = extract_ok!(q_tasks.get(entity));
 
     if let TaskKind::Workstation { .. } = task.kind {
         debug!("Workstation UI opened: {:?}", task);
         commands
             .spawn(UiBackground)
-            .observe(|trigger: Trigger<Pointer<Click>>, mut commands: Commands| {
-                commands.entity(trigger.target()).despawn();
-            })
+            .observe(
+                |pointer_click: On<Pointer<Click>>, mut commands: Commands| {
+                    commands.entity(pointer_click.entity).despawn();
+                },
+            )
             .with_child(WorkstationUi(
                 entity,
                 SystemTime::now()
@@ -127,8 +131,8 @@ pub fn update_workstation_ui(
             ))
             .with_child((Text::new("-"), TextFont::from_font_size(20.0)))
             .observe(
-                move |mut trigger: Trigger<Pointer<Click>>, mut q_tasks: Query<&mut Task>| {
-                    trigger.propagate(false);
+                move |mut pointer_click: On<Pointer<Click>>, mut q_tasks: Query<&mut Task>| {
+                    pointer_click.propagate(false);
                     let mut task = extract_ok!(q_tasks.get_mut(entity));
                     if let TaskKind::Workstation { ref mut amount, .. } = task.kind {
                         *amount = amount.saturating_sub(1);
@@ -154,8 +158,8 @@ pub fn update_workstation_ui(
             ))
             .with_child((Text::new("+"), TextFont::from_font_size(20.0)))
             .observe(
-                move |mut trigger: Trigger<Pointer<Click>>, mut q_tasks: Query<&mut Task>| {
-                    trigger.propagate(false);
+                move |mut pointer_click: On<Pointer<Click>>, mut q_tasks: Query<&mut Task>| {
+                    pointer_click.propagate(false);
                     let mut task = extract_ok!(q_tasks.get_mut(entity));
                     if let TaskKind::Workstation { ref mut amount, .. } = task.kind {
                         *amount = amount.saturating_add(1);

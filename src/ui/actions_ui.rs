@@ -92,13 +92,9 @@ pub fn spawn_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 pub fn get_observer_action_button(
     action: ActionKind,
-) -> impl FnMut(
-    Trigger<Pointer<Click>>,
-    Commands,
-    Res<CurrentAction>,
-    Query<&mut BorderColor, With<UiButton>>,
-) {
-    move |trigger: _, mut commands: _, current_action: _, mut q_borders: _| {
+) -> impl FnMut(On<Pointer<Click>>, Commands, Res<CurrentAction>, Query<&mut BorderColor, With<UiButton>>)
+{
+    move |pointer_click: _, mut commands: _, current_action: _, mut q_borders: _| {
         if current_action.kind == action {
             commands.insert_resource(CurrentAction::default());
         } else {
@@ -108,11 +104,11 @@ pub fn get_observer_action_button(
         info!("Current action: {:?}", current_action.kind);
 
         for mut border in &mut q_borders {
-            border.0 = Color::BLACK;
+            *border = Color::BLACK.into();
         }
 
-        if let Ok(mut border) = q_borders.get_mut(trigger.target()) {
-            border.0 = bevy::color::palettes::css::RED.into();
+        if let Ok(mut border) = q_borders.get_mut(pointer_click.entity) {
+            *border = bevy::color::palettes::css::RED.into();
         }
     }
 }

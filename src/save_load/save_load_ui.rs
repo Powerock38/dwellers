@@ -1,8 +1,8 @@
 use bevy::prelude::*;
 
 use crate::{
-    chunks::UnloadChunk, tilemap_data::TilemapData, GameState, LoadGame, SaveGame, SaveName,
-    UiButton, UiWindow, SAVE_DIR,
+    GameState, LoadGame, SAVE_DIR, SaveGame, SaveName, UiButton, UiWindow, chunks::UnloadChunk,
+    tilemap_data::TilemapData,
 };
 
 pub fn spawn_load_save_ui(
@@ -22,7 +22,7 @@ pub fn spawn_load_save_ui(
                 c.spawn(UiButton)
                     .with_child(Text::new(format!("Save {}", save_name.0)))
                     .observe(
-                        |_: Trigger<Pointer<Click>>,
+                        |_: On<Pointer<Click>>,
                          mut commands: Commands,
                          tilemap_data: Res<TilemapData>,
                          q_windows: Query<Entity, With<UiWindow>>| {
@@ -32,10 +32,10 @@ pub fn spawn_load_save_ui(
 
                             // Unload all chunks to save them to disk
                             for chunk_index in tilemap_data.chunks.keys() {
-                                commands.send_event(UnloadChunk(*chunk_index));
+                                commands.write_message(UnloadChunk(*chunk_index));
                             }
 
-                            // Trigger `save_world` to save entities
+                            // On `save_world` to save entities
                             commands.insert_resource(SaveGame);
                         },
                     );
@@ -60,7 +60,7 @@ pub fn spawn_load_save_ui(
                         c.spawn(UiButton)
                             .with_child(Text::new(format!("Load {save_file}")))
                             .observe(
-                                move |_: Trigger<Pointer<Click>>,
+                                move |_: On<Pointer<Click>>,
                                 mut commands: Commands,
                                 q_windows: Query<Entity, With<UiWindow>>| {
                                     commands.insert_resource(LoadGame(save_file.clone()));

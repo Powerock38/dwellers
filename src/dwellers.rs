@@ -5,18 +5,18 @@ use bevy::{
     prelude::*,
     sprite::Anchor,
 };
-use rand::{seq::IndexedRandom, Rng};
+use rand::{Rng, seq::IndexedRandom};
 
 use crate::{
+    CHUNK_SIZE, LoadChunk, SpriteLoader, UnloadChunk,
     data::ObjectId,
     objects::ObjectSlot,
     preview_sprites::{despawn_dweller_hover, observe_dweller_hover},
-    random_text::{generate_word, NAMES},
+    random_text::{NAMES, generate_word},
     tasks::{BuildResult, Task, TaskCompletionEvent, TaskKind, TaskNeeds},
     tilemap::TILE_SIZE,
     tilemap_data::TilemapData,
     utils::transform_to_index,
-    LoadChunk, SpriteLoader, UnloadChunk, CHUNK_SIZE,
 };
 
 const LOAD_CHUNKS_RADIUS: i32 = 1;
@@ -30,7 +30,7 @@ pub const NEEDS_MAX: u32 = 1000;
 
 const HEALTH_BASE: u32 = 10;
 
-#[derive(Event)]
+#[derive(Message)]
 pub struct SpawnDwellersOnChunk(pub IVec2);
 
 #[derive(Component, Reflect, Default)]
@@ -196,7 +196,7 @@ impl DwellersSelected {
 pub fn spawn_dwellers(
     mut commands: Commands,
     tilemap_data: Res<TilemapData>,
-    mut ev_spawn: EventReader<SpawnDwellersOnChunk>,
+    mut ev_spawn: MessageReader<SpawnDwellersOnChunk>,
 ) {
     for SpawnDwellersOnChunk(chunk_index) in ev_spawn.read() {
         let Some(spawn_pos) = TilemapData::find_from_center_chunk_size(
@@ -264,7 +264,7 @@ pub fn spawn_dwellers_name(
                 TILE_SIZE,
                 2.0,
             )),
-            Anchor::BottomCenter,
+            Anchor::BOTTOM_CENTER,
         ));
     }
 }
@@ -273,7 +273,7 @@ pub fn update_dwellers(
     mut q_dwellers: Query<(Entity, &mut Dweller, &Transform)>,
     tilemap_data: Res<TilemapData>,
     mut q_tasks: Query<(Entity, &mut Task, &TaskNeeds)>,
-    mut ev_task_completion: EventWriter<TaskCompletionEvent>,
+    mut ev_task_completion: MessageWriter<TaskCompletionEvent>,
 ) {
     for (entity, mut dweller, transform) in &mut q_dwellers {
         if !dweller.move_queue.is_empty() {
@@ -432,8 +432,8 @@ pub fn update_dwellers_movement(
 pub fn update_dwellers_load_chunks(
     q_dwellers: Query<&Transform, With<Dweller>>,
     tilemap_data: Res<TilemapData>,
-    mut ev_load_chunk: EventWriter<LoadChunk>,
-    mut ev_unload_chunk: EventWriter<UnloadChunk>,
+    mut ev_load_chunk: MessageWriter<LoadChunk>,
+    mut ev_unload_chunk: MessageWriter<UnloadChunk>,
     mut chunks_ttl: Local<HashMap<IVec2, u32>>,
 ) {
     let mut sent_event_for = vec![];

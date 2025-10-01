@@ -47,10 +47,10 @@ pub fn update_dwellers_equipment_sprites(
                     preview_variant,
                     Sprite {
                         image: asset_server.load(equipment.data().sprite_path()),
-                        anchor: Anchor::BottomLeft,
                         flip_x: sprite.flip_x,
                         ..default()
                     },
+                    Anchor::BOTTOM_LEFT,
                     transform,
                 ));
             }
@@ -96,10 +96,10 @@ pub fn update_task_needs_preview(
                         TaskNeedsPreview,
                         Sprite {
                             image: asset_server.load(object.data().sprite_path()),
-                            anchor: Anchor::BottomLeft,
                             color: Color::WHITE.with_alpha(0.5),
                             ..default()
                         },
+                        Anchor::BOTTOM_LEFT,
                         Transform::from_translation(position.extend(frac + 1.0))
                             .with_scale(Vec3::splat(TASK_OBJECT_PREVIEW_SCALE)),
                     ));
@@ -141,10 +141,10 @@ pub fn update_task_build_preview(
                     TaskBuildPreview,
                     Sprite {
                         image: asset_server.load(result.sprite_path()),
-                        anchor: Anchor::BottomLeft,
                         color: Color::WHITE.with_alpha(0.5),
                         ..default()
                     },
+                    Anchor::BOTTOM_LEFT,
                     Transform::from_translation(Vec3::NEG_Z),
                 ));
             }
@@ -186,7 +186,7 @@ pub fn update_task_workstation_preview(
                 commands.entity(entity).with_child((
                     TaskWorkstationPreview,
                     Text2d::new(format!("{amount}")),
-                    Anchor::TopLeft,
+                    Anchor::TOP_LEFT,
                     Transform::from_xyz(1., TILE_SIZE, 1.0).with_scale(Vec3::splat(0.25)),
                 ));
             }
@@ -202,32 +202,32 @@ pub fn update_task_workstation_preview(
 pub struct DwellerNeedsPreview;
 
 pub fn observe_dweller_hover(
-    trigger: Trigger<Pointer<Over>>,
+    pointer_over: On<Pointer<Over>>,
     mut commands: Commands,
     q_dwellers: Query<&Dweller>,
 ) {
-    let Ok(dweller) = q_dwellers.get(trigger.target) else {
+    let Ok(dweller) = q_dwellers.get(pointer_over.entity) else {
         return;
     };
 
-    commands.entity(trigger.target).with_child((
+    commands.entity(pointer_over.entity).with_child((
         DwellerNeedsPreview,
         Text2d::new(format!(
             "<3 {}\n><> {}\nzZ {}",
             dweller.health, dweller.food, dweller.sleep
         )),
-        Anchor::BottomCenter,
+        Anchor::BOTTOM_CENTER,
         Transform::from_xyz(8., 26., 1.0).with_scale(Vec3::splat(0.25)),
     ));
 }
 
 pub fn despawn_dweller_hover(
-    trigger: Trigger<Pointer<Out>>,
+    pointer_out: On<Pointer<Out>>,
     mut commands: Commands,
     q_dwellers: Query<&Children, With<Dweller>>,
     q_dwellers_hover: Query<(), With<DwellerNeedsPreview>>,
 ) {
-    let Ok(children) = q_dwellers.get(trigger.target) else {
+    let Ok(children) = q_dwellers.get(pointer_out.entity) else {
         return;
     };
 

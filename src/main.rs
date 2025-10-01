@@ -48,11 +48,11 @@ fn main() {
         ))
         // .insert_resource(bevy::dev_tools::picking_debug::DebugPickingMode::Normal)
         .init_resource::<CameraControl>()
-        .add_event::<LoadChunk>()
-        .add_event::<UnloadChunk>()
-        .add_event::<TaskCompletionEvent>()
-        .add_event::<SpawnDwellersOnChunk>()
-        .add_event::<SpawnMobsOnChunk>()
+        .add_message::<LoadChunk>()
+        .add_message::<UnloadChunk>()
+        .add_message::<TaskCompletionEvent>()
+        .add_message::<SpawnDwellersOnChunk>()
+        .add_message::<SpawnMobsOnChunk>()
         .configure_sets(Update, GameplaySet.run_if(in_state(GameState::Running)))
         .configure_sets(
             FixedUpdate,

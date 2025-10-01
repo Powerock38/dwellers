@@ -11,7 +11,7 @@ use crate::{
 
 const Z_INDEX: f32 = 11.0;
 
-#[derive(Event)]
+#[derive(Message)]
 pub struct SpawnMobsOnChunk(pub IVec2);
 
 pub struct MobData {
@@ -76,7 +76,7 @@ impl MobBundle {
 pub fn spawn_mobs(
     mut commands: Commands,
     tilemap_data: Res<TilemapData>,
-    mut ev_spawn: EventReader<SpawnMobsOnChunk>,
+    mut ev_spawn: MessageReader<SpawnMobsOnChunk>,
 ) {
     let mut rng = rand::rng();
 

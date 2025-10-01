@@ -3,7 +3,7 @@ use bevy::{
     prelude::*,
 };
 
-use crate::{dwellers::Dweller, CHUNK_SIZE, TILE_SIZE};
+use crate::{CHUNK_SIZE, TILE_SIZE, dwellers::Dweller};
 
 const CAMERA_KEYBOARD_SPEED: f32 = 3.0;
 
@@ -30,8 +30,8 @@ pub fn update_camera(
     query: Single<(&mut Transform, &mut Projection)>,
     input_keyboard: Res<ButtonInput<KeyCode>>,
     input_mouse: Res<ButtonInput<MouseButton>>,
-    mut event_wheel: EventReader<MouseWheel>,
-    mut event_move: EventReader<MouseMotion>,
+    mut event_wheel: MessageReader<MouseWheel>,
+    mut event_move: MessageReader<MouseMotion>,
     time: Res<Time>,
     mut control: ResMut<CameraControl>,
 ) {

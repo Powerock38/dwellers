@@ -24,7 +24,7 @@ pub fn init_font(asset_server: Res<AssetServer>, mut query: Query<&mut TextFont,
         column_gap: Val::Px(5.0),
         ..default()
     },
-    BorderColor(Color::BLACK),
+    BorderColor::all(Color::BLACK),
     BackgroundColor(BG_PRIMARY)
 )]
 pub struct UiButton;

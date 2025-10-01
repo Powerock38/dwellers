@@ -42,7 +42,7 @@ pub fn keyboard_current_action(
             commands.insert_resource(CurrentAction::default());
 
             for mut border in &mut q_borders {
-                border.0 = Color::BLACK;
+                *border = Color::BLACK.into();
             }
         }
     }
@@ -64,22 +64,24 @@ impl CurrentAction {
 }
 
 pub fn terrain_pointer_down(
-    trigger: Trigger<Pointer<Pressed>>,
+    pointer_press: On<Pointer<Press>>,
     mut current_action: ResMut<CurrentAction>,
     q_camera: Query<(&Camera, &GlobalTransform)>,
     q_ui_buttons: Query<(), With<UiButton>>,
     mut coordinates_ui: Single<&mut Text, With<CoordinatesUi>>,
 ) {
-    if q_ui_buttons.contains(trigger.target()) {
+    if q_ui_buttons.contains(pointer_press.entity) {
         return;
     }
 
-    match trigger.button {
+    match pointer_press.button {
         PointerButton::Primary => {
             let (camera, camera_transform) = extract_ok!(q_camera.single());
-            let world_position = extract_ok!(
-                camera.viewport_to_world_2d(camera_transform, trigger.pointer_location.position)
-            );
+            let world_position =
+                extract_ok!(camera.viewport_to_world_2d(
+                    camera_transform,
+                    pointer_press.pointer_location.position
+                ));
             let index = (world_position / TILE_SIZE).floor().as_ivec2();
 
             coordinates_ui.0 = format!("({}, {})", index.x, index.y);
@@ -98,7 +100,7 @@ pub fn terrain_pointer_down(
 }
 
 pub fn terrain_pointer_up(
-    trigger: Trigger<Pointer<Released>>,
+    pointer_release: On<Pointer<Release>>,
     mut commands: Commands,
     mut current_action: ResMut<CurrentAction>,
     mut dwellers_selected: ResMut<DwellersSelected>,
@@ -110,11 +112,11 @@ pub fn terrain_pointer_up(
 ) {
     let (camera, camera_transform) = extract_ok!(q_camera.single());
     let world_position = extract_ok!(
-        camera.viewport_to_world_2d(camera_transform, trigger.pointer_location.position)
+        camera.viewport_to_world_2d(camera_transform, pointer_release.pointer_location.position)
     );
     let index = (world_position / TILE_SIZE).floor().as_ivec2();
 
-    if matches!(trigger.button, PointerButton::Primary) {
+    if matches!(pointer_release.button, PointerButton::Primary) {
         // Confirm selection
         let index_start = extract_some!(current_action.index_start);
 
@@ -376,7 +378,7 @@ pub fn terrain_pointer_up(
                                 if task.pos == pos { Some(entity) } else { None }
                             })
                         {
-                            commands.trigger_targets(OpenWorkstationUi, entity);
+                            commands.trigger(OpenWorkstationUi { entity });
                             break;
                         }
 

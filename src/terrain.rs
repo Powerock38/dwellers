@@ -68,7 +68,7 @@ pub fn generate_terrain(commands: &mut Commands, seed: u32, chunk_index: IVec2) 
         chunk_index.y as f64 * MOBS_SCALE,
     ]) > MOBS_THRESHOLD
     {
-        commands.send_event(SpawnMobsOnChunk(chunk_index));
+        commands.write_message(SpawnMobsOnChunk(chunk_index));
     }
 
     // Generate terrain
