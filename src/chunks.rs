@@ -1,10 +1,9 @@
 use bevy::{prelude::*, tasks::IoTaskPool};
 
 use crate::{
-    SAVE_DIR, SaveName, SpawnDwellersOnChunk, init_tilemap,
+    SAVE_DIR, SaveName, SpawnDwellersOnChunk, TilemapData, init_tilemap,
     random_text::{WORLD_NAMES, generate_word},
     terrain::generate_terrain,
-    tilemap_data::TilemapData,
     tiles::TilePlaced,
     utils::write_to_file,
 };
@@ -17,7 +16,6 @@ pub struct UnloadChunk(pub IVec2);
 
 pub fn spawn_new_terrain(
     mut commands: Commands,
-    asset_server: Res<AssetServer>,
     mut ev_load_chunk: MessageWriter<LoadChunk>,
     mut ev_spawn_dwellers: MessageWriter<SpawnDwellersOnChunk>,
 ) {
@@ -31,7 +29,7 @@ pub fn spawn_new_terrain(
         .collect::<String>();
 
     commands.insert_resource(SaveName(name));
-    init_tilemap(commands, asset_server);
+    init_tilemap(commands);
 
     ev_load_chunk.write(LoadChunk(IVec2::ZERO));
     ev_spawn_dwellers.write(SpawnDwellersOnChunk(IVec2::ZERO));
@@ -51,51 +49,49 @@ pub fn load_chunks(
 
     let mut loaded = vec![];
 
-    for LoadChunk(chunk_index) in ev_load.read() {
-        if loaded.contains(chunk_index) {
+    for LoadChunk(chunk_pos) in ev_load.read() {
+        if loaded.contains(chunk_pos) {
             continue;
         }
 
-        loaded.push(*chunk_index);
+        loaded.push(*chunk_pos);
 
-        if tilemap_data.chunks.contains_key(chunk_index) {
+        if tilemap_data.chunks.contains_key(chunk_pos) {
             continue;
         }
 
         // Try to load the chunk from the save
-        if let Some(chunk_data) = std::fs::read(format!(
-            "{save_folder}/{}_{}.bin",
-            chunk_index.x, chunk_index.y
-        ))
-        .ok()
-        .and_then(|data| bitcode::decode::<Vec<TilePlaced>>(&data).ok())
+        if let Some(chunk_data) =
+            std::fs::read(format!("{save_folder}/{}_{}.bin", chunk_pos.x, chunk_pos.y))
+                .ok()
+                .and_then(|data| bitcode::decode::<Vec<TilePlaced>>(&data).ok())
         {
-            debug!("Loading chunk {} from save file", chunk_index);
+            debug!("Loading chunk {} from save file", chunk_pos);
 
             // Load in TilemapData
-            tilemap_data.set_chunk(*chunk_index, chunk_data);
+            tilemap_data.set_chunk(*chunk_pos, chunk_data);
         } else {
             // If the chunk is not in the save, generate it
 
-            debug!("Generating chunk {}", chunk_index);
+            debug!("Generating chunk {}", chunk_pos);
 
-            let chunk_data = generate_terrain(&mut commands, seed, *chunk_index);
-            tilemap_data.set_chunk(*chunk_index, chunk_data);
+            let chunk_data = generate_terrain(&mut commands, seed, *chunk_pos);
+            tilemap_data.set_chunk(*chunk_pos, chunk_data);
         }
     }
 
-    for UnloadChunk(chunk_index) in ev_unload.read() {
-        let Some(chunk) = tilemap_data.chunks.get(chunk_index) else {
+    for UnloadChunk(chunk_pos) in ev_unload.read() {
+        let Some(chunk) = tilemap_data.chunks.get(chunk_pos) else {
             continue;
         };
 
-        debug!("Unloading chunk {}", chunk_index);
+        debug!("Unloading chunk {}", chunk_pos);
 
         let chunk_encoded = bitcode::encode(chunk);
 
         let save_folder = save_folder.clone();
-        let x = chunk_index.x;
-        let y = chunk_index.y;
+        let x = chunk_pos.x;
+        let y = chunk_pos.y;
 
         IoTaskPool::get()
             .spawn(async move {
@@ -103,6 +99,6 @@ pub fn load_chunks(
                 write_to_file(path, chunk_encoded);
             })
             .detach();
-        tilemap_data.remove_chunk(*chunk_index);
+        tilemap_data.remove_chunk(*chunk_pos);
     }
 }

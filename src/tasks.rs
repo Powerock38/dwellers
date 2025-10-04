@@ -10,15 +10,14 @@ use pathfinding::directed::astar::astar;
 use rand::Rng;
 
 use crate::{
-    ObjectSlot, SpriteLoader,
+    ObjectSlot, SpriteLoader, TilemapData,
     animation::TakingDamage,
     data::{EAT_VALUES, ObjectId, SLEEP_VALUES, TileId, WORKSTATIONS},
     dwellers::Dweller,
     mobs::Mob,
-    tilemap::{CHUNK_SIZE, TILE_SIZE},
-    tilemap_data::TilemapData,
+    tilemap_chunk::{CHUNK_SIZE, TILE_SIZE},
     tiles::TilePlaced,
-    utils::transform_to_index,
+    utils::transform_to_pos,
 };
 
 const Z_INDEX: f32 = 2.0;
@@ -351,7 +350,7 @@ pub fn event_task_completion(
             continue;
         };
 
-        let dweller_pos = transform_to_index(dweller_transform);
+        let dweller_pos = transform_to_pos(dweller_transform);
 
         let Some(tile) = tilemap_data.get(task.pos) else {
             continue;
@@ -906,7 +905,7 @@ pub fn update_pickups(
         }
     }
 
-    let task_indexes = DashSet::new();
+    let tasks_positions = DashSet::new();
 
     q_tasks.par_iter().for_each(|(task, task_needs)| {
         // Closure result enum
@@ -942,7 +941,7 @@ pub fn update_pickups(
                     .iter()
                     .filter_map(|(t, _)| {
                         if matches!(t.kind, TaskKind::Stockpile)
-                            && !task_indexes.contains(&t.pos)
+                            && !tasks_positions.contains(&t.pos)
                             && matches!(
                                 tilemap_data.get(t.pos),
                                 Some(TilePlaced {
@@ -975,7 +974,7 @@ pub fn update_pickups(
                         ));
                     });
 
-                    task_indexes.insert(pos);
+                    tasks_positions.insert(pos);
                     return TryFindObjectResult::Found;
                 }
 

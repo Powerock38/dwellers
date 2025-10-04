@@ -8,15 +8,14 @@ use bevy::{
 use rand::{Rng, seq::IndexedRandom};
 
 use crate::{
-    CHUNK_SIZE, LoadChunk, SpriteLoader, UnloadChunk,
+    CHUNK_SIZE, LoadChunk, SpriteLoader, TilemapData, UnloadChunk,
     data::ObjectId,
     objects::ObjectSlot,
     preview_sprites::{despawn_dweller_hover, observe_dweller_hover},
     random_text::{NAMES, generate_word},
     tasks::{BuildResult, Task, TaskCompletionEvent, TaskKind, TaskNeeds},
-    tilemap::TILE_SIZE,
-    tilemap_data::TilemapData,
-    utils::transform_to_index,
+    tilemap_chunk::TILE_SIZE,
+    utils::transform_to_pos,
 };
 
 const LOAD_CHUNKS_RADIUS: i32 = 1;
@@ -198,15 +197,15 @@ pub fn spawn_dwellers(
     tilemap_data: Res<TilemapData>,
     mut ev_spawn: MessageReader<SpawnDwellersOnChunk>,
 ) {
-    for SpawnDwellersOnChunk(chunk_index) in ev_spawn.read() {
+    for SpawnDwellersOnChunk(chunk_pos) in ev_spawn.read() {
         let Some(spawn_pos) = TilemapData::find_from_center_chunk_size(
-            TilemapData::local_index_to_global(*chunk_index, IVec2::splat(CHUNK_SIZE as i32 / 2)),
-            |index| {
+            TilemapData::local_pos_to_global(*chunk_pos, IVec2::splat(CHUNK_SIZE as i32 / 2)),
+            |pos| {
                 for dx in -1..=1 {
                     for dy in -1..=1 {
-                        let index = index + IVec2::new(dx, dy);
+                        let neigh_pos = pos + IVec2::new(dx, dy);
 
-                        let Some(tile) = tilemap_data.get(index) else {
+                        let Some(tile) = tilemap_data.get(neigh_pos) else {
                             return false;
                         };
 
@@ -280,7 +279,7 @@ pub fn update_dwellers(
             continue;
         }
 
-        let index = transform_to_index(transform);
+        let pos = transform_to_pos(transform);
 
         // Check if dweller has a task assigned in all tasks
         let task = q_tasks
@@ -291,12 +290,12 @@ pub fn update_dwellers(
             });
 
         if let Some((entity_task, mut task, _)) = task {
-            if task.reachable_positions.contains(&index) {
+            if task.reachable_positions.contains(&pos) {
                 // Reached task location
                 ev_task_completion.write(TaskCompletionEvent { task: entity_task });
             } else {
                 // Task moved, try to pathfind again
-                if let Some(path) = task.pathfind(index, &tilemap_data) {
+                if let Some(path) = task.pathfind(pos, &tilemap_data) {
                     debug!("Dweller {} can re-pathfind to {:?}", dweller.name, task);
                     dweller.move_queue = path;
                 } else {
@@ -312,7 +311,7 @@ pub fn update_dwellers(
         let mut rng = rand::rng();
 
         if rng.random_bool(0.2) {
-            let directions = tilemap_data.non_blocking_neighbours_pos(index, true);
+            let directions = tilemap_data.non_blocking_neighbours_pos(pos, true);
 
             if let Some(direction) = directions.choose(&mut rng) {
                 dweller.move_queue.push(*direction);
@@ -342,7 +341,7 @@ pub fn assign_tasks_to_dwellers(
                 && (!matches!(task.kind, TaskKind::Build { result } if result.is_blocking())
                     || !q_dwellers
                         .iter()
-                        .any(|(_, _, t)| task.pos == transform_to_index(t)))
+                        .any(|(_, _, t)| task.pos == transform_to_pos(t)))
         })
         .collect::<Vec<_>>();
 
@@ -352,8 +351,8 @@ pub fn assign_tasks_to_dwellers(
             if assigned_dwellers.contains(&entity) {
                 return None;
             }
-            let index = transform_to_index(transform);
-            Some((entity, dweller, index))
+            let pos = transform_to_pos(transform);
+            Some((entity, dweller, pos))
         })
         .collect::<Vec<_>>();
 
@@ -439,19 +438,19 @@ pub fn update_dwellers_load_chunks(
     let mut sent_event_for = vec![];
 
     for transform in &q_dwellers {
-        let index = transform_to_index(transform);
+        let pos = transform_to_pos(transform);
 
         // Load new chunks if needed
-        let (chunk_index, _) = TilemapData::index_to_chunk(index);
+        let (chunk_pos, _) = TilemapData::pos_to_chunk_pos_and_local_index(pos);
 
         for dx in -LOAD_CHUNKS_RADIUS..=LOAD_CHUNKS_RADIUS {
             for dy in -LOAD_CHUNKS_RADIUS..=LOAD_CHUNKS_RADIUS {
-                let chunk_index = chunk_index + IVec2::new(dx, dy);
+                let neigh_chunk_pos = chunk_pos + IVec2::new(dx, dy);
 
-                if !sent_event_for.contains(&chunk_index) {
-                    ev_load_chunk.write(LoadChunk(chunk_index));
-                    sent_event_for.push(chunk_index);
-                    chunks_ttl.insert(chunk_index, 10);
+                if !sent_event_for.contains(&neigh_chunk_pos) {
+                    ev_load_chunk.write(LoadChunk(neigh_chunk_pos));
+                    sent_event_for.push(neigh_chunk_pos);
+                    chunks_ttl.insert(neigh_chunk_pos, 10);
                 }
             }
         }
@@ -465,11 +464,11 @@ pub fn update_dwellers_load_chunks(
     tilemap_data
         .chunks
         .keys()
-        .filter(|chunk_index| {
-            !sent_event_for.contains(chunk_index) && !chunks_ttl.contains_key(*chunk_index)
+        .filter(|chunk_pos| {
+            !sent_event_for.contains(chunk_pos) && !chunks_ttl.contains_key(*chunk_pos)
         })
-        .for_each(|chunk_index| {
-            ev_unload_chunk.write(UnloadChunk(*chunk_index));
+        .for_each(|chunk_pos| {
+            ev_unload_chunk.write(UnloadChunk(*chunk_pos));
         });
 
     // Decrease chunk TTL

@@ -4,7 +4,7 @@ use bevy::{platform::collections::HashMap, prelude::*};
 
 use crate::{
     BG_PRIMARY, Task, TaskKind, TilePlaced, data::WORKSTATIONS, extract_ok,
-    tilemap_data::TilemapData,
+    TilemapData,
 };
 
 #[derive(Event)]

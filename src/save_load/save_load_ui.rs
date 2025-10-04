@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use crate::{
     GameState, LoadGame, SAVE_DIR, SaveGame, SaveName, UiButton, UiWindow, chunks::UnloadChunk,
-    tilemap_data::TilemapData,
+    TilemapData,
 };
 
 pub fn spawn_load_save_ui(
@@ -31,8 +31,8 @@ pub fn spawn_load_save_ui(
                             }
 
                             // Unload all chunks to save them to disk
-                            for chunk_index in tilemap_data.chunks.keys() {
-                                commands.write_message(UnloadChunk(*chunk_index));
+                            for chunk_pos in tilemap_data.chunks.keys() {
+                                commands.write_message(UnloadChunk(*chunk_pos));
                             }
 
                             // On `save_world` to save entities

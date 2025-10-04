@@ -1,6 +1,10 @@
 use bevy::{platform::collections::HashMap, prelude::*};
 
-use crate::{CHUNK_SIZE, TilePlaced, utils::div_to_floor};
+use crate::{CHUNK_SIZE, TilePlaced};
+
+pub fn init_tilemap(mut commands: Commands) {
+    commands.insert_resource(TilemapData::default());
+}
 
 #[derive(Resource, Default)]
 pub struct TilemapData {
@@ -10,65 +14,83 @@ pub struct TilemapData {
 }
 
 impl TilemapData {
-    pub fn index_to_chunk(index: IVec2) -> (IVec2, usize) {
-        let isize = IVec2::splat(CHUNK_SIZE as i32);
-        let chunk_index = div_to_floor(index, isize);
-        let idx = index - chunk_index * isize;
-        (chunk_index, (idx.y * isize.x + idx.x) as usize)
+    pub fn pos_to_chunk_pos_and_local_index(pos: IVec2) -> (IVec2, usize) {
+        let size = CHUNK_SIZE as i32;
+        let size_vec = IVec2::splat(size);
+
+        let chunk_pos = pos.div_euclid(size_vec);
+        let local = pos.rem_euclid(size_vec);
+
+        // flip y: index 0 at top row
+        let flipped_y = size - 1 - local.y;
+        let index = (flipped_y * size + local.x) as usize;
+
+        (chunk_pos, index)
     }
 
-    pub fn chunk_to_index(chunk_index: IVec2, local_index: usize) -> IVec2 {
-        chunk_index * CHUNK_SIZE as i32
-            + IVec2::new(
-                local_index as i32 % CHUNK_SIZE as i32,
-                local_index as i32 / CHUNK_SIZE as i32,
-            )
+    pub fn chunk_pos_and_local_index_to_pos(chunk_pos: IVec2, local_index: usize) -> IVec2 {
+        let size = CHUNK_SIZE as i32;
+        let local_x = (local_index as i32) % size;
+        let flipped_y = (local_index as i32) / size;
+        let local_y = size - 1 - flipped_y;
+
+        chunk_pos * size + IVec2::new(local_x, local_y)
     }
 
-    pub fn set(&mut self, index: IVec2, tile: TilePlaced) {
-        self.tiles_to_update.insert(index, tile);
-        self.tiles_to_update.extend(self.neighbours(index)); // necessary for lighting
+    pub fn local_pos_to_global(chunk_pos: IVec2, local_pos: IVec2) -> IVec2 {
+        chunk_pos * CHUNK_SIZE as i32 + local_pos
+    }
 
-        let idx = Self::index_to_chunk(index);
+    pub fn iter_chunk_positions(chunk_pos: IVec2) -> impl Iterator<Item = IVec2> {
+        (0..CHUNK_SIZE).rev().flat_map(move |y| {
+            (0..CHUNK_SIZE)
+                .map(move |x| Self::local_pos_to_global(chunk_pos, IVec2::new(x as i32, y as i32)))
+        })
+    }
+
+    pub fn set(&mut self, pos: IVec2, tile: TilePlaced) {
+        self.tiles_to_update.insert(pos, tile);
+        self.tiles_to_update.extend(self.neighbours(pos)); // necessary for lighting
+
+        let (chunk_pos, tile_index) = Self::pos_to_chunk_pos_and_local_index(pos);
         self.chunks
-            .entry(idx.0)
+            .entry(chunk_pos)
             .or_insert_with(|| vec![TilePlaced::default(); (CHUNK_SIZE * CHUNK_SIZE) as usize])
-            [idx.1] = tile;
+            [tile_index] = tile;
     }
 
-    pub fn get(&self, index: IVec2) -> Option<TilePlaced> {
-        let idx = Self::index_to_chunk(index);
-        self.chunks.get(&idx.0).and_then(|c| c.get(idx.1)).copied()
+    pub fn get(&self, pos: IVec2) -> Option<TilePlaced> {
+        let (chunk_pos, tile_index) = Self::pos_to_chunk_pos_and_local_index(pos);
+        self.chunks
+            .get(&chunk_pos)
+            .and_then(|c| c.get(tile_index))
+            .copied()
     }
 
-    pub fn set_chunk(&mut self, chunk_index: IVec2, chunk_data: Vec<TilePlaced>) {
+    pub fn set_chunk(&mut self, chunk_pos: IVec2, chunk_data: Vec<TilePlaced>) {
         self.tiles_to_update.extend(
             chunk_data
                 .iter()
                 .enumerate()
-                .map(|(i, tile)| (Self::chunk_to_index(chunk_index, i), *tile)),
+                .map(|(i, tile)| (Self::chunk_pos_and_local_index_to_pos(chunk_pos, i), *tile)),
         );
 
-        self.chunks.insert(chunk_index, chunk_data);
+        self.chunks.insert(chunk_pos, chunk_data);
     }
 
-    pub fn remove_chunk(&mut self, index: IVec2) -> Option<Vec<TilePlaced>> {
-        self.chunks_to_remove.push(index);
-        self.chunks.remove(&index)
-    }
-
-    pub fn local_index_to_global(chunk_index: IVec2, local_index: IVec2) -> IVec2 {
-        chunk_index * CHUNK_SIZE as i32 + local_index
+    pub fn remove_chunk(&mut self, pos: IVec2) -> Option<Vec<TilePlaced>> {
+        self.chunks_to_remove.push(pos);
+        self.chunks.remove(&pos)
     }
 
     pub fn neighbours(&self, pos: IVec2) -> Vec<(IVec2, TilePlaced)> {
         [IVec2::X, IVec2::Y, IVec2::NEG_X, IVec2::NEG_Y]
             .into_iter()
             .filter_map(|p| {
-                let index = pos + p;
+                let neigh_pos = pos + p;
 
-                if let Some(tile) = self.get(index) {
-                    return Some((index, tile));
+                if let Some(tile) = self.get(neigh_pos) {
+                    return Some((neigh_pos, tile));
                 }
 
                 None
@@ -80,13 +102,11 @@ impl TilemapData {
         let mut result: Vec<IVec2> = self
             .neighbours(pos)
             .into_iter()
-            .filter_map(|(index, tile)| {
-                if tile.is_blocking() {
-                    None
-                } else {
-                    Some(index)
-                }
-            })
+            .filter_map(
+                |(pos, tile)| {
+                    if tile.is_blocking() { None } else { Some(pos) }
+                },
+            )
             .collect();
 
         if diagonal {
@@ -97,13 +117,13 @@ impl TilemapData {
                 IVec2::new(-1, -1),
             ];
 
-            for diag_pos in DIAGONAL_DIRECTIONS {
-                let diag_index = pos + diag_pos;
+            for diag in DIAGONAL_DIRECTIONS {
+                let diag_pos = pos + diag;
 
-                if let Some(diag_tile) = self.get(diag_index)
+                if let Some(diag_tile) = self.get(diag_pos)
                     && !diag_tile.is_blocking()
                 {
-                    let adj_blocking = [IVec2::new(diag_pos.x, 0), IVec2::new(0, diag_pos.y)]
+                    let adj_blocking = [IVec2::new(diag.x, 0), IVec2::new(0, diag.y)]
                         .into_iter()
                         .any(|adj| {
                             self.get(pos + adj).is_none_or(|t| t.id.data().is_wall())
@@ -111,7 +131,7 @@ impl TilemapData {
                         });
 
                     if !adj_blocking {
-                        result.push(diag_index);
+                        result.push(diag_pos);
                     }
                 }
             }

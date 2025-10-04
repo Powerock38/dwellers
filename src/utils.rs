@@ -22,17 +22,6 @@ macro_rules! extract_some {
     };
 }
 
-pub fn div_to_floor(a: IVec2, b: IVec2) -> IVec2 {
-    let mut result = a / b;
-    if a.x % b.x != 0 && a.x < 0 {
-        result.x -= 1;
-    }
-    if a.y % b.y != 0 && a.y < 0 {
-        result.y -= 1;
-    }
-    result
-}
-
 pub fn write_to_file(path: String, content: impl AsRef<[u8]>) {
     let path = Path::new(&path);
     path.parent()
@@ -55,7 +44,7 @@ pub fn pascal_case_to_title_case(input: &str) -> String {
     result
 }
 
-pub fn transform_to_index(transform: &Transform) -> IVec2 {
+pub fn transform_to_pos(transform: &Transform) -> IVec2 {
     IVec2::new(
         (transform.translation.x / crate::TILE_SIZE) as i32,
         (transform.translation.y / crate::TILE_SIZE) as i32,

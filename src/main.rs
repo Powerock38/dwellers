@@ -1,12 +1,11 @@
 use std::time::Duration;
 
 use bevy::{log::LogPlugin, prelude::*, time::common_conditions::on_timer};
-use bevy_ecs_tilemap::TilemapPlugin;
 
 use crate::{
     actions::*, animation::*, camera::*, chunks::*, dwellers::*, dwellers_needs::*, mobs::*,
-    objects::*, preview_sprites::*, save_load::*, state::*, tasks::*, terrain::*, tilemap::*,
-    tiles::*, ui::*,
+    objects::*, preview_sprites::*, save_load::*, state::*, tasks::*, terrain::*, tilemap_chunk::*,
+    tilemap_data::*, tiles::*, tileset::*, ui::*,
 };
 
 mod actions;
@@ -25,9 +24,10 @@ mod state;
 mod structures;
 mod tasks;
 mod terrain;
-mod tilemap;
+mod tilemap_chunk;
 mod tilemap_data;
 mod tiles;
+mod tileset;
 mod ui;
 mod utils;
 
@@ -40,7 +40,6 @@ fn main() {
                     filter: "wgpu=error,naga=warn,dwellers=debug".into(),
                     ..default()
                 }),
-            TilemapPlugin,
             SaveLoadPlugin,
             // RemotePlugin::default(),
             // RemoteHttpPlugin::default().with_header("Access-Control-Allow-Origin", "*"),
@@ -58,10 +57,14 @@ fn main() {
             FixedUpdate,
             GameplaySet.run_if(in_state(GameState::Running)),
         )
-        .add_systems(Startup, (spawn_camera, spawn_new_terrain, spawn_ui))
+        .add_systems(
+            Startup,
+            (spawn_camera, spawn_new_terrain, spawn_ui, init_tileset),
+        )
         .add_systems(
             Update,
             (
+                wait_textures_load,
                 init_font,
                 update_ui_buttons,
                 update_workstation_ui,

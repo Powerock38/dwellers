@@ -1,4 +1,4 @@
-pub struct ObjectData {
+pub struct Object {
     filename: &'static str,
     blocking: bool,
     slot: ObjectSlot,
@@ -11,7 +11,7 @@ pub enum ObjectSlot {
     Armor(u32),
 }
 
-impl ObjectData {
+impl Object {
     const fn new(filename: &'static str, blocking: bool, slot: ObjectSlot) -> Self {
         Self {
             filename,

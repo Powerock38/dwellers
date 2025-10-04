@@ -4,9 +4,9 @@ use rand::prelude::*;
 use crate::{
     CHUNK_SIZE, SpriteLoader,
     data::{MobId, ObjectId},
-    tilemap::TILE_SIZE,
-    tilemap_data::TilemapData,
-    utils::transform_to_index,
+    tilemap_chunk::TILE_SIZE,
+    TilemapData,
+    utils::transform_to_pos,
 };
 
 const Z_INDEX: f32 = 11.0;
@@ -80,21 +80,21 @@ pub fn spawn_mobs(
 ) {
     let mut rng = rand::rng();
 
-    for SpawnMobsOnChunk(chunk_index) in ev_spawn.read() {
-        let Some(index) = TilemapData::find_from_center_chunk_size(
-            TilemapData::local_index_to_global(
-                *chunk_index,
+    for SpawnMobsOnChunk(chunk_pos) in ev_spawn.read() {
+        let Some(pos) = TilemapData::find_from_center_chunk_size(
+            TilemapData::local_pos_to_global(
+                *chunk_pos,
                 IVec2::new(
                     rng.random_range(0..CHUNK_SIZE as i32),
                     rng.random_range(0..CHUNK_SIZE as i32),
                 ),
             ),
-            |index| {
+            |pos| {
                 for dx in -1..=1 {
                     for dy in -1..=1 {
-                        let index = index + IVec2::new(dx, dy);
+                        let neigh_pos = pos + IVec2::new(dx, dy);
 
-                        let Some(tile) = tilemap_data.get(index) else {
+                        let Some(tile) = tilemap_data.get(neigh_pos) else {
                             return false;
                         };
 
@@ -114,11 +114,11 @@ pub fn spawn_mobs(
         let nb_boars = rng.random_range(1..=5);
 
         for _ in 0..nb_sheeps {
-            commands.spawn(MobBundle::new(MobId::Sheep, index));
+            commands.spawn(MobBundle::new(MobId::Sheep, pos));
         }
 
         for _ in 0..nb_boars {
-            commands.spawn(MobBundle::new(MobId::Boar, index));
+            commands.spawn(MobBundle::new(MobId::Boar, pos));
         }
     }
 }
@@ -129,13 +129,13 @@ pub fn update_mobs(mut q_mobs: Query<(&mut Mob, &Transform)>, tilemap_data: Res<
             continue;
         }
 
-        let index = transform_to_index(transform);
+        let pos = transform_to_pos(transform);
 
         // Wander around
         let mut rng = rand::rng();
 
         if rng.random_bool(0.2) {
-            let directions = tilemap_data.non_blocking_neighbours_pos(index, true);
+            let directions = tilemap_data.non_blocking_neighbours_pos(pos, true);
 
             if let Some(direction) = directions.choose(&mut rng) {
                 mob.move_queue.push(*direction);

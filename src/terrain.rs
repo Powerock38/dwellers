@@ -6,10 +6,9 @@ use noise::{
 use rand::{Rng, SeedableRng, rngs::StdRng};
 
 use crate::{
-    CHUNK_SIZE, MobBundle, SpawnMobsOnChunk,
+    CHUNK_SIZE, MobBundle, SpawnMobsOnChunk, TilemapData,
     data::{MobId, ObjectId, StructureId, TileId},
     tasks::{Task, TaskBundle, TaskKind, TaskNeeds},
-    tilemap_data::TilemapData,
     tiles::TilePlaced,
 };
 
@@ -49,9 +48,9 @@ const VEGETATION_SCALE: f64 = 0.5;
 const TREE_THRESHOLD: f64 = 0.4;
 const PLANT_THRESHOLD: f64 = 0.6;
 
-pub fn generate_terrain(commands: &mut Commands, seed: u32, chunk_index: IVec2) -> Vec<TilePlaced> {
+pub fn generate_terrain(commands: &mut Commands, seed: u32, chunk_pos: IVec2) -> Vec<TilePlaced> {
     let mut rng: StdRng =
-        SeedableRng::seed_from_u64((seed as i32 + chunk_index.x + chunk_index.y) as u64);
+        SeedableRng::seed_from_u64((seed as i32 + chunk_pos.x + chunk_pos.y) as u64);
     let noise_mountains = Billow::<Perlin>::new(seed);
     let noise_climate = Simplex::new(seed);
     let noise_structures = Simplex::new(seed + 1);
@@ -64,11 +63,11 @@ pub fn generate_terrain(commands: &mut Commands, seed: u32, chunk_index: IVec2) 
 
     // Generate mobs
     if noise_climate.get([
-        chunk_index.x as f64 * MOBS_SCALE,
-        chunk_index.y as f64 * MOBS_SCALE,
+        chunk_pos.x as f64 * MOBS_SCALE,
+        chunk_pos.y as f64 * MOBS_SCALE,
     ]) > MOBS_THRESHOLD
     {
-        commands.write_message(SpawnMobsOnChunk(chunk_index));
+        commands.write_message(SpawnMobsOnChunk(chunk_pos));
     }
 
     // Generate terrain
@@ -78,131 +77,125 @@ pub fn generate_terrain(commands: &mut Commands, seed: u32, chunk_index: IVec2) 
     let mut plainy_count = 0;
 
     // Generate tiles
-    for y in 0..CHUNK_SIZE {
-        for x in 0..CHUNK_SIZE {
-            let index =
-                TilemapData::local_index_to_global(chunk_index, IVec2::new(x as i32, y as i32));
+    for pos in TilemapData::iter_chunk_positions(chunk_pos) {
+        let u = pos.x as f64;
+        let v = pos.y as f64;
 
-            let u = index.x as f64;
-            let v = index.y as f64;
+        let climate_noise_value = noise_climate.get([u * CLIMATE_SCALE, v * CLIMATE_SCALE]);
 
-            let climate_noise_value = noise_climate.get([u * CLIMATE_SCALE, v * CLIMATE_SCALE]);
+        // Mountains
+        let mountain_noise_value = noise_mountains.get([u * MOUNTAINS_SCALE, v * MOUNTAINS_SCALE]);
 
-            // Mountains
-            let mountain_noise_value =
-                noise_mountains.get([u * MOUNTAINS_SCALE, v * MOUNTAINS_SCALE]);
+        // Ore
+        let ores_noise_value = noise_ores.get([u * ORES_SCALE, v * ORES_SCALE]);
 
-            // Ore
-            let ores_noise_value = noise_ores.get([u * ORES_SCALE, v * ORES_SCALE]);
+        if mountain_noise_value > MOUNTAINS_DIRT_THRESHOLD {
+            let mut tile = TileId::DirtWall.place();
 
-            if mountain_noise_value > MOUNTAINS_DIRT_THRESHOLD {
-                let mut tile = TileId::DirtWall.place();
-
-                if mountain_noise_value > MOUNTAINS_STONE_THRESHOLD {
-                    if ores_noise_value > ORES_THRESHOLD {
-                        tile = TileId::StoneWall.with(ObjectId::CopperOre);
-                    } else {
-                        tile = TileId::StoneWall.place();
-                    }
-
-                    // Caves
-                    let tunnels_noise_value =
-                        noise_caves_tunnels.get([u * CAVES_TUNNELS_SCALE, v * CAVES_TUNNELS_SCALE]);
-                    let rooms_noise_value =
-                        noise_caves_rooms.get([u * CAVES_ROOMS_SCALE, v * CAVES_ROOMS_SCALE]);
-
-                    if mountain_noise_value > MOUNTAINS_CAVES_THRESHOLD
-                        && (tunnels_noise_value < CAVES_TUNNELS_THRESHOLD
-                            || rooms_noise_value > CAVES_ROOMS_THRESHOLD)
-                    {
-                        tile = TileId::StoneFloor.place();
-                    }
-                }
-
-                // Lava
-                if mountain_noise_value > MOUNTAINS_LAVA_THRESHOLD {
-                    let lava_noise_value = noise_lava.get([u * LAVA_SCALE, v * LAVA_SCALE]);
-                    if lava_noise_value > LAVA_THRESHOLD {
-                        tile = TileId::Lava.place();
-                    }
-                }
-
-                tiles.push(tile);
-                mountainy_count += 1;
-
-                continue;
-            }
-
-            // Rivers
-            if mountain_noise_value < -RIVER_DEEP_THRESHOLD {
+            if mountain_noise_value > MOUNTAINS_STONE_THRESHOLD {
                 if ores_noise_value > ORES_THRESHOLD {
-                    tiles.push(TileId::Water.with(ObjectId::FishingSpot));
+                    tile = TileId::StoneWall.with(ObjectId::CopperOre);
                 } else {
-                    tiles.push(TileId::Water.place());
+                    tile = TileId::StoneWall.place();
                 }
-                continue;
+
+                // Caves
+                let tunnels_noise_value =
+                    noise_caves_tunnels.get([u * CAVES_TUNNELS_SCALE, v * CAVES_TUNNELS_SCALE]);
+                let rooms_noise_value =
+                    noise_caves_rooms.get([u * CAVES_ROOMS_SCALE, v * CAVES_ROOMS_SCALE]);
+
+                if mountain_noise_value > MOUNTAINS_CAVES_THRESHOLD
+                    && (tunnels_noise_value < CAVES_TUNNELS_THRESHOLD
+                        || rooms_noise_value > CAVES_ROOMS_THRESHOLD)
+                {
+                    tile = TileId::StoneFloor.place();
+                }
             }
 
-            if mountain_noise_value < -RIVER_THRESHOLD {
-                tiles.push(TileId::ShallowWater.place());
-                continue;
+            // Lava
+            if mountain_noise_value > MOUNTAINS_LAVA_THRESHOLD {
+                let lava_noise_value = noise_lava.get([u * LAVA_SCALE, v * LAVA_SCALE]);
+                if lava_noise_value > LAVA_THRESHOLD {
+                    tile = TileId::Lava.place();
+                }
             }
 
-            // River shores
-            if mountain_noise_value < -RIVER_SHORE_THRESHOLD {
-                tiles.push(TileId::SandFloor.place());
-                continue;
+            tiles.push(tile);
+            mountainy_count += 1;
+
+            continue;
+        }
+
+        // Rivers
+        if mountain_noise_value < -RIVER_DEEP_THRESHOLD {
+            if ores_noise_value > ORES_THRESHOLD {
+                tiles.push(TileId::Water.with(ObjectId::FishingSpot));
+            } else {
+                tiles.push(TileId::Water.place());
             }
+            continue;
+        }
 
-            // Vegetation
-            let vegetation_noise_value =
-                noise_vegetation.get([u * VEGETATION_SCALE, v * VEGETATION_SCALE]);
+        if mountain_noise_value < -RIVER_THRESHOLD {
+            tiles.push(TileId::ShallowWater.place());
+            continue;
+        }
 
-            let vegetation_zones_noise_value = noise_vegetation_zones
-                .get([u * VEGETATION_ZONES_SCALE, v * VEGETATION_ZONES_SCALE]);
+        // River shores
+        if mountain_noise_value < -RIVER_SHORE_THRESHOLD {
+            tiles.push(TileId::SandFloor.place());
+            continue;
+        }
 
-            let vegetation = if vegetation_zones_noise_value > VEGETATION_ZONES_THRESHOLD {
-                if vegetation_noise_value > TREE_THRESHOLD {
-                    if climate_noise_value > DESERT_THRESHOLD {
-                        Some(ObjectId::PalmTree)
-                    } else {
-                        Some(ObjectId::Tree)
-                    }
-                } else if vegetation_noise_value < -PLANT_THRESHOLD {
-                    if climate_noise_value > DESERT_THRESHOLD {
-                        Some(ObjectId::Cactus)
-                    } else {
-                        let bush_chance = vegetation_noise_value * 100.0 % 2.0;
-                        if bush_chance > -0.3 {
-                            Some(ObjectId::BerryBush)
-                        } else if bush_chance > -0.4 {
-                            Some(ObjectId::Bush)
-                        } else {
-                            Some(ObjectId::TallGrass)
-                        }
-                    }
+        // Vegetation
+        let vegetation_noise_value =
+            noise_vegetation.get([u * VEGETATION_SCALE, v * VEGETATION_SCALE]);
+
+        let vegetation_zones_noise_value =
+            noise_vegetation_zones.get([u * VEGETATION_ZONES_SCALE, v * VEGETATION_ZONES_SCALE]);
+
+        let vegetation = if vegetation_zones_noise_value > VEGETATION_ZONES_THRESHOLD {
+            if vegetation_noise_value > TREE_THRESHOLD {
+                if climate_noise_value > DESERT_THRESHOLD {
+                    Some(ObjectId::PalmTree)
                 } else {
-                    None
+                    Some(ObjectId::Tree)
                 }
-            } else if rng.random_bool(0.0002) {
-                Some(ObjectId::MobLair)
+            } else if vegetation_noise_value < -PLANT_THRESHOLD {
+                if climate_noise_value > DESERT_THRESHOLD {
+                    Some(ObjectId::Cactus)
+                } else {
+                    let bush_chance = vegetation_noise_value * 100.0 % 2.0;
+                    if bush_chance > -0.3 {
+                        Some(ObjectId::BerryBush)
+                    } else if bush_chance > -0.4 {
+                        Some(ObjectId::Bush)
+                    } else {
+                        Some(ObjectId::TallGrass)
+                    }
+                }
             } else {
                 None
-            };
-
-            let mut ground_tile = if climate_noise_value > DESERT_THRESHOLD {
-                TileId::SandFloor.place()
-            } else {
-                TileId::GrassFloor.place()
-            };
-
-            if let Some(object) = vegetation {
-                ground_tile = ground_tile.id.with(object);
             }
+        } else if rng.random_bool(0.0002) {
+            Some(ObjectId::MobLair)
+        } else {
+            None
+        };
 
-            tiles.push(ground_tile);
-            plainy_count += 1;
+        let mut ground_tile = if climate_noise_value > DESERT_THRESHOLD {
+            TileId::SandFloor.place()
+        } else {
+            TileId::GrassFloor.place()
+        };
+
+        if let Some(object) = vegetation {
+            ground_tile = ground_tile.id.with(object);
         }
+
+        tiles.push(ground_tile);
+        plainy_count += 1;
     }
 
     let mountainy = mountainy_count as f32 / (CHUNK_SIZE * CHUNK_SIZE) as f32 > 0.5;
@@ -210,8 +203,8 @@ pub fn generate_terrain(commands: &mut Commands, seed: u32, chunk_index: IVec2) 
 
     // Generate structures
     let structure_noise_value = noise_structures.get([
-        chunk_index.x as f64 * STRUCTURES_SCALE,
-        chunk_index.y as f64 * STRUCTURES_SCALE,
+        chunk_pos.x as f64 * STRUCTURES_SCALE,
+        chunk_pos.y as f64 * STRUCTURES_SCALE,
     ]);
 
     let mut structure = match structure_noise_value {
@@ -242,13 +235,13 @@ pub fn generate_terrain(commands: &mut Commands, seed: u32, chunk_index: IVec2) 
         rng.random_range(0..CHUNK_SIZE as i32 - structure_size.y),
     );
 
-    let structure_pos = TilemapData::local_index_to_global(chunk_index, structure_local_pos);
+    let structure_pos = TilemapData::local_pos_to_global(chunk_pos, structure_local_pos);
 
     for x in 0..structure.x_size() {
         for y in 0..structure.y_size() {
             if let Some(tile) = structure.get_tile(x, y) {
-                let index = structure_pos + IVec2::new(x as i32, y as i32);
-                let (_, i) = TilemapData::index_to_chunk(index);
+                let pos = structure_pos + IVec2::new(x as i32, y as i32);
+                let (_, i) = TilemapData::pos_to_chunk_pos_and_local_index(pos);
                 tiles[i] = *tile;
             }
         }
@@ -256,8 +249,8 @@ pub fn generate_terrain(commands: &mut Commands, seed: u32, chunk_index: IVec2) 
 
     // Add mobs to the structure
     for (pos, mob) in structure.mobs() {
-        let index = structure_pos + pos.as_ivec2();
-        commands.spawn(MobBundle::new(*mob, index));
+        let mob_pos = structure_pos + pos.as_ivec2();
+        commands.spawn(MobBundle::new(*mob, mob_pos));
     }
 
     tiles
@@ -274,100 +267,93 @@ pub fn update_terrain(
 
     let tasks_positions = q_tasks.iter().map(|task| task.pos).collect::<HashSet<_>>();
 
-    for (chunk_index, chunk) in &tilemap_data.chunks {
-        for x in 0..CHUNK_SIZE {
-            for y in 0..CHUNK_SIZE {
-                let pos = TilemapData::local_index_to_global(
-                    *chunk_index,
-                    IVec2::new(x as i32, y as i32),
-                );
+    for (chunk_pos, chunk) in &tilemap_data.chunks {
+        for pos in TilemapData::iter_chunk_positions(*chunk_pos) {
+            let (_, i) = TilemapData::pos_to_chunk_pos_and_local_index(pos);
+            let tile = chunk[i];
 
-                let (_, i) = TilemapData::index_to_chunk(pos);
-                let tile = chunk[i];
-
-                if let Some(object) = tile.object {
-                    match object {
-                        ObjectId::MobLair => {
-                            if rng.random_bool(0.001) {
-                                for (pos, tile) in tilemap_data.neighbours(pos) {
-                                    if tile.is_floor_free() && !tasks_positions.contains(&pos) {
-                                        commands.spawn(MobBundle::new(MobId::Snake, pos));
-                                        break;
-                                    }
+            if let Some(object) = tile.object {
+                match object {
+                    ObjectId::MobLair => {
+                        if rng.random_bool(0.001) {
+                            for (pos, tile) in tilemap_data.neighbours(pos) {
+                                if tile.is_floor_free() && !tasks_positions.contains(&pos) {
+                                    commands.spawn(MobBundle::new(MobId::Snake, pos));
+                                    break;
                                 }
                             }
                         }
-
-                        ObjectId::Farm => {
-                            let chance = match tile.id {
-                                TileId::GrassFloor => 0.03,
-                                _ => 0.01,
-                            };
-
-                            if rng.random_bool(chance) {
-                                to_set.push((pos, tile.id.with(ObjectId::WheatPlant)));
-                            }
-                        }
-
-                        ObjectId::Scarecrow => {
-                            if let Some(pos) = TilemapData::find_from_center(pos, 4, |pos| {
-                                if let Some(TilePlaced {
-                                    object: Some(ObjectId::WheatPlant),
-                                    ..
-                                }) = tilemap_data.get(pos)
-                                {
-                                    return !tasks_positions.contains(&pos);
-                                }
-
-                                false
-                            }) {
-                                commands.spawn(TaskBundle::new(
-                                    Task::new(pos, TaskKind::Harvest, None),
-                                    TaskNeeds::EmptyHands,
-                                ));
-                            }
-                        }
-
-                        ObjectId::Bush => {
-                            if rng.random_bool(0.005) {
-                                to_set.push((pos, tile.id.with(ObjectId::BerryBush)));
-                            }
-                        }
-
-                        ObjectId::Beehive => {
-                            if TilemapData::find_from_center(pos, 5, |pos| {
-                                matches!(
-                                    tilemap_data.get(pos),
-                                    Some(TilePlaced {
-                                        object: Some(ObjectId::BerryBush),
-                                        ..
-                                    })
-                                )
-                            })
-                            .is_some()
-                                && rng.random_bool(0.1)
-                            {
-                                for (pos, tile) in tilemap_data.neighbours(pos) {
-                                    if tile.is_floor_free() && !tasks_positions.contains(&pos) {
-                                        to_set.push((pos, tile.id.with(ObjectId::Honeycomb)));
-                                        commands.spawn(TaskBundle::new(
-                                            Task::new(pos, TaskKind::Pickup, None),
-                                            TaskNeeds::EmptyHands,
-                                        ));
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-
-                        _ => {}
                     }
+
+                    ObjectId::Farm => {
+                        let chance = match tile.id {
+                            TileId::GrassFloor => 0.03,
+                            _ => 0.01,
+                        };
+
+                        if rng.random_bool(chance) {
+                            to_set.push((pos, tile.id.with(ObjectId::WheatPlant)));
+                        }
+                    }
+
+                    ObjectId::Scarecrow => {
+                        if let Some(pos) = TilemapData::find_from_center(pos, 4, |pos| {
+                            if let Some(TilePlaced {
+                                object: Some(ObjectId::WheatPlant),
+                                ..
+                            }) = tilemap_data.get(pos)
+                            {
+                                return !tasks_positions.contains(&pos);
+                            }
+
+                            false
+                        }) {
+                            commands.spawn(TaskBundle::new(
+                                Task::new(pos, TaskKind::Harvest, None),
+                                TaskNeeds::EmptyHands,
+                            ));
+                        }
+                    }
+
+                    ObjectId::Bush => {
+                        if rng.random_bool(0.005) {
+                            to_set.push((pos, tile.id.with(ObjectId::BerryBush)));
+                        }
+                    }
+
+                    ObjectId::Beehive => {
+                        if TilemapData::find_from_center(pos, 5, |pos| {
+                            matches!(
+                                tilemap_data.get(pos),
+                                Some(TilePlaced {
+                                    object: Some(ObjectId::BerryBush),
+                                    ..
+                                })
+                            )
+                        })
+                        .is_some()
+                            && rng.random_bool(0.1)
+                        {
+                            for (pos, tile) in tilemap_data.neighbours(pos) {
+                                if tile.is_floor_free() && !tasks_positions.contains(&pos) {
+                                    to_set.push((pos, tile.id.with(ObjectId::Honeycomb)));
+                                    commands.spawn(TaskBundle::new(
+                                        Task::new(pos, TaskKind::Pickup, None),
+                                        TaskNeeds::EmptyHands,
+                                    ));
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    _ => {}
                 }
             }
         }
     }
 
-    for (index, tile) in to_set {
-        tilemap_data.set(index, tile);
+    for (pos, tile) in to_set {
+        tilemap_data.set(pos, tile);
     }
 }

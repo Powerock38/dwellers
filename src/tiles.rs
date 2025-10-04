@@ -22,12 +22,12 @@ impl TilePlaced {
     }
 }
 
-pub struct TileData {
+pub struct Tile {
     filename: &'static str,
     wall: bool,
 }
 
-impl TileData {
+impl Tile {
     const fn new(filename: &'static str, wall: bool) -> Self {
         Self { filename, wall }
     }

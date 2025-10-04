@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-bevy = "0.17"
+bevy = "0.17.2"
 bitcode = "0.6"
 dashmap = "6.1"
 noise = "0.9"

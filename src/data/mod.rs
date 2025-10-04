@@ -2,70 +2,70 @@ use std::sync::LazyLock;
 
 use bevy::{platform::collections::HashMap, prelude::*};
 
-use crate::{BuildResult, MobData, ObjectData, TileData, enum_map};
+use crate::{BuildResult, MobData, Object, Tile, enum_map};
 
 mod macros;
 mod structures;
 pub use structures::*;
 
 enum_map! {
-    ObjectId => ObjectData {
-        Wood = ObjectData::passable("wood"),
-        Hide = ObjectData::passable("hide"),
-        Tree = ObjectData::blocking_non_carriable("tree"),
-        Table = ObjectData::blocking("table"),
-        Stool = ObjectData::blocking("stool"),
-        Bed = ObjectData::passable("bed"),
-        Door = ObjectData::passable("door"),
-        Rock = ObjectData::passable("rock"),
-        TallGrass = ObjectData::passable_non_carriable("tall_grass"),
-        Seeds = ObjectData::passable("seeds"),
-        Farm = ObjectData::passable_non_carriable("farm"),
-        WheatPlant = ObjectData::passable_non_carriable("wheat_plant"),
-        Wheat = ObjectData::passable("wheat"),
-        Furnace = ObjectData::blocking("furnace"),
-        Bread = ObjectData::passable("bread"),
-        PalmTree = ObjectData::blocking_non_carriable("palm_tree"),
-        Cactus = ObjectData::passable_non_carriable("cactus"),
-        CopperOre = ObjectData::passable("copper_ore"),
-        CopperIngot = ObjectData::passable("copper_ingot"),
-        Forge = ObjectData::blocking("forge"),
-        Anvil = ObjectData::blocking("anvil"),
-        Grindstone = ObjectData::blocking("grindstone"),
-        Sword = ObjectData::tool("sword"),
-        Armor = ObjectData::armor("armor", 2),
-        Scarecrow = ObjectData::blocking("scarecrow"),
-        Haystack = ObjectData::blocking("haystack"),
-        FishingSpot = ObjectData::passable_non_carriable("fishing_spot"),
-        Fish = ObjectData::passable("fish"),
-        WaterBucket = ObjectData::passable("water_bucket"),
-        Bush = ObjectData::passable_non_carriable("bush"),
-        BerryBush = ObjectData::passable_non_carriable("berry_bush"),
-        Berries = ObjectData::passable("berries"),
-        Honeycomb = ObjectData::passable("honeycomb"),
-        Beehive = ObjectData::blocking("beehive"),
-        MeadVat = ObjectData::blocking("mead_vat"),
-        Hydromel = ObjectData::passable("hydromel"),
-        MobLair = ObjectData::blocking_non_carriable("mob_lair"),
+    ObjectId => Object {
+        Wood = Object::passable("wood"),
+        Hide = Object::passable("hide"),
+        Tree = Object::blocking_non_carriable("tree"),
+        Table = Object::blocking("table"),
+        Stool = Object::blocking("stool"),
+        Bed = Object::passable("bed"),
+        Door = Object::passable("door"),
+        Rock = Object::passable("rock"),
+        TallGrass = Object::passable_non_carriable("tall_grass"),
+        Seeds = Object::passable("seeds"),
+        Farm = Object::passable_non_carriable("farm"),
+        WheatPlant = Object::passable_non_carriable("wheat_plant"),
+        Wheat = Object::passable("wheat"),
+        Furnace = Object::blocking("furnace"),
+        Bread = Object::passable("bread"),
+        PalmTree = Object::blocking_non_carriable("palm_tree"),
+        Cactus = Object::passable_non_carriable("cactus"),
+        CopperOre = Object::passable("copper_ore"),
+        CopperIngot = Object::passable("copper_ingot"),
+        Forge = Object::blocking("forge"),
+        Anvil = Object::blocking("anvil"),
+        Grindstone = Object::blocking("grindstone"),
+        Sword = Object::tool("sword"),
+        Armor = Object::armor("armor", 2),
+        Scarecrow = Object::blocking("scarecrow"),
+        Haystack = Object::blocking("haystack"),
+        FishingSpot = Object::passable_non_carriable("fishing_spot"),
+        Fish = Object::passable("fish"),
+        WaterBucket = Object::passable("water_bucket"),
+        Bush = Object::passable_non_carriable("bush"),
+        BerryBush = Object::passable_non_carriable("berry_bush"),
+        Berries = Object::passable("berries"),
+        Honeycomb = Object::passable("honeycomb"),
+        Beehive = Object::blocking("beehive"),
+        MeadVat = Object::blocking("mead_vat"),
+        Hydromel = Object::passable("hydromel"),
+        MobLair = Object::blocking_non_carriable("mob_lair"),
     }
 }
 
 enum_map! {
-    TileId => TileData {
-        GrassFloor = TileData::floor("grass"),
-        StoneFloor = TileData::floor("stone"),
-        DungeonFloor = TileData::floor("dungeon"),
-        Bridge = TileData::floor("bridge"),
-        SandFloor = TileData::floor("sand"),
-        WoodFloor = TileData::floor("wood"),
-        ShallowWater = TileData::floor("shallow_water"),
+    TileId => Tile {
+        GrassFloor = Tile::floor("grass"),
+        StoneFloor = Tile::floor("stone"),
+        DungeonFloor = Tile::floor("dungeon"),
+        Bridge = Tile::floor("bridge"),
+        SandFloor = Tile::floor("sand"),
+        WoodFloor = Tile::floor("wood"),
+        ShallowWater = Tile::floor("shallow_water"),
 
-        Water = TileData::wall("water"),
-        Lava = TileData::wall("lava"),
-        DirtWall = TileData::wall("dirt"),
-        StoneWall = TileData::wall("stone"),
-        DungeonWall = TileData::wall("dungeon"),
-        WoodWall = TileData::wall("wood"),
+        Water = Tile::wall("water"),
+        Lava = Tile::wall("lava"),
+        DirtWall = Tile::wall("dirt"),
+        StoneWall = Tile::wall("stone"),
+        DungeonWall = Tile::wall("dungeon"),
+        WoodWall = Tile::wall("wood"),
     }
 }
 

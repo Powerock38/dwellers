@@ -6,10 +6,10 @@ use crate::{
     extract_ok, extract_some,
     mobs::{Mob, MobBundle},
     tasks::{BuildResult, Task, TaskBundle, TaskKind, TaskNeeds},
-    tilemap::TILE_SIZE,
-    tilemap_data::TilemapData,
+    tilemap_chunk::TILE_SIZE,
+    TilemapData,
     ui::{CoordinatesUi, UiButton},
-    utils::transform_to_index,
+    utils::transform_to_pos,
 };
 
 const MAX_ACTIONS: usize = 2048;
@@ -33,8 +33,8 @@ pub fn keyboard_current_action(
     keyboard_input: Res<ButtonInput<KeyCode>>,
 ) {
     if keyboard_input.just_pressed(KeyCode::Escape) {
-        if current_action.index_start.is_some() {
-            current_action.index_start = None;
+        if current_action.pos_start.is_some() {
+            current_action.pos_start = None;
         } else {
             if matches!(current_action.kind, ActionKind::Select) {
                 dwellers_selected.reset();
@@ -51,14 +51,14 @@ pub fn keyboard_current_action(
 #[derive(Resource, Default, Debug)]
 pub struct CurrentAction {
     pub kind: ActionKind,
-    pub index_start: Option<IVec2>,
+    pub pos_start: Option<IVec2>,
 }
 
 impl CurrentAction {
     pub fn new(kind: ActionKind) -> Self {
         Self {
             kind,
-            index_start: None,
+            pos_start: None,
         }
     }
 }
@@ -82,17 +82,17 @@ pub fn terrain_pointer_down(
                     camera_transform,
                     pointer_press.pointer_location.position
                 ));
-            let index = (world_position / TILE_SIZE).floor().as_ivec2();
+            let pos = (world_position / TILE_SIZE).floor().as_ivec2();
 
-            coordinates_ui.0 = format!("({}, {})", index.x, index.y);
+            coordinates_ui.0 = format!("({}, {})", pos.x, pos.y);
 
             // Start selection
-            current_action.index_start = Some(index);
+            current_action.pos_start = Some(pos);
         }
 
         PointerButton::Secondary => {
             // Cancel selection
-            current_action.index_start = None;
+            current_action.pos_start = None;
         }
 
         _ => {}
@@ -110,18 +110,19 @@ pub fn terrain_pointer_up(
     q_mobs: Query<(Entity, &Transform), With<Mob>>,
     mut q_dwellers: Query<(Entity, &mut Dweller, &Transform)>,
 ) {
-    let (camera, camera_transform) = extract_ok!(q_camera.single());
-    let world_position = extract_ok!(
-        camera.viewport_to_world_2d(camera_transform, pointer_release.pointer_location.position)
-    );
-    let index = (world_position / TILE_SIZE).floor().as_ivec2();
-
     if matches!(pointer_release.button, PointerButton::Primary) {
-        // Confirm selection
-        let index_start = extract_some!(current_action.index_start);
+        let (camera, camera_transform) = extract_ok!(q_camera.single());
+        let world_position = extract_ok!(
+            camera
+                .viewport_to_world_2d(camera_transform, pointer_release.pointer_location.position)
+        );
+        let pos_end = (world_position / TILE_SIZE).floor().as_ivec2();
 
-        let index_min = IVec2::new(index_start.x.min(index.x), index_start.y.min(index.y));
-        let index_max = IVec2::new(index_start.x.max(index.x), index_start.y.max(index.y));
+        // Confirm selection
+        let pos_start = extract_some!(current_action.pos_start);
+
+        let pos_min = IVec2::new(pos_start.x.min(pos_end.x), pos_start.y.min(pos_end.y));
+        let pos_max = IVec2::new(pos_start.x.max(pos_end.x), pos_start.y.max(pos_end.y));
 
         let mut max_tasks = match current_action.kind {
             ActionKind::Task(TaskKind::Walk) => {
@@ -138,12 +139,12 @@ pub fn terrain_pointer_up(
             dwellers_selected.reset();
         }
 
-        'index: for y in (index_min.y..=index_max.y).rev() {
-            for x in index_min.x..=index_max.x {
+        'positions: for y in (pos_min.y..=pos_max.y).rev() {
+            for x in pos_min.x..=pos_max.x {
                 let pos = IVec2::new(x, y);
 
                 if max_tasks == 0 {
-                    break 'index;
+                    break 'positions;
                 }
 
                 // Make sure there is a tile at this position
@@ -373,7 +374,7 @@ pub fn terrain_pointer_up(
 
                     ActionKind::Select => {
                         // if single click on workstation, open workstation ui
-                        if index_min == index_max
+                        if pos_min == pos_max
                             && let Some(entity) = q_tasks.iter().find_map(|(entity, task)| {
                                 if task.pos == pos { Some(entity) } else { None }
                             })
@@ -384,7 +385,7 @@ pub fn terrain_pointer_up(
 
                         // else select dwellers
                         for (entity, _, transform) in &q_dwellers {
-                            if pos == transform_to_index(transform) {
+                            if pos == transform_to_pos(transform) {
                                 dwellers_selected.add(entity);
                             }
                         }
@@ -410,7 +411,7 @@ pub fn terrain_pointer_up(
             }
         }
 
-        current_action.index_start = None;
+        current_action.pos_start = None;
     }
 }
 
@@ -420,16 +421,16 @@ pub fn terrain_draw_selection(
     q_windows: Query<&Window>,
     q_camera: Query<(&Camera, &GlobalTransform)>,
 ) {
-    if let Some(index_start) = current_action.index_start {
+    if let Some(pos_start) = current_action.pos_start {
         let (camera, camera_transform) = extract_ok!(q_camera.single());
         let window = extract_ok!(q_windows.single());
         let cursor_position = extract_some!(window.cursor_position());
         let world_position =
             extract_ok!(camera.viewport_to_world_2d(camera_transform, cursor_position));
-        let index = (world_position / TILE_SIZE).floor().as_ivec2();
+        let pos = (world_position / TILE_SIZE).floor().as_ivec2();
 
-        let from = Vec2::new(index_start.x as f32, index_start.y as f32) * TILE_SIZE;
-        let to = Vec2::new(index.x as f32, index.y as f32) * TILE_SIZE;
+        let from = Vec2::new(pos_start.x as f32, pos_start.y as f32) * TILE_SIZE;
+        let to = Vec2::new(pos.x as f32, pos.y as f32) * TILE_SIZE;
 
         let center = (from + to) / 2. + TILE_SIZE / 2.;
         let size = (to - from).abs() + TILE_SIZE / 2.;
