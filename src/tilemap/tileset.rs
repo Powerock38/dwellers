@@ -1,6 +1,6 @@
 use bevy::{asset::LoadedFolder, platform::collections::HashMap, prelude::*};
 
-use crate::{Object, Tile, tilemap_chunk::TILE_SIZE_U};
+use crate::{Object, TILE_SIZE_U, Tile};
 
 #[derive(Resource)]
 pub struct TilesFolder(pub Handle<LoadedFolder>);

@@ -6,10 +6,9 @@ use noise::{
 use rand::{Rng, SeedableRng, rngs::StdRng};
 
 use crate::{
-    CHUNK_SIZE, MobBundle, SpawnMobsOnChunk, TilemapData,
+    CHUNK_SIZE, MobBundle, SpawnMobsOnChunk, TilePlaced, TilemapData,
     data::{MobId, ObjectId, StructureId, TileId},
     tasks::{Task, TaskBundle, TaskKind, TaskNeeds},
-    tiles::TilePlaced,
 };
 
 const MOBS_SCALE: f64 = 0.1;

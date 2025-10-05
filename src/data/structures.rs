@@ -3,10 +3,9 @@ use std::sync::LazyLock;
 use bevy::{platform::collections::HashMap, prelude::*};
 
 use crate::{
+    StructureData, TilePlaced,
     data::{MobId, ObjectId, TileId},
     enum_map, structure_ascii,
-    structures::StructureData,
-    tiles::TilePlaced,
 };
 
 pub static ASCII_TILES: LazyLock<HashMap<char, TilePlaced>> = LazyLock::new(|| {

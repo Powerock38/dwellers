@@ -1,11 +1,12 @@
 use bevy::prelude::*;
 
 mod actions_ui;
-pub use actions_ui::*;
-mod workstation_ui;
-pub use workstation_ui::*;
 mod cheats_ui;
+mod workstation_ui;
+
+pub use actions_ui::*;
 pub use cheats_ui::*;
+pub use workstation_ui::*;
 
 pub fn init_font(asset_server: Res<AssetServer>, mut query: Query<&mut TextFont, Added<TextFont>>) {
     for mut font in &mut query {

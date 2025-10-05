@@ -10,13 +10,10 @@ use pathfinding::directed::astar::astar;
 use rand::Rng;
 
 use crate::{
-    ObjectSlot, SpriteLoader, TilemapData,
-    animation::TakingDamage,
+    CHUNK_SIZE, ObjectSlot, SpriteLoader, TILE_SIZE, TakingDamage, TilePlaced, TilemapData,
     data::{EAT_VALUES, ObjectId, SLEEP_VALUES, TileId, WORKSTATIONS},
     dwellers::Dweller,
     mobs::Mob,
-    tilemap_chunk::{CHUNK_SIZE, TILE_SIZE},
-    tiles::TilePlaced,
     utils::transform_to_pos,
 };
 

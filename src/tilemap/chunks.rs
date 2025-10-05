@@ -1,10 +1,9 @@
 use bevy::{prelude::*, tasks::IoTaskPool};
 
 use crate::{
-    SAVE_DIR, SaveName, SpawnDwellersOnChunk, TilemapData, init_tilemap,
+    SAVE_DIR, SaveName, SpawnDwellersOnChunk, TilePlaced, TilemapData, generate_terrain,
+    init_tilemap,
     random_text::{WORLD_NAMES, generate_word},
-    terrain::generate_terrain,
-    tiles::TilePlaced,
     utils::write_to_file,
 };
 

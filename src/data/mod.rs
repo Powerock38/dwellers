@@ -126,3 +126,6 @@ pub static SLEEP_VALUES: LazyLock<HashMap<ObjectId, i32>> = LazyLock::new(|| {
         (ObjectId::Table, 20),
     ])
 });
+
+pub static SPRITE_ANIMATIONS: LazyLock<HashMap<&'static str, (u32, f32)>> =
+    LazyLock::new(|| HashMap::from([("sprites/snake.png", (4, 0.2))]));

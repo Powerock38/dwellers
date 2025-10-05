@@ -1,13 +1,11 @@
 use bevy::prelude::*;
 
 use crate::{
-    Dweller, DwellersSelected, OpenWorkstationUi,
+    Dweller, DwellersSelected, OpenWorkstationUi, TILE_SIZE, TilemapData,
     data::{MobId, ObjectId, TileId},
     extract_ok, extract_some,
     mobs::{Mob, MobBundle},
     tasks::{BuildResult, Task, TaskBundle, TaskKind, TaskNeeds},
-    tilemap_chunk::TILE_SIZE,
-    TilemapData,
     ui::{CoordinatesUi, UiButton},
     utils::transform_to_pos,
 };

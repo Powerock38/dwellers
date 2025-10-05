@@ -3,31 +3,22 @@ use std::time::Duration;
 use bevy::{log::LogPlugin, prelude::*, time::common_conditions::on_timer};
 
 use crate::{
-    actions::*, animation::*, camera::*, chunks::*, dwellers::*, dwellers_needs::*, mobs::*,
-    objects::*, preview_sprites::*, save_load::*, state::*, tasks::*, terrain::*, tilemap_chunk::*,
-    tilemap_data::*, tiles::*, tileset::*, ui::*,
+    actions::*, camera::*, dwellers::*, dwellers_needs::*, mobs::*, save_load::*, sprites::*,
+    state::*, tasks::*, tilemap::*, ui::*,
 };
 
 mod actions;
-mod animation;
 mod camera;
-mod chunks;
 mod data;
 mod dwellers;
 mod dwellers_needs;
 mod mobs;
-mod objects;
-mod preview_sprites;
 mod random_text;
 mod save_load;
+mod sprites;
 mod state;
-mod structures;
 mod tasks;
-mod terrain;
-mod tilemap_chunk;
-mod tilemap_data;
-mod tiles;
-mod tileset;
+mod tilemap;
 mod ui;
 mod utils;
 
@@ -40,7 +31,6 @@ fn main() {
                     filter: "wgpu=error,naga=warn,dwellers=debug".into(),
                     ..default()
                 }),
-            SaveLoadPlugin,
             // RemotePlugin::default(),
             // RemoteHttpPlugin::default().with_header("Access-Control-Allow-Origin", "*"),
             // DebugPickingPlugin,
@@ -64,7 +54,11 @@ fn main() {
         .add_systems(
             Update,
             (
+                save_world,
+                load_world,
+                spawn_load_save_ui,
                 wait_textures_load,
+                scan_sprites_loaders,
                 init_font,
                 update_ui_buttons,
                 update_workstation_ui,
@@ -86,6 +80,7 @@ fn main() {
                     update_task_build_preview,
                     update_task_workstation_preview,
                     update_taking_damage,
+                    update_sprite_animation,
                 )
                     .in_set(GameplaySet),
             ),

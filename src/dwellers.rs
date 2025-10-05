@@ -8,13 +8,11 @@ use bevy::{
 use rand::{Rng, seq::IndexedRandom};
 
 use crate::{
-    CHUNK_SIZE, LoadChunk, SpriteLoader, TilemapData, UnloadChunk,
+    CHUNK_SIZE, LoadChunk, ObjectSlot, SpriteLoader, TILE_SIZE, TilemapData, UnloadChunk,
     data::ObjectId,
-    objects::ObjectSlot,
-    preview_sprites::{despawn_dweller_hover, observe_dweller_hover},
+    despawn_dweller_hover, observe_dweller_hover,
     random_text::{NAMES, generate_word},
     tasks::{BuildResult, Task, TaskCompletionEvent, TaskKind, TaskNeeds},
-    tilemap_chunk::TILE_SIZE,
     utils::transform_to_pos,
 };
 

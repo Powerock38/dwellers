@@ -2,10 +2,8 @@ use bevy::prelude::*;
 use rand::prelude::*;
 
 use crate::{
-    CHUNK_SIZE, SpriteLoader,
+    CHUNK_SIZE, SpriteLoader, TILE_SIZE, TilemapData,
     data::{MobId, ObjectId},
-    tilemap_chunk::TILE_SIZE,
-    TilemapData,
     utils::transform_to_pos,
 };
 
