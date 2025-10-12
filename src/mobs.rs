@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use rand::prelude::*;
 
 use crate::{
-    CHUNK_SIZE, SpriteLoader, TILE_SIZE, TilemapData,
+    CHUNK_SIZE, SaveScoped, SpriteLoader, TILE_SIZE, TilemapData,
     data::{MobId, ObjectId},
     utils::transform_to_pos,
 };
@@ -36,6 +36,7 @@ impl MobData {
 
 #[derive(Component, Reflect, Default)]
 #[reflect(Component, Default)]
+#[require(SaveScoped)]
 pub struct Mob {
     speed: f32,
     pub loot: ObjectId,

@@ -1,6 +1,8 @@
 use std::time::Duration;
 
-use bevy::{log::LogPlugin, prelude::*, time::common_conditions::on_timer};
+use bevy::{
+    log::LogPlugin, prelude::*, sprite_render::Material2dPlugin, time::common_conditions::on_timer,
+};
 
 use crate::{
     actions::*, camera::*, dwellers::*, dwellers_needs::*, mobs::*, save_load::*, sprites::*,
@@ -36,7 +38,7 @@ fn main() {
             // DebugPickingPlugin,
         ))
         // .insert_resource(bevy::dev_tools::picking_debug::DebugPickingMode::Normal)
-        .init_resource::<CameraControl>()
+        .add_plugins((Material2dPlugin::<ChunkWeatherMaterial>::default(),))
         .add_message::<LoadChunk>()
         .add_message::<UnloadChunk>()
         .add_message::<TaskCompletionEvent>()
@@ -81,6 +83,7 @@ fn main() {
                     update_task_workstation_preview,
                     update_taking_damage,
                     update_sprite_animation,
+                    update_weather,
                 )
                     .in_set(GameplaySet),
             ),
@@ -109,7 +112,9 @@ fn main() {
         .add_observer(terrain_pointer_up)
         .add_observer(observe_open_workstation_ui)
         .init_state::<GameState>()
+        .init_resource::<CameraControl>()
         .init_resource::<CurrentAction>()
         .init_resource::<DwellersSelected>()
+        .init_resource::<Weather>()
         .run();
 }

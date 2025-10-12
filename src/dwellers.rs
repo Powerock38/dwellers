@@ -8,11 +8,11 @@ use bevy::{
 use rand::{Rng, seq::IndexedRandom};
 
 use crate::{
-    CHUNK_SIZE, LoadChunk, ObjectSlot, SpriteLoader, TILE_SIZE, TilemapData, UnloadChunk,
+    BuildResult, CHUNK_SIZE, LoadChunk, ObjectSlot, SaveScoped, SpriteLoader, TILE_SIZE, Task,
+    TaskCompletionEvent, TaskKind, TaskNeeds, TilemapData, UnloadChunk,
     data::ObjectId,
     despawn_dweller_hover, observe_dweller_hover,
     random_text::{NAMES, generate_word},
-    tasks::{BuildResult, Task, TaskCompletionEvent, TaskKind, TaskNeeds},
     utils::transform_to_pos,
 };
 
@@ -32,6 +32,7 @@ pub struct SpawnDwellersOnChunk(pub IVec2);
 
 #[derive(Component, Reflect, Default)]
 #[reflect(Component, Default)]
+#[require(SaveScoped)]
 pub struct Dweller {
     pub name: String,
     pub move_queue: Vec<IVec2>, // next move is at the end

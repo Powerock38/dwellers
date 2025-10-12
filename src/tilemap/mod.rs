@@ -6,6 +6,7 @@ mod tilemap_chunk;
 mod tilemap_data;
 mod tiles;
 mod tileset;
+mod weather;
 
 pub use chunks::*;
 pub use objects::*;
@@ -15,3 +16,4 @@ pub use tilemap_chunk::*;
 pub use tilemap_data::*;
 pub use tiles::*;
 pub use tileset::*;
+pub use weather::*;

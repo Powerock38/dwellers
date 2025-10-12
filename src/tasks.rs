@@ -10,7 +10,8 @@ use pathfinding::directed::astar::astar;
 use rand::Rng;
 
 use crate::{
-    CHUNK_SIZE, ObjectSlot, SpriteLoader, TILE_SIZE, TakingDamage, TilePlaced, TilemapData,
+    CHUNK_SIZE, ObjectSlot, SaveScoped, SpriteLoader, TILE_SIZE, TakingDamage, TilePlaced,
+    TilemapData,
     data::{EAT_VALUES, ObjectId, SLEEP_VALUES, TileId, WORKSTATIONS},
     dwellers::Dweller,
     mobs::Mob,
@@ -189,6 +190,7 @@ pub enum TaskNeeds {
 
 #[derive(Component, Reflect, MapEntities, Default, Debug)]
 #[reflect(Component, MapEntities)]
+#[require(SaveScoped)]
 pub struct Task {
     id: u64,
     pub kind: TaskKind,

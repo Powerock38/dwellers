@@ -3,17 +3,30 @@ use bevy::{
     sprite_render::{AlphaMode2d, TileData, TilemapChunk, TilemapChunkTileData},
 };
 
-use crate::{TilePlaced, TilemapData, Tileset, utils::transform_to_pos};
+use crate::{
+    ChunkWeatherMaterial, SaveName, SaveScoped, TilePlaced, TilemapData, Tileset,
+    utils::transform_to_pos,
+};
 
 pub const TILE_SIZE_U: u32 = 16;
 pub const TILE_SIZE: f32 = TILE_SIZE_U as f32;
 pub const CHUNK_SIZE: u32 = 64;
 
+#[derive(Component, Default)]
+#[require(SaveScoped)]
+pub struct ChunkLayer;
+
 #[derive(Component)]
+#[require(ChunkLayer)]
 pub struct ChunkTileLayer;
 
 #[derive(Component)]
+#[require(ChunkLayer)]
 pub struct ChunkObjectLayer;
+
+#[derive(Component)]
+#[require(ChunkLayer)]
+pub struct ChunkWeatherLayer;
 
 fn new_tilemap(tileset: Handle<Image>, pos: Vec3) -> impl Bundle {
     (
@@ -35,16 +48,12 @@ fn chunk_pos_is_transform(chunk_pos: IVec2, transform: &Transform) -> bool {
 
 pub fn manage_chunks(
     mut commands: Commands,
-    q_chunks_tile_layer: Query<
-        (Entity, &Transform),
-        (With<ChunkTileLayer>, Without<ChunkObjectLayer>),
-    >,
-    q_chunks_object_layer: Query<
-        (Entity, &Transform),
-        (With<ChunkObjectLayer>, Without<ChunkTileLayer>),
-    >,
-    mut tilemap_data: ResMut<TilemapData>,
     tilemap_textures: If<Res<Tileset>>,
+    mut tilemap_data: ResMut<TilemapData>,
+    save_name: Res<SaveName>,
+    q_chunk_layers: Query<(Entity, &Transform), With<ChunkLayer>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ChunkWeatherMaterial>>,
 ) {
     let mut created_chunks = Vec::new();
 
@@ -56,7 +65,7 @@ pub fn manage_chunks(
         }
 
         // Check if the TilemapChunk exists
-        if q_chunks_tile_layer
+        if q_chunk_layers
             .iter()
             .any(|(_, t)| chunk_pos_is_transform(chunk_pos, t))
         {
@@ -82,24 +91,24 @@ pub fn manage_chunks(
             new_tilemap(tilemap_textures.texture.clone(), chunk_pos_f32.extend(1.0)),
         ));
 
+        // Weather layer
+        commands.spawn((
+            ChunkWeatherLayer,
+            Mesh2d(meshes.add(Rectangle::from_length(CHUNK_SIZE as f32 * TILE_SIZE))),
+            MeshMaterial2d(materials.add(ChunkWeatherMaterial::new(save_name.seed()))),
+            Transform::from_translation(chunk_pos_f32.extend(100.0)),
+        ));
+
         created_chunks.push(chunk_pos);
     }
 
     let chunks_to_remove = tilemap_data.chunks_to_remove.drain(..).collect::<Vec<_>>();
 
     for chunk_pos in chunks_to_remove {
-        if let Some((entity, _)) = q_chunks_tile_layer
-            .iter()
-            .find(|(_, t)| chunk_pos_is_transform(chunk_pos, t))
-        {
-            commands.entity(entity).despawn();
-        }
-
-        if let Some((entity, _)) = q_chunks_object_layer
-            .iter()
-            .find(|(_, t)| chunk_pos_is_transform(chunk_pos, t))
-        {
-            commands.entity(entity).despawn();
+        for (entity, transform) in q_chunk_layers {
+            if chunk_pos_is_transform(chunk_pos, transform) {
+                commands.entity(entity).despawn();
+            }
         }
     }
 }

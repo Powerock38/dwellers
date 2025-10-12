@@ -1,8 +1,8 @@
 use bevy::{prelude::*, tasks::IoTaskPool};
 
 use crate::{
-    ChunkObjectLayer, ChunkTileLayer, Dweller, GameState, Mob, SpriteLoader, Task, TilemapData,
-    init_tilemap, tasks::TaskNeeds, utils::write_to_file,
+    Dweller, GameState, Mob, SpriteLoader, Task, TilemapData, init_tilemap, tasks::TaskNeeds,
+    utils::write_to_file,
 };
 
 pub const SAVE_DIR: &str = "saves";
@@ -11,11 +11,20 @@ pub const SAVE_DIR: &str = "saves";
 #[reflect(Resource, Default)]
 pub struct SaveName(pub String);
 
+impl SaveName {
+    pub fn seed(&self) -> u32 {
+        self.0.as_bytes().iter().map(|b| *b as u32).sum()
+    }
+}
+
 #[derive(Resource)]
 pub struct SaveGame;
 
 #[derive(Resource)]
 pub struct LoadGame(pub String);
+
+#[derive(Component, Default)]
+pub struct SaveScoped;
 
 pub fn save_world(
     mut commands: Commands,
@@ -89,11 +98,7 @@ pub fn load_world(
     load_game: If<Res<LoadGame>>,
     mut scene_spawner: ResMut<SceneSpawner>,
     asset_server: Res<AssetServer>,
-    q_chunks_tile_layer: Query<Entity, With<ChunkTileLayer>>,
-    q_chunks_object_layer: Query<Entity, With<ChunkObjectLayer>>,
-    q_dwellers: Query<Entity, With<Dweller>>,
-    q_tasks: Query<Entity, With<Task>>,
-    q_mobs: Query<Entity, With<Mob>>,
+    q_save_scoped: Query<Entity, With<SaveScoped>>,
     mut next_state: ResMut<NextState<GameState>>,
 ) {
     if load_game.is_added() {
@@ -101,24 +106,8 @@ pub fn load_world(
         info!("Loading scene: {}", (*load_game).0);
 
         // Despawn current scene
-        for chunk_layer in q_chunks_tile_layer.iter() {
+        for chunk_layer in q_save_scoped.iter() {
             commands.entity(chunk_layer).despawn();
-        }
-
-        for chunk_layer in q_chunks_object_layer.iter() {
-            commands.entity(chunk_layer).despawn();
-        }
-
-        for dweller in q_dwellers.iter() {
-            commands.entity(dweller).despawn();
-        }
-
-        for task in q_tasks.iter() {
-            commands.entity(task).despawn();
-        }
-
-        for mob in q_mobs.iter() {
-            commands.entity(mob).despawn();
         }
 
         // Spawn new scene

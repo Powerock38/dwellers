@@ -42,7 +42,7 @@ pub fn load_chunks(
     save_name: Res<SaveName>,
 ) {
     // Seed is based on the save name
-    let seed = save_name.0.as_bytes().iter().map(|b| *b as u32).sum();
+    let seed = save_name.seed();
 
     let save_folder = format!("assets/{SAVE_DIR}/{}", save_name.0);
 
