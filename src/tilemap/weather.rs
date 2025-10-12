@@ -8,8 +8,12 @@ use rand::{Rng, SeedableRng, rngs::StdRng};
 
 use crate::save_load::SaveName;
 
+const DAY_LENGTH_SECS: f32 = 300.0;
+const WIND_CHANGE_CHANCE: f64 = 0.0001;
+
 #[derive(Resource, Default)]
 pub struct Weather {
+    pub elapsed_secs: f32,
     pub wind: Vec2,
     pub target_wind: Vec2,
 }
@@ -19,6 +23,8 @@ pub struct ChunkWeatherMaterial {
     #[uniform(0)]
     pub seed: u32,
     #[uniform(0)]
+    pub time_of_day: f32, // 0.0 (midnight) 0.5 (noon)
+    #[uniform(0)]
     pub wind: Vec2,
 }
 
@@ -26,6 +32,7 @@ impl ChunkWeatherMaterial {
     pub fn new(seed: u32) -> Self {
         Self {
             seed,
+            time_of_day: 0.0,
             wind: Vec2::default(),
         }
     }
@@ -63,15 +70,21 @@ pub fn update_weather(
         weather.target_wind = random_wind(save_name.seed());
     }
 
-    if rng.random_bool(0.0001) {
+    if rng.random_bool(WIND_CHANGE_CHANCE) {
         weather.target_wind = random_wind(save_name.seed());
     }
+
+    weather.elapsed_secs += time.delta_secs();
 
     let lerp_speed = 0.01 * time.delta_secs();
     weather.wind = weather.wind.lerp(weather.target_wind, lerp_speed);
 
+    // start in the morning
+    let time_of_day = (weather.elapsed_secs + DAY_LENGTH_SECS / 4.0) / DAY_LENGTH_SECS % 1.0;
+
     for material in query.iter() {
         let material = materials.get_mut(material).unwrap();
-        material.wind = weather.wind * time.elapsed_secs(); //TODO: save elapsed time in Weather, so it's consistent across saves
+        material.wind = weather.wind * weather.elapsed_secs;
+        material.time_of_day = time_of_day;
     }
 }
