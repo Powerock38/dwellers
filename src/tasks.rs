@@ -19,6 +19,7 @@ use crate::{
 };
 
 const Z_INDEX: f32 = 2.0;
+const ASTAR_MAX_NODES: usize = 1000;
 
 #[derive(PartialEq, Clone, Copy, Reflect, Default, Debug)]
 pub enum TaskKind {
@@ -261,14 +262,21 @@ impl Task {
 
     pub fn pathfind(&self, dweller_pos: IVec2, tilemap_data: &TilemapData) -> Option<Vec<IVec2>> {
         let goals: HashSet<IVec2> = self.reachable_positions.iter().copied().collect();
+        let mut nodes_explored = 0;
 
         astar(
             &dweller_pos,
             |p| {
+                nodes_explored += 1;
+                if nodes_explored > ASTAR_MAX_NODES {
+                    return vec![];
+                }
+
                 tilemap_data
                     .non_blocking_neighbours_pos(*p, true)
                     .into_iter()
                     .map(|neighbor| (neighbor, 1))
+                    .collect()
             },
             |p| {
                 goals
