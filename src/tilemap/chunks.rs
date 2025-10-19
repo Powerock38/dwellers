@@ -1,4 +1,7 @@
-use bevy::{platform::collections::HashSet, prelude::*};
+use bevy::{
+    platform::collections::{HashMap, HashSet},
+    prelude::*,
+};
 
 use crate::{
     SaveName, SpawnDwellersOnChunk, TilePlaced, TilemapData,
@@ -9,8 +12,10 @@ use crate::{
     sprites::SpriteLoader,
     tasks::{Task, TaskNeeds},
     tilemap::{CHUNK_SIZE, TILE_SIZE, Weather},
-    utils::write_to_file,
+    utils::{transform_to_pos, write_to_file},
 };
+
+const LOAD_CHUNKS_RADIUS: i32 = 1;
 
 #[derive(Message)]
 pub struct LoadChunk(pub IVec2);
@@ -161,4 +166,72 @@ pub fn load_chunks(
             }
         });
     }
+}
+
+pub fn chunks_with_dwellers_is_added(
+    mut commands: Commands,
+    chunks_with_dwellers: If<Res<ChunksWithDwellers>>,
+) {
+    // This is triggered when loading a save
+    if chunks_with_dwellers.is_added() {
+        debug!("Loading ChunksWithDwellers {:?}", (*chunks_with_dwellers).0);
+        for chunk_pos in &(*chunks_with_dwellers).0 {
+            commands.write_message(LoadChunk(*chunk_pos));
+        }
+    }
+}
+
+pub fn dwellers_load_chunks(
+    q_dwellers: Query<&Transform, With<Dweller>>,
+    tilemap_data: Res<TilemapData>,
+    mut ev_load_chunk: MessageWriter<LoadChunk>,
+    mut ev_unload_chunk: MessageWriter<SaveChunk>,
+    mut chunks_ttl: Local<HashMap<IVec2, u32>>,
+    mut chunks_with_dwellers: ResMut<ChunksWithDwellers>,
+) {
+    if q_dwellers.is_empty() {
+        return;
+    }
+    // Update ChunksWithDwellers
+    chunks_with_dwellers.0 = q_dwellers
+        .iter()
+        .map(|transform| {
+            let pos = transform_to_pos(transform);
+            let (chunk_pos, _) = TilemapData::pos_to_chunk_pos_and_local_index(pos);
+            chunk_pos
+        })
+        .collect();
+
+    // Track which chunks have been loaded
+    let mut chunks_just_loaded = HashSet::new();
+
+    // Load chunks around dwellers
+    for chunk_pos in &chunks_with_dwellers.0 {
+        for dx in -LOAD_CHUNKS_RADIUS..=LOAD_CHUNKS_RADIUS {
+            for dy in -LOAD_CHUNKS_RADIUS..=LOAD_CHUNKS_RADIUS {
+                let neigh_chunk_pos = chunk_pos + IVec2::new(dx, dy);
+                ev_load_chunk.write(LoadChunk(neigh_chunk_pos));
+                chunks_ttl.insert(neigh_chunk_pos, 10);
+                chunks_just_loaded.insert(neigh_chunk_pos);
+            }
+        }
+    }
+
+    // Unload chunks that:
+    // - Are currently loaded
+    // - Were not just loaded
+    // - TTL has expired
+    for chunk_pos in tilemap_data.chunks.keys() {
+        if !chunks_just_loaded.contains(chunk_pos) && !chunks_ttl.contains_key(chunk_pos) {
+            ev_unload_chunk.write(SaveChunk(*chunk_pos, true)); // despawn after save
+        }
+    }
+
+    // Decrease chunk TTL
+    for ttl in chunks_ttl.values_mut() {
+        *ttl = ttl.saturating_sub(1);
+    }
+
+    // Remove expired TTLs
+    chunks_ttl.retain(|_, ttl| *ttl > 0);
 }

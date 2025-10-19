@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use crate::{
     GameState, init_tilemap,
-    tilemap::{ChunksWithDwellers, LoadChunk, Weather},
+    tilemap::{ChunksWithDwellers, Weather},
     utils::write_to_file,
 };
 
@@ -49,11 +49,6 @@ pub fn save_resources(
     // Save resources with bevy reflection
     debug!("Saving resources: {}", save_name.0);
 
-    let app_type_registry = world.resource::<AppTypeRegistry>().clone();
-
-    // Small caveat: we save Children components referencing entities that are not saved.
-    // Could also happen with ChildOf, which may be even more problematic.
-
     let scene = DynamicSceneBuilder::from_world(world)
         .deny_all_resources()
         .allow_resource::<Weather>()
@@ -61,6 +56,7 @@ pub fn save_resources(
         .extract_resources()
         .build();
 
+    let app_type_registry = world.resource::<AppTypeRegistry>().clone();
     let type_registry = app_type_registry.read();
     match scene.serialize(&type_registry) {
         Ok(serialized) => {
@@ -109,17 +105,4 @@ pub fn load_game(
     init_tilemap(&mut commands, save_name);
 
     next_state.set(GameState::Running);
-}
-
-pub fn chunks_with_dwellers_is_added(
-    mut commands: Commands,
-    chunks_with_dwellers: If<Res<ChunksWithDwellers>>,
-) {
-    // This is triggered when loading a save
-    if chunks_with_dwellers.is_added() {
-        debug!("Loading ChunksWithDwellers {:?}", (*chunks_with_dwellers).0);
-        for chunk_pos in &(*chunks_with_dwellers).0 {
-            commands.write_message(LoadChunk(*chunk_pos));
-        }
-    }
 }
