@@ -1,20 +1,20 @@
 use bevy::prelude::*;
 
 use crate::{
+    TilemapData,
     data::EAT_VALUES,
     dwellers::{Dweller, NEEDS_MAX},
     tasks::{Task, TaskBundle, TaskKind, TaskNeeds},
-    TilemapData,
     utils::transform_to_pos,
 };
 
 pub fn update_dweller_needs(
     mut commands: Commands,
     tilemap_data: Res<TilemapData>,
-    mut q_needs: Query<(Entity, &mut Dweller, &Transform)>,
+    mut q_needs: Query<(&mut Dweller, &Transform)>,
     q_tasks: Query<&Task>,
 ) {
-    for (entity, mut dweller, transform) in &mut q_needs {
+    for (mut dweller, transform) in &mut q_needs {
         if dweller.health == 0 {
             continue;
         }
@@ -24,7 +24,10 @@ pub fn update_dweller_needs(
         dweller.sleep(-1);
 
         // If they are not working on something already... (especially an Eat / Sleep task)
-        if q_tasks.iter().any(|task| task.dweller == Some(entity)) {
+        if q_tasks
+            .iter()
+            .any(|task| task.dweller_id == Some(dweller.id))
+        {
             continue;
         }
 
@@ -42,12 +45,12 @@ pub fn update_dweller_needs(
                         .iter()
                         .filter(|t| {
                             !(matches!(t.kind, TaskKind::Pickup | TaskKind::Stockpile)
-                                && t.dweller.is_none())
+                                && t.dweller_id.is_none())
                         })
                         .any(|t| t.pos == pos)
             }) {
                 commands.spawn(TaskBundle::new(
-                    Task::new(pos, TaskKind::Eat, Some(entity)).with_priority(1),
+                    Task::new(pos, TaskKind::Eat, Some(dweller.id)).with_priority(1),
                     TaskNeeds::Nothing,
                 ));
             }
@@ -62,7 +65,7 @@ pub fn update_dweller_needs(
             })
         {
             commands.spawn(TaskBundle::new(
-                Task::new(pos, TaskKind::Sleep, Some(entity)).with_priority(1),
+                Task::new(pos, TaskKind::Sleep, Some(dweller.id)).with_priority(1),
                 TaskNeeds::Nothing,
             ));
         }

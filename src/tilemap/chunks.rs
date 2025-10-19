@@ -130,7 +130,7 @@ pub fn load_chunks(
                 .deny_all_components()
                 .allow_component::<Dweller>()
                 .allow_component::<Mob>()
-                .allow_component::<Task>() //FIXME: dwellers assigned to a task in another chunk are not correctly saved
+                .allow_component::<Task>()
                 .allow_component::<TaskNeeds>()
                 .allow_component::<SpriteLoader>()
                 .allow_component::<Transform>()

@@ -2,6 +2,7 @@ use std::collections::BinaryHeap;
 
 use bevy::{platform::collections::HashSet, prelude::*, sprite::Anchor};
 use rand::{Rng, seq::IndexedRandom};
+use uuid::Uuid;
 
 use crate::{
     BuildResult, CHUNK_SIZE, ObjectSlot, SaveScoped, SpriteLoader, TILE_SIZE, Task,
@@ -28,6 +29,7 @@ pub struct SpawnDwellersOnChunk(pub IVec2);
 #[reflect(Component, Default)]
 #[require(Name::new("dweller"), SaveScoped)]
 pub struct Dweller {
+    pub id: Uuid,
     pub name: String,
     pub move_queue: Vec<IVec2>, // next move is at the end
     pub object: Option<ObjectId>,
@@ -42,6 +44,7 @@ pub struct Dweller {
 impl Dweller {
     pub fn new(name: String) -> Self {
         Self {
+            id: Uuid::new_v4(),
             name,
             move_queue: Vec::new(),
             object: None,
@@ -262,12 +265,12 @@ pub fn spawn_dwellers_name(
 }
 
 pub fn update_dwellers(
-    mut q_dwellers: Query<(Entity, &mut Dweller, &Transform)>,
+    mut q_dwellers: Query<(&mut Dweller, &Transform)>,
     tilemap_data: Res<TilemapData>,
     mut q_tasks: Query<(Entity, &mut Task, &TaskNeeds)>,
     mut ev_task_completion: MessageWriter<TaskCompletionEvent>,
 ) {
-    for (entity, mut dweller, transform) in &mut q_dwellers {
+    for (mut dweller, transform) in &mut q_dwellers {
         if !dweller.move_queue.is_empty() {
             continue;
         }
@@ -279,7 +282,7 @@ pub fn update_dwellers(
             .iter_mut()
             .sort::<&Task>()
             .find(|(_, task, task_needs)| {
-                task.dweller == Some(entity) && dweller.can_do(task.kind, task_needs)
+                task.dweller_id == Some(dweller.id) && dweller.can_do(task.kind, task_needs)
             });
 
         if let Some((entity_task, mut task, _)) = task {
@@ -293,7 +296,7 @@ pub fn update_dwellers(
                     dweller.move_queue = path;
                 } else {
                     info!("Dweller {} gives up {:?}", dweller.name, task);
-                    task.dweller = None;
+                    task.dweller_id = None;
                 }
             }
 
@@ -315,44 +318,44 @@ pub fn update_dwellers(
 
 pub fn assign_tasks_to_dwellers(
     tilemap_data: Res<TilemapData>,
-    mut q_dwellers: Query<(Entity, &mut Dweller, &Transform)>,
+    mut q_dwellers: Query<(&mut Dweller, &Transform)>,
     mut q_tasks: Query<(Entity, &mut Task, &TaskNeeds)>,
 ) {
     // Collect unassigned dwellers and tasks
-    let assigned_dwellers: HashSet<_> = q_tasks
+    let assigned_dwellers = q_tasks
         .iter()
-        .filter_map(|(_, task, _)| task.dweller)
-        .collect();
+        .filter_map(|(_, task, _)| task.dweller_id)
+        .collect::<HashSet<_>>();
 
     let mut tasks = q_tasks
         .iter_mut()
         .filter(|(_, task, _)| {
-            task.dweller.is_none()
+            task.dweller_id.is_none()
                 && !task.reachable_positions.is_empty()
                 && task.reachable_pathfinding
                 // Do not assign tasks that will produce a blocking object where a dweller is standing
                 && (!matches!(task.kind, TaskKind::Build { result } if result.is_blocking())
                     || !q_dwellers
                         .iter()
-                        .any(|(_, _, t)| task.pos == transform_to_pos(t)))
+                        .any(|(_, t)| task.pos == transform_to_pos(t)))
         })
         .collect::<Vec<_>>();
 
     let mut dwellers = q_dwellers
         .iter_mut()
-        .filter_map(|(entity, dweller, transform)| {
-            if assigned_dwellers.contains(&entity) {
+        .filter_map(|(dweller, transform)| {
+            if assigned_dwellers.contains(&dweller.id) {
                 return None;
             }
             let pos = transform_to_pos(transform);
-            Some((entity, dweller, pos))
+            Some((dweller, pos))
         })
         .collect::<Vec<_>>();
 
     // Compute all distances
     let mut heap = BinaryHeap::new();
 
-    for (dweller_i, (_, _, dweller_pos)) in dwellers.iter().enumerate() {
+    for (dweller_i, (_, dweller_pos)) in dwellers.iter().enumerate() {
         for (task_i, (_, task, _)) in tasks.iter().enumerate() {
             let distance = (dweller_pos.x - task.pos.x).abs() + (dweller_pos.y - task.pos.y).abs();
             heap.push((task.priority, -distance, dweller_i, task_i));
@@ -369,7 +372,7 @@ pub fn assign_tasks_to_dwellers(
         }
 
         let (_, task, task_needs) = &mut tasks[task_i];
-        let (dweller_entity, dweller, dweller_pos) = &mut dwellers[dweller_i];
+        let (dweller, dweller_pos) = &mut dwellers[dweller_i];
 
         if !dweller.can_do(task.kind, task_needs) {
             continue;
@@ -377,7 +380,7 @@ pub fn assign_tasks_to_dwellers(
 
         // Try pathfinding to task
         if let Some(path) = task.pathfind(*dweller_pos, &tilemap_data) {
-            task.dweller = Some(*dweller_entity);
+            task.dweller_id = Some(dweller.id);
             dweller.move_queue = path;
 
             assigned_dwellers.insert(dweller_i);

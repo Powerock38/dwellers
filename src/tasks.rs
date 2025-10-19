@@ -1,13 +1,10 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use bevy::{
-    ecs::{entity::MapEntities, reflect::ReflectMapEntities},
-    platform::collections::HashSet,
-    prelude::*,
-};
+use bevy::{platform::collections::HashSet, prelude::*};
 use dashmap::DashSet;
 use pathfinding::directed::astar::astar;
 use rand::Rng;
+use uuid::Uuid;
 
 use crate::{
     CHUNK_SIZE, ObjectSlot, SaveScoped, SpriteLoader, TILE_SIZE, TakingDamage, TilePlaced,
@@ -189,8 +186,8 @@ pub enum TaskNeeds {
     Impossible,
 }
 
-#[derive(Component, Reflect, MapEntities, Default, Debug)]
-#[reflect(Component, MapEntities)]
+#[derive(Component, Reflect, Default, Debug)]
+#[reflect(Component)]
 #[require(Name::new("task"), SaveScoped)]
 pub struct Task {
     id: u64,
@@ -198,8 +195,7 @@ pub struct Task {
     pub pos: IVec2,
     pub reachable_pathfinding: bool,
     pub reachable_positions: Vec<IVec2>,
-    #[entities]
-    pub dweller: Option<Entity>,
+    pub dweller_id: Option<Uuid>, // Dweller id, because Entity is different accross chunk saves
     pub priority: i32,
 }
 
@@ -224,7 +220,7 @@ impl PartialEq for Task {
 impl Eq for Task {}
 
 impl Task {
-    pub fn new(pos: IVec2, kind: TaskKind, dweller: Option<Entity>) -> Self {
+    pub fn new(pos: IVec2, kind: TaskKind, dweller_id: Option<Uuid>) -> Self {
         Self {
             id: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
@@ -234,7 +230,7 @@ impl Task {
             pos,
             reachable_pathfinding: true,
             reachable_positions: vec![],
-            dweller,
+            dweller_id,
             priority: 0,
         }
     }
@@ -306,7 +302,7 @@ pub fn update_new_tasks(
 pub fn update_unreachable_tasks(tilemap_data: Res<TilemapData>, mut q_tasks: Query<&mut Task>) {
     if tilemap_data.is_changed() {
         q_tasks.par_iter_mut().for_each(|mut task| {
-            if task.reachable_positions.is_empty() || task.dweller.is_none() {
+            if task.reachable_positions.is_empty() || task.dweller_id.is_none() {
                 task.recompute_reachable_positions(&tilemap_data);
             }
         });
@@ -351,9 +347,11 @@ pub fn event_task_completion(
             continue;
         };
 
-        let Some((mut dweller, dweller_transform)) =
-            task.dweller.and_then(|d| q_dwellers.get_mut(d).ok())
-        else {
+        let Some((mut dweller, dweller_transform)) = task.dweller_id.and_then(|dweller_id| {
+            q_dwellers
+                .iter_mut()
+                .find(|(dweller, _)| dweller.id == dweller_id)
+        }) else {
             continue;
         };
 
@@ -826,7 +824,7 @@ pub fn event_task_completion(
             if remove_task {
                 commands.entity(entity).try_despawn();
             } else {
-                task.dweller = None;
+                task.dweller_id = None;
             }
         }
     }
@@ -868,7 +866,7 @@ pub fn update_pickups(
     par_commands: ParallelCommands,
     tilemap_data: Res<TilemapData>,
     q_tasks: Query<(Ref<Task>, Ref<TaskNeeds>)>,
-    q_dwellers: Query<(Entity, &Dweller)>,
+    q_dwellers: Query<&Dweller>,
 ) {
     // FIXME: task.is_changed() || task_needs.is_changed() seems to always return true
     let mut updated = false;
@@ -898,11 +896,11 @@ pub fn update_pickups(
 
     // Precompute dwellers with an object, not working on a task that needs it
     let mut dwellers_candidates = HashSet::new();
-    for (entity_dweller, dweller) in &q_dwellers {
+    for dweller in &q_dwellers {
         if let Some(object) = dweller.object {
             let not_working_on_task_that_needs_it =
                 !q_tasks.iter().any(|(t, tn)| {
-                    t.dweller == Some(entity_dweller)
+                    t.dweller_id == Some(dweller.id)
                         && matches!(tn.into_inner(), TaskNeeds::Objects(objects) if objects.iter().any(|object| dweller.object == Some(*object)))
                 });
 
@@ -922,7 +920,7 @@ pub fn update_pickups(
             NotFound,
         }
 
-        if task.dweller.is_some()
+        if task.dweller_id.is_some()
             || matches!(
                 task.kind,
                 TaskKind::Stockpile | TaskKind::Workstation { amount: 0 }

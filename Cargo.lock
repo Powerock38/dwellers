@@ -2248,6 +2248,7 @@ dependencies = [
  "noise",
  "pathfinding",
  "rand 0.9.2",
+ "uuid",
 ]
 
 [[package]]
