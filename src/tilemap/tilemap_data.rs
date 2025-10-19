@@ -1,8 +1,9 @@
 use bevy::{platform::collections::HashMap, prelude::*};
 
-use crate::{CHUNK_SIZE, TilePlaced};
+use crate::{CHUNK_SIZE, TilePlaced, save_load::SaveName};
 
-pub fn init_tilemap(mut commands: Commands) {
+pub fn init_tilemap(commands: &mut Commands, save_name: SaveName) {
+    commands.insert_resource(save_name);
     commands.insert_resource(TilemapData::default());
 }
 

@@ -33,14 +33,14 @@ fn main() {
                     filter: "wgpu=error,naga=warn,dwellers=debug".into(),
                     ..default()
                 }),
-            // RemotePlugin::default(),
-            // RemoteHttpPlugin::default().with_header("Access-Control-Allow-Origin", "*"),
+            bevy::remote::RemotePlugin::default(),
+            bevy::remote::http::RemoteHttpPlugin::default(),
             // DebugPickingPlugin,
         ))
         // .insert_resource(bevy::dev_tools::picking_debug::DebugPickingMode::Normal)
         .add_plugins((Material2dPlugin::<ChunkWeatherMaterial>::default(),))
         .add_message::<LoadChunk>()
-        .add_message::<UnloadChunk>()
+        .add_message::<SaveChunk>()
         .add_message::<TaskCompletionEvent>()
         .add_message::<SpawnDwellersOnChunk>()
         .add_message::<SpawnMobsOnChunk>()
@@ -56,8 +56,7 @@ fn main() {
         .add_systems(
             Update,
             (
-                save_world,
-                load_world,
+                chunks_with_dwellers_is_added,
                 spawn_load_save_ui,
                 wait_textures_load,
                 scan_sprites_loaders,
@@ -111,10 +110,11 @@ fn main() {
         .add_observer(terrain_pointer_down)
         .add_observer(terrain_pointer_up)
         .add_observer(observe_open_workstation_ui)
+        .add_observer(load_game)
+        .add_observer(save_resources)
         .init_state::<GameState>()
         .init_resource::<CameraControl>()
         .init_resource::<CurrentAction>()
         .init_resource::<DwellersSelected>()
-        .init_resource::<Weather>()
         .run();
 }

@@ -36,7 +36,7 @@ impl MobData {
 
 #[derive(Component, Reflect, Default)]
 #[reflect(Component, Default)]
-#[require(SaveScoped)]
+#[require(Name::new("mob"), SaveScoped)]
 pub struct Mob {
     speed: f32,
     pub loot: ObjectId,

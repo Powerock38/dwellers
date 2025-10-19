@@ -1,7 +1,8 @@
 use bevy::prelude::*;
 
 use crate::{
-    GameState, LoadGame, SAVE_DIR, SaveGame, SaveName, TilemapData, UiButton, UiWindow, UnloadChunk,
+    GameState, LoadGame, SAVE_DIR, SaveChunk, SaveName, TilemapData, UiButton, UiWindow,
+    save_load::SaveResources,
 };
 
 pub fn spawn_load_save_ui(
@@ -25,17 +26,17 @@ pub fn spawn_load_save_ui(
                          mut commands: Commands,
                          tilemap_data: Res<TilemapData>,
                          q_windows: Query<Entity, With<UiWindow>>| {
+                            // Unload all chunks to save them to disk
+                            for chunk_pos in tilemap_data.chunks.keys() {
+                                commands.write_message(SaveChunk(*chunk_pos, false));
+                            }
+                            // Trigger saving of resources
+                            commands.trigger(SaveResources);
+
+                            // Close the load/save window
                             if let Some(window) = q_windows.iter().next() {
                                 commands.entity(window).despawn();
                             }
-
-                            // Unload all chunks to save them to disk
-                            for chunk_pos in tilemap_data.chunks.keys() {
-                                commands.write_message(UnloadChunk(*chunk_pos));
-                            }
-
-                            // On `save_world` to save entities
-                            commands.insert_resource(SaveGame);
                         },
                     );
 
@@ -62,8 +63,10 @@ pub fn spawn_load_save_ui(
                                 move |_: On<Pointer<Click>>,
                                 mut commands: Commands,
                                 q_windows: Query<Entity, With<UiWindow>>| {
-                                    commands.insert_resource(LoadGame(save_file.clone()));
+                                    // Trigger the loading of the selected save
+                                    commands.trigger(LoadGame(save_file.clone()));
 
+                                    // Close the load/save window
                                     if let Some(window) = q_windows.iter().next() {
                                         commands.entity(window).despawn();
                                     }

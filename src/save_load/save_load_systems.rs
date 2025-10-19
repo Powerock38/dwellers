@@ -1,7 +1,8 @@
-use bevy::{prelude::*, tasks::IoTaskPool};
+use bevy::prelude::*;
 
 use crate::{
-    Dweller, GameState, Mob, SpriteLoader, Task, TilemapData, init_tilemap, tasks::TaskNeeds,
+    GameState, init_tilemap,
+    tilemap::{ChunksWithDwellers, LoadChunk, Weather},
     utils::write_to_file,
 };
 
@@ -15,109 +16,110 @@ impl SaveName {
     pub fn seed(&self) -> u32 {
         self.0.as_bytes().iter().map(|b| *b as u32).sum()
     }
+
+    fn folder(&self) -> String {
+        format!("assets/{}/{}", SAVE_DIR, self.0)
+    }
+
+    pub fn chunk_paths(&self, chunk_pos: IVec2) -> (String, String) {
+        let base = format!("{}/{}_{}", self.folder(), chunk_pos.x, chunk_pos.y);
+        (format!("{base}.bin"), format!("{base}.ron"))
+    }
+
+    pub fn resources_path(&self) -> String {
+        format!("{}/resources.ron", self.folder())
+    }
 }
 
-#[derive(Resource)]
-pub struct SaveGame;
+#[derive(Event)]
+pub struct SaveResources;
 
-#[derive(Resource)]
+#[derive(Event)]
 pub struct LoadGame(pub String);
 
 #[derive(Component, Default)]
 pub struct SaveScoped;
 
-pub fn save_world(
+pub fn save_resources(
+    _: On<SaveResources>,
     mut commands: Commands,
-    _save_game: If<Res<SaveGame>>,
     save_name: Res<SaveName>,
-    tilemap_data: Res<TilemapData>,
-    q_dwellers: Query<Entity, With<Dweller>>,
-    q_tasks: Query<Entity, With<Task>>,
-    q_mobs: Query<Entity, With<Mob>>,
     world: &World,
 ) {
-    info!("Saving scene: unloading all chunks...");
+    // Save resources with bevy reflection
+    debug!("Saving resources: {}", save_name.0);
 
-    if tilemap_data.chunks.is_empty() {
-        commands.remove_resource::<SaveGame>();
-        info!("Saving scene: serializing...");
+    let app_type_registry = world.resource::<AppTypeRegistry>().clone();
 
-        // Save entities with bevy reflection
+    // Small caveat: we save Children components referencing entities that are not saved.
+    // Could also happen with ChildOf, which may be even more problematic.
 
-        let app_type_registry = world.resource::<AppTypeRegistry>().clone();
+    let scene = DynamicSceneBuilder::from_world(world)
+        .deny_all_resources()
+        .allow_resource::<Weather>()
+        .allow_resource::<ChunksWithDwellers>()
+        .extract_resources()
+        .build();
 
-        // Small caveat: we save Children components referencing entities that are not saved.
-        // Could also happen with ChildOf, which may be even more problematic.
-
-        let scene = DynamicSceneBuilder::from_world(world)
-            .deny_all_resources()
-            .deny_all_components()
-            .allow_resource::<SaveName>()
-            .allow_component::<Dweller>()
-            .allow_component::<Mob>()
-            .allow_component::<Task>()
-            .allow_component::<TaskNeeds>()
-            .allow_component::<SpriteLoader>()
-            .allow_component::<Transform>()
-            .allow_component::<GlobalTransform>()
-            .allow_component::<Children>()
-            .allow_component::<ChildOf>()
-            .extract_resources()
-            .extract_entities(q_dwellers.iter())
-            .extract_entities(q_tasks.iter())
-            .extract_entities(q_mobs.iter())
-            .remove_empty_entities()
-            .build();
-
-        let type_registry = app_type_registry.read();
-        match scene.serialize(&type_registry) {
-            Ok(serialized) => {
-                let path = format!("assets/{SAVE_DIR}/{}/entities.ron", save_name.0);
-
-                // Save tasks & entities with Bevy reflection
-                IoTaskPool::get()
-                    .spawn(async move {
-                        write_to_file(path, serialized.as_bytes());
-                    })
-                    .detach();
-            }
-            Err(e) => {
-                error!("Error while serializing the scene: {e:?}");
-            }
+    let type_registry = app_type_registry.read();
+    match scene.serialize(&type_registry) {
+        Ok(serialized) => {
+            // Save tasks & entities with Bevy reflection
+            write_to_file(save_name.resources_path(), serialized.as_bytes());
         }
-
-        commands.queue(|world: &mut World| {
-            let mut next_state = world.resource_mut::<NextState<GameState>>();
-            next_state.set(GameState::Running);
-        });
+        Err(e) => {
+            error!("Error while serializing the scene: {e:?}");
+        }
     }
+
+    // Can't have mut next_state: ResMut<NextState<GameState>> in this system because of world borrow
+    commands.queue(|world: &mut World| {
+        let mut next_state = world.resource_mut::<NextState<GameState>>();
+        next_state.set(GameState::Running);
+    });
 }
 
-pub fn load_world(
+pub fn load_game(
+    load_game: On<LoadGame>,
     mut commands: Commands,
-    load_game: If<Res<LoadGame>>,
     mut scene_spawner: ResMut<SceneSpawner>,
     asset_server: Res<AssetServer>,
     q_save_scoped: Query<Entity, With<SaveScoped>>,
     mut next_state: ResMut<NextState<GameState>>,
 ) {
-    if load_game.is_added() {
-        commands.remove_resource::<LoadGame>();
-        info!("Loading scene: {}", (*load_game).0);
+    info!("Loading game: {}", load_game.0);
 
-        // Despawn current scene
-        for chunk_layer in q_save_scoped.iter() {
-            commands.entity(chunk_layer).despawn();
+    // Despawn current scene
+    for save_scoped in q_save_scoped.iter() {
+        commands.entity(save_scoped).despawn();
+    }
+    commands.remove_resource::<ChunksWithDwellers>();
+    commands.remove_resource::<Weather>();
+
+    let save_name = SaveName(load_game.0.clone());
+
+    // Spawn resources from ron file
+    let resources_path = save_name
+        .resources_path()
+        .trim_start_matches("assets/")
+        .to_string();
+    scene_spawner.spawn_dynamic(asset_server.load(resources_path));
+
+    // Init tilemap
+    init_tilemap(&mut commands, save_name);
+
+    next_state.set(GameState::Running);
+}
+
+pub fn chunks_with_dwellers_is_added(
+    mut commands: Commands,
+    chunks_with_dwellers: If<Res<ChunksWithDwellers>>,
+) {
+    // This is triggered when loading a save
+    if chunks_with_dwellers.is_added() {
+        debug!("Loading ChunksWithDwellers {:?}", (*chunks_with_dwellers).0);
+        for chunk_pos in &(*chunks_with_dwellers).0 {
+            commands.write_message(LoadChunk(*chunk_pos));
         }
-
-        // Spawn new scene
-        scene_spawner.spawn_dynamic(
-            asset_server.load(format!("{SAVE_DIR}/{}/entities.ron", (*load_game).0)),
-        );
-
-        // Init tilemap, chunks will be loaded from disk
-        init_tilemap(commands);
-
-        next_state.set(GameState::Running);
     }
 }

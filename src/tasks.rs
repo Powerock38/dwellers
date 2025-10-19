@@ -191,7 +191,7 @@ pub enum TaskNeeds {
 
 #[derive(Component, Reflect, MapEntities, Default, Debug)]
 #[reflect(Component, MapEntities)]
-#[require(SaveScoped)]
+#[require(Name::new("task"), SaveScoped)]
 pub struct Task {
     id: u64,
     pub kind: TaskKind,

@@ -11,11 +11,22 @@ use crate::save_load::SaveName;
 const DAY_LENGTH_SECS: f32 = 300.0;
 const WIND_CHANGE_CHANCE: f64 = 0.0001;
 
-#[derive(Resource, Default)]
+#[derive(Resource, Reflect)]
+#[reflect(Resource)]
 pub struct Weather {
     pub elapsed_secs: f32,
     pub wind: Vec2,
     pub target_wind: Vec2,
+}
+
+impl Weather {
+    pub fn new(seed: u32) -> Self {
+        Self {
+            elapsed_secs: 0.0,
+            wind: random_wind(seed),
+            target_wind: random_wind(seed),
+        }
+    }
 }
 
 #[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
@@ -59,16 +70,11 @@ pub fn random_wind(seed: u32) -> Vec2 {
 pub fn update_weather(
     time: Res<Time>,
     save_name: Res<SaveName>,
-    mut weather: ResMut<Weather>,
+    mut weather: If<ResMut<Weather>>,
     query: Query<&MeshMaterial2d<ChunkWeatherMaterial>>,
     mut materials: ResMut<Assets<ChunkWeatherMaterial>>,
 ) {
     let mut rng = rand::rng();
-
-    if weather.is_added() {
-        weather.wind = random_wind(save_name.seed());
-        weather.target_wind = random_wind(save_name.seed());
-    }
 
     if rng.random_bool(WIND_CHANGE_CHANCE) {
         weather.target_wind = random_wind(save_name.seed());
