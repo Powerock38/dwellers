@@ -37,6 +37,8 @@ pub struct ChunkWeatherMaterial {
     pub time_of_day: f32, // 0.0 (midnight) 0.5 (noon)
     #[uniform(0)]
     pub wind: Vec2,
+    #[uniform(0)]
+    pub cloud_opacity: f32,
 }
 
 impl ChunkWeatherMaterial {
@@ -44,7 +46,8 @@ impl ChunkWeatherMaterial {
         Self {
             seed,
             time_of_day: 0.0,
-            wind: Vec2::default(),
+            wind: Vec2::ZERO,
+            cloud_opacity: 1.0,
         }
     }
 }
@@ -92,5 +95,22 @@ pub fn update_weather(
         let material = materials.get_mut(material).unwrap();
         material.wind = weather.wind * weather.elapsed_secs;
         material.time_of_day = time_of_day;
+    }
+}
+
+pub fn update_cloud_opacity(
+    camera_projection: Single<&Projection>,
+    mut materials: ResMut<Assets<ChunkWeatherMaterial>>,
+    query: Query<&MeshMaterial2d<ChunkWeatherMaterial>>,
+) {
+    let Projection::Orthographic(projection) = *camera_projection else {
+        return;
+    };
+
+    for material in query.iter() {
+        let material = materials.get_mut(material).unwrap();
+
+        // Cloud opacity based on zoom level
+        material.cloud_opacity = (projection.scale.powf(2.0) - 0.3).clamp(0.0, 1.0);
     }
 }

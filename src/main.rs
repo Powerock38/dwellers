@@ -64,6 +64,7 @@ fn main() {
                 update_ui_buttons,
                 update_workstation_ui,
                 update_camera,
+                update_cloud_opacity,
                 toggle_state,
                 load_chunks,
                 spawn_cheats_ui,

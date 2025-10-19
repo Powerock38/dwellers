@@ -79,8 +79,9 @@ pub fn update_camera(
     for ev in event_wheel.read() {
         control.target_scale -= ev.y * 0.05;
     }
-    control.target_scale = control.target_scale.clamp(0.01, 2.0);
+    control.target_scale = control.target_scale.clamp(0.1, 2.0);
 
+    // high = zoomed out, low = zoomed in
     if (projection.scale - control.target_scale).abs() > 0.01 {
         projection.scale = projection.scale
             + ((control.target_scale - projection.scale) * 20. * time.delta_secs());
