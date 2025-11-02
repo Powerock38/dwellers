@@ -7,8 +7,8 @@ pub struct Object {
 pub enum ObjectSlot {
     Uncarriable,
     Object,
-    Tool,
-    Armor(u32),
+    Tool(u32),  // damage
+    Armor(u32), // hp
 }
 
 impl Object {
@@ -36,8 +36,8 @@ impl Object {
         Self::new(filename, true, ObjectSlot::Uncarriable)
     }
 
-    pub const fn tool(filename: &'static str) -> Self {
-        Self::new(filename, false, ObjectSlot::Tool)
+    pub const fn tool(filename: &'static str, damage: u32) -> Self {
+        Self::new(filename, false, ObjectSlot::Tool(damage))
     }
 
     pub const fn armor(filename: &'static str, hp: u32) -> Self {

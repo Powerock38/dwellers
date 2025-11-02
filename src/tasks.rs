@@ -16,7 +16,6 @@ use crate::{
 };
 
 const Z_INDEX: f32 = 2.0;
-const ASTAR_MAX_NODES: usize = 1000;
 
 #[derive(PartialEq, Clone, Copy, Reflect, Default, Debug)]
 pub enum TaskKind {
@@ -42,6 +41,15 @@ pub enum TaskKind {
 }
 
 impl TaskKind {
+    pub fn priority(self) -> i32 {
+        match self {
+            TaskKind::Attack => 2,
+            TaskKind::Eat | TaskKind::Sleep => 1,
+            TaskKind::Stockpile | TaskKind::Walk => -1,
+            _ => 0,
+        }
+    }
+
     pub fn is_valid_on_tile(self, tile: TilePlaced) -> bool {
         match self {
             TaskKind::Dig => matches!(
@@ -190,18 +198,17 @@ pub enum TaskNeeds {
 #[reflect(Component)]
 #[require(Name::new("task"), SaveScoped)]
 pub struct Task {
-    id: u64,
+    timestamp: u128,
     pub kind: TaskKind,
     pub pos: IVec2,
     pub reachable_pathfinding: bool,
     pub reachable_positions: Vec<IVec2>,
     pub dweller_id: Option<Uuid>, // Dweller id, because Entity is different accross chunk saves
-    pub priority: i32,
 }
 
 impl Ord for Task {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.id.cmp(&other.id)
+        self.timestamp.cmp(&other.timestamp)
     }
 }
 
@@ -213,7 +220,7 @@ impl PartialOrd for Task {
 
 impl PartialEq for Task {
     fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
+        self.timestamp == other.timestamp
     }
 }
 
@@ -222,22 +229,16 @@ impl Eq for Task {}
 impl Task {
     pub fn new(pos: IVec2, kind: TaskKind, dweller_id: Option<Uuid>) -> Self {
         Self {
-            id: SystemTime::now()
+            timestamp: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
-                .as_nanos() as u64,
+                .as_nanos(),
             kind,
             pos,
             reachable_pathfinding: true,
             reachable_positions: vec![],
             dweller_id,
-            priority: 0,
         }
-    }
-
-    pub fn with_priority(mut self, priority: i32) -> Self {
-        self.priority = priority;
-        self
     }
 
     pub fn recompute_reachable_positions(&mut self, tilemap_data: &TilemapData) {
@@ -258,22 +259,10 @@ impl Task {
 
     pub fn pathfind(&self, dweller_pos: IVec2, tilemap_data: &TilemapData) -> Option<Vec<IVec2>> {
         let goals: HashSet<IVec2> = self.reachable_positions.iter().copied().collect();
-        let mut nodes_explored = 0;
 
         astar(
             &dweller_pos,
-            |p| {
-                nodes_explored += 1;
-                if nodes_explored > ASTAR_MAX_NODES {
-                    return vec![];
-                }
-
-                tilemap_data
-                    .non_blocking_neighbours_pos(*p, true)
-                    .into_iter()
-                    .map(|neighbor| (neighbor, 1))
-                    .collect()
-            },
+            tilemap_data.astar_successors(),
             |p| {
                 goals
                     .iter()
@@ -350,7 +339,7 @@ pub fn event_task_completion(
         let Some((mut dweller, dweller_transform)) = task.dweller_id.and_then(|dweller_id| {
             q_dwellers
                 .iter_mut()
-                .find(|(dweller, _)| dweller.id == dweller_id)
+                .find(|(dweller, _)| dweller.uuid == dweller_id)
         }) else {
             continue;
         };
@@ -510,7 +499,7 @@ pub fn event_task_completion(
                     tilemap_data.set(task.pos, tile.id.place());
 
                     match (object.data().slot(), dweller.tool, dweller.armor) {
-                        (ObjectSlot::Tool, None, _) => {
+                        (ObjectSlot::Tool(_), None, _) => {
                             dweller.tool = Some(object);
                             debug!("Picked up tool {:?} at {:?}", object, task.pos);
                         }
@@ -576,53 +565,52 @@ pub fn event_task_completion(
             }
 
             TaskKind::Attack => {
-                if let Some(parent) = task_child_of.map(ChildOf::parent) {
-                    if let Ok((entity_mob, mut mob, mob_transform)) = q_mobs.get_mut(parent) {
-                        let mob_pos = (mob_transform.translation / TILE_SIZE)
-                            .truncate()
-                            .as_ivec2();
+                if let Some((entity_mob, mut mob, mob_transform)) = task_child_of
+                    .map(ChildOf::parent)
+                    .and_then(|parent| q_mobs.get_mut(parent).ok())
+                {
+                    let mob_pos = transform_to_pos(mob_transform);
 
-                        if dweller_transform
-                            .translation
-                            .distance(mob_transform.translation)
-                            < TILE_SIZE
-                        {
-                            // Damage the mob
-                            mob.health = mob.health.saturating_sub(1);
-                            commands.entity(entity_mob).insert(TakingDamage::new());
+                    if dweller_pos.distance_squared(mob_pos) <= 1 {
+                        //FIXME: could be triggered twice if multiple dwellers attack the same mob at the same time
 
-                            dweller.sleep(-5);
-                            dweller.food(-5);
+                        // Damage the mob
+                        let damage = dweller.armor.map_or(1, |t| match t.data().slot() {
+                            ObjectSlot::Tool(damage) => *damage,
+                            _ => 1,
+                        });
+                        mob.health(-(damage as i32));
+                        commands.entity(entity_mob).try_insert(TakingDamage::new());
 
-                            debug!("Attacked mob at {:?}", mob_transform.translation);
+                        dweller.sleep(-5);
+                        dweller.food(-5);
 
-                            // If the mob is dead, drop loot and despawn
-                            if mob.health == 0 {
-                                if let Some(loot_tile) = tilemap_data.get(mob_pos) {
-                                    if loot_tile.object.is_none() {
-                                        tilemap_data.set(mob_pos, loot_tile.id.with(mob.loot));
+                        debug!("Attacked mob at {:?}", mob_pos);
 
-                                        commands.spawn(TaskBundle::new(
-                                            Task::new(mob_pos, TaskKind::Pickup, None),
-                                            TaskNeeds::EmptyHands,
-                                        ));
-                                    } else {
-                                        debug!(
-                                            "Attacked mob at {:?} but loot tile is occupied",
-                                            mob_pos
-                                        );
-                                    }
+                        // If the mob is dead, drop loot and despawn
+                        if mob.health == 0 {
+                            if let Some(loot_tile) = tilemap_data.get(mob_pos) {
+                                if loot_tile.object.is_none() {
+                                    tilemap_data
+                                        .set(mob_pos, loot_tile.id.with(mob.id.data().loot));
+
+                                    commands.spawn(TaskBundle::new(
+                                        Task::new(mob_pos, TaskKind::Pickup, None),
+                                        TaskNeeds::EmptyHands,
+                                    ));
+                                } else {
+                                    debug!("Can't drop loot at {:?}", mob_pos);
                                 }
-
-                                commands.entity(entity_mob).despawn();
-
-                                debug!("Killed mob at {:?}", mob_transform.translation);
-                                success = true;
                             }
-                        } else {
-                            task.pos = mob_pos;
-                            task.recompute_reachable_positions(&tilemap_data);
+
+                            commands.entity(entity_mob).try_despawn();
+
+                            debug!("Killed mob at {:?}", mob_transform.translation);
+                            success = true;
                         }
+                    } else {
+                        task.pos = mob_pos;
+                        task.recompute_reachable_positions(&tilemap_data);
                     }
                 } else {
                     error!("SHOULD NEVER HAPPEN: {task:?} has no parent entity");
@@ -900,7 +888,7 @@ pub fn update_pickups(
         if let Some(object) = dweller.object {
             let not_working_on_task_that_needs_it =
                 !q_tasks.iter().any(|(t, tn)| {
-                    t.dweller_id == Some(dweller.id)
+                    t.dweller_id == Some(dweller.uuid)
                         && matches!(tn.into_inner(), TaskNeeds::Objects(objects) if objects.iter().any(|object| dweller.object == Some(*object)))
                 });
 

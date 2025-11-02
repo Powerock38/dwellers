@@ -32,8 +32,8 @@ enum_map! {
         Forge = Object::blocking("forge"),
         Anvil = Object::blocking("anvil"),
         Grindstone = Object::blocking("grindstone"),
-        Sword = Object::tool("sword"),
-        Armor = Object::armor("armor", 2),
+        Sword = Object::tool("sword", 2),
+        Armor = Object::armor("armor", 3),
         Scarecrow = Object::blocking("scarecrow"),
         Haystack = Object::blocking("haystack"),
         FishingSpot = Object::passable_non_carriable("fishing_spot"),
@@ -71,10 +71,10 @@ enum_map! {
 
 enum_map! {
     MobId => MobData {
-        Sheep = MobData::new("sheep", 2, 60.0, ObjectId::Hide),
-        Boar = MobData::new("boar", 3, 50.0, ObjectId::Hide),
-        Undead = MobData::new("undead", 5, 40.0, ObjectId::CopperIngot),
-        Snake = MobData::new("snake", 1, 70.0, ObjectId::Hide),
+        Sheep = MobData::new("sheep", 2, 60.0, 0, ObjectId::Hide),
+        Boar = MobData::new("boar", 3, 50.0, 0, ObjectId::Hide),
+        Undead = MobData::new("undead", 5, 40.0, 2, ObjectId::CopperIngot),
+        Snake = MobData::new("snake", 1, 70.0, 1, ObjectId::Hide),
     }
 }
 

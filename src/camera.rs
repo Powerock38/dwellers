@@ -6,6 +6,7 @@ use bevy::{
 use crate::{CHUNK_SIZE, TILE_SIZE, dwellers::Dweller};
 
 const CAMERA_KEYBOARD_SPEED: f32 = 3.0;
+const CAMERA_ZOOM_SPEED: f32 = 0.1;
 
 #[derive(Resource)]
 pub struct CameraControl {
@@ -77,7 +78,7 @@ pub fn update_camera(
     }
 
     for ev in event_wheel.read() {
-        control.target_scale -= ev.y * 0.05;
+        control.target_scale -= ev.y * CAMERA_ZOOM_SPEED;
     }
     control.target_scale = control.target_scale.clamp(0.1, 2.0);
 

@@ -22,7 +22,7 @@ pub fn update_taking_damage(
         if taking_damage.time.tick(time.delta()).just_finished() {
             sprite.color = Color::WHITE;
             transform.scale = Vec3::ONE;
-            commands.entity(entity).remove::<TakingDamage>();
+            commands.entity(entity).try_remove::<TakingDamage>();
         } else {
             sprite.color = Srgba::new(1.0, 0.0, 0.0, 1.0 - taking_damage.time.fraction()).into();
             transform.scale = Vec3::splat(0.9 + taking_damage.time.fraction() * 0.2);

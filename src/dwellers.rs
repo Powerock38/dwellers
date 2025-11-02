@@ -8,8 +8,11 @@ use crate::{
     BuildResult, CHUNK_SIZE, ObjectSlot, SaveScoped, SpriteLoader, TILE_SIZE, Task,
     TaskCompletionEvent, TaskKind, TaskNeeds, TilemapData,
     data::ObjectId,
-    despawn_dweller_hover, observe_dweller_hover,
+    despawn_dweller_hover,
+    mobs::Mob,
+    observe_dweller_hover,
     random_text::{NAMES, generate_word},
+    tasks::TaskBundle,
     utils::transform_to_pos,
 };
 
@@ -22,6 +25,8 @@ pub const NEEDS_MAX: u32 = 1000;
 
 const HEALTH_BASE: u32 = 10;
 
+const DWELLER_DETECTION_TILE_RADIUS: i32 = 15;
+
 #[derive(Message)]
 pub struct SpawnDwellersOnChunk(pub IVec2);
 
@@ -29,7 +34,7 @@ pub struct SpawnDwellersOnChunk(pub IVec2);
 #[reflect(Component, Default)]
 #[require(Name::new("dweller"), SaveScoped)]
 pub struct Dweller {
-    pub id: Uuid,
+    pub uuid: Uuid,
     pub name: String,
     pub move_queue: Vec<IVec2>, // next move is at the end
     pub object: Option<ObjectId>,
@@ -44,7 +49,7 @@ pub struct Dweller {
 impl Dweller {
     pub fn new(name: String) -> Self {
         Self {
-            id: Uuid::new_v4(),
+            uuid: Uuid::new_v4(),
             name,
             move_queue: Vec::new(),
             object: None,
@@ -265,10 +270,12 @@ pub fn spawn_dwellers_name(
 }
 
 pub fn update_dwellers(
+    mut commands: Commands,
     mut q_dwellers: Query<(&mut Dweller, &Transform)>,
     tilemap_data: Res<TilemapData>,
     mut q_tasks: Query<(Entity, &mut Task, &TaskNeeds)>,
     mut ev_task_completion: MessageWriter<TaskCompletionEvent>,
+    q_mobs: Query<(Entity, &Mob, &Transform)>,
 ) {
     for (mut dweller, transform) in &mut q_dwellers {
         if !dweller.move_queue.is_empty() {
@@ -282,7 +289,7 @@ pub fn update_dwellers(
             .iter_mut()
             .sort::<&Task>()
             .find(|(_, task, task_needs)| {
-                task.dweller_id == Some(dweller.id) && dweller.can_do(task.kind, task_needs)
+                task.dweller_id == Some(dweller.uuid) && dweller.can_do(task.kind, task_needs)
             });
 
         if let Some((entity_task, mut task, _)) = task {
@@ -299,13 +306,33 @@ pub fn update_dwellers(
                     task.dweller_id = None;
                 }
             }
-
             continue;
+        }
+
+        // Check for nearby hostile mobs to attack
+        for (entity_mob, mob, mob_transform) in &q_mobs {
+            if !mob.id.data().is_hostile() {
+                continue;
+            }
+
+            let mob_pos = transform_to_pos(mob_transform);
+            let distance_squared = (pos - mob_pos).length_squared();
+
+            if distance_squared <= DWELLER_DETECTION_TILE_RADIUS.pow(2) {
+                // New attack task targeting the mob
+                let task_entity = commands
+                    .spawn(TaskBundle::new_as_child(
+                        Task::new(mob_pos, TaskKind::Attack, Some(dweller.uuid)),
+                        TaskNeeds::Nothing,
+                    ))
+                    .id();
+                commands.entity(entity_mob).add_child(task_entity);
+                break; // Only target one mob at a time
+            }
         }
 
         // Else, wander around
         let mut rng = rand::rng();
-
         if rng.random_bool(0.2) {
             let directions = tilemap_data.non_blocking_neighbours_pos(pos, true);
 
@@ -344,7 +371,7 @@ pub fn assign_tasks_to_dwellers(
     let mut dwellers = q_dwellers
         .iter_mut()
         .filter_map(|(dweller, transform)| {
-            if assigned_dwellers.contains(&dweller.id) {
+            if assigned_dwellers.contains(&dweller.uuid) {
                 return None;
             }
             let pos = transform_to_pos(transform);
@@ -358,7 +385,7 @@ pub fn assign_tasks_to_dwellers(
     for (dweller_i, (_, dweller_pos)) in dwellers.iter().enumerate() {
         for (task_i, (_, task, _)) in tasks.iter().enumerate() {
             let distance = (dweller_pos.x - task.pos.x).abs() + (dweller_pos.y - task.pos.y).abs();
-            heap.push((task.priority, -distance, dweller_i, task_i));
+            heap.push((task.kind.priority(), -distance, dweller_i, task_i));
         }
     }
 
@@ -380,7 +407,7 @@ pub fn assign_tasks_to_dwellers(
 
         // Try pathfinding to task
         if let Some(path) = task.pathfind(*dweller_pos, &tilemap_data) {
-            task.dweller_id = Some(dweller.id);
+            task.dweller_id = Some(dweller.uuid);
             dweller.move_queue = path;
 
             assigned_dwellers.insert(dweller_i);
@@ -419,6 +446,28 @@ pub fn update_dwellers_movement(
                 transform.translation.y += dir.y * speed;
 
                 sprite.flip_x = dir.x < 0.0;
+            }
+        }
+    }
+}
+
+pub fn refresh_pathfinding_tasks_on_mobs(
+    tilemap_data: Res<TilemapData>,
+    mut q_dwellers: Query<&mut Dweller>,
+    mut q_tasks: Query<(&mut Task, &ChildOf)>,
+    q_mobs: Query<&Transform, With<Mob>>,
+) {
+    for (mut task, child_of) in &mut q_tasks {
+        if let Ok(mob_transform) = q_mobs.get(child_of.parent()) {
+            let mob_pos = transform_to_pos(mob_transform);
+            task.pos = mob_pos;
+            task.recompute_reachable_positions(&tilemap_data);
+            if let Some(mut dweller) = q_dwellers
+                .iter_mut()
+                .find(|dweller| Some(dweller.uuid) == task.dweller_id)
+            {
+                // If a dweller is assigned to this task, clear its move queue to force re-pathfinding
+                dweller.move_queue.clear();
             }
         }
     }

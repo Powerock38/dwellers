@@ -187,7 +187,7 @@ pub fn terrain_pointer_up(
                     q_dwellers
                         .get(entity)
                         .ok()
-                        .map(|(_, dweller, _)| dweller.id)
+                        .map(|(_, dweller, _)| dweller.uuid)
                 });
 
                 match &current_action.kind {
@@ -266,12 +266,13 @@ pub fn terrain_pointer_up(
                                     ) < TILE_SIZE
                                 })
                             {
-                                commands.entity(entity_mob).insert(children![
-                                    TaskBundle::new_as_child(
-                                        Task::new(pos, *task_kind, dweller_id).with_priority(1),
+                                let task_entity = commands
+                                    .spawn(TaskBundle::new_as_child(
+                                        Task::new(pos, *task_kind, dweller_id),
                                         TaskNeeds::Nothing,
-                                    )
-                                ]);
+                                    ))
+                                    .id();
+                                commands.entity(entity_mob).add_child(task_entity);
 
                                 max_tasks = max_tasks.saturating_sub(1);
                                 debug!("Attacking task at {pos:?}");
@@ -296,7 +297,7 @@ pub fn terrain_pointer_up(
                             };
 
                             commands.spawn(TaskBundle::new(
-                                Task::new(pos, *task_kind, dweller_id).with_priority(-1),
+                                Task::new(pos, *task_kind, dweller_id),
                                 needs,
                             ));
 
@@ -306,7 +307,7 @@ pub fn terrain_pointer_up(
 
                         TaskKind::Walk => {
                             commands.spawn(TaskBundle::new(
-                                Task::new(pos, *task_kind, dweller_id).with_priority(-1),
+                                Task::new(pos, *task_kind, dweller_id),
                                 TaskNeeds::Nothing,
                             ));
 
@@ -351,7 +352,7 @@ pub fn terrain_pointer_up(
                             if let Some(dweller_id) = task.dweller_id
                                 && let Some((_, mut dweller, _)) = q_dwellers
                                     .iter_mut()
-                                    .find(|(_, dweller, _)| dweller.id == dweller_id)
+                                    .find(|(_, dweller, _)| dweller.uuid == dweller_id)
                             {
                                 dweller.move_queue = Vec::new();
                             }

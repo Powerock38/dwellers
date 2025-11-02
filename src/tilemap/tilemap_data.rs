@@ -198,4 +198,20 @@ impl TilemapData {
 
         None
     }
+
+    pub fn astar_successors(&self) -> impl FnMut(&IVec2) -> Vec<(IVec2, i32)> {
+        const ASTAR_MAX_NODES: usize = 1000;
+        let mut nodes_explored = 0;
+        move |p: &IVec2| {
+            nodes_explored += 1;
+            if nodes_explored > ASTAR_MAX_NODES {
+                return vec![];
+            }
+
+            self.non_blocking_neighbours_pos(*p, true)
+                .into_iter()
+                .map(|neighbor| (neighbor, 1))
+                .collect()
+        }
+    }
 }

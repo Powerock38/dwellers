@@ -26,7 +26,7 @@ pub fn update_dweller_needs(
         // If they are not working on something already... (especially an Eat / Sleep task)
         if q_tasks
             .iter()
-            .any(|task| task.dweller_id == Some(dweller.id))
+            .any(|task| task.dweller_id == Some(dweller.uuid))
         {
             continue;
         }
@@ -50,7 +50,7 @@ pub fn update_dweller_needs(
                         .any(|t| t.pos == pos)
             }) {
                 commands.spawn(TaskBundle::new(
-                    Task::new(pos, TaskKind::Eat, Some(dweller.id)).with_priority(1),
+                    Task::new(pos, TaskKind::Eat, Some(dweller.uuid)),
                     TaskNeeds::Nothing,
                 ));
             }
@@ -65,7 +65,7 @@ pub fn update_dweller_needs(
             })
         {
             commands.spawn(TaskBundle::new(
-                Task::new(pos, TaskKind::Sleep, Some(dweller.id)).with_priority(1),
+                Task::new(pos, TaskKind::Sleep, Some(dweller.uuid)),
                 TaskNeeds::Nothing,
             ));
         }
