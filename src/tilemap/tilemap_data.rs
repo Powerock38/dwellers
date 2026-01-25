@@ -18,22 +18,16 @@ impl TilemapData {
     pub fn pos_to_chunk_pos_and_local_index(pos: IVec2) -> (IVec2, usize) {
         let size = CHUNK_SIZE as i32;
         let size_vec = IVec2::splat(size);
-
         let chunk_pos = pos.div_euclid(size_vec);
         let local = pos.rem_euclid(size_vec);
-
-        // flip y: index 0 at top row
-        let flipped_y = size - 1 - local.y;
-        let index = (flipped_y * size + local.x) as usize;
-
+        let index = (local.y * size + local.x) as usize;
         (chunk_pos, index)
     }
 
     pub fn chunk_pos_and_local_index_to_pos(chunk_pos: IVec2, local_index: usize) -> IVec2 {
         let size = CHUNK_SIZE as i32;
         let local_x = (local_index as i32) % size;
-        let flipped_y = (local_index as i32) / size;
-        let local_y = size - 1 - flipped_y;
+        let local_y = (local_index as i32) / size;
 
         chunk_pos * size + IVec2::new(local_x, local_y)
     }
@@ -43,7 +37,7 @@ impl TilemapData {
     }
 
     pub fn iter_chunk_positions(chunk_pos: IVec2) -> impl Iterator<Item = IVec2> {
-        (0..CHUNK_SIZE).rev().flat_map(move |y| {
+        (0..CHUNK_SIZE).flat_map(move |y| {
             (0..CHUNK_SIZE)
                 .map(move |x| Self::local_pos_to_global(chunk_pos, IVec2::new(x as i32, y as i32)))
         })

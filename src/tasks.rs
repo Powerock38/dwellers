@@ -344,13 +344,9 @@ pub fn event_task_completion(
             continue;
         };
 
-        let dweller_pos = transform_to_pos(dweller_transform);
-
         let Some(tile) = tilemap_data.get(task.pos) else {
             continue;
         };
-
-        let mut success = false;
 
         // Some tasks can become invalid if the tile has changed
         if !task.kind.is_valid_on_tile(tile) {
@@ -358,6 +354,10 @@ pub fn event_task_completion(
             commands.entity(entity).despawn();
             continue;
         }
+
+        let dweller_pos = transform_to_pos(dweller_transform);
+
+        let mut success = false;
 
         let about_to_finish = match &*task_needs {
             TaskNeeds::Objects(objects) => objects.len() == 1,

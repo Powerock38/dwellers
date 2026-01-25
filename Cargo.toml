@@ -4,13 +4,13 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-bevy = "0.17.2"
+bevy = "0.18.0"
 bitcode = "0.6"
 dashmap = "6.1"
 noise = "0.9"
 pathfinding = "4.14"
 rand = "0.9"
-uuid = "1.18.1"
+uuid = "1.20"
 
 [features]
 dev = ["bevy/dynamic_linking", "bevy/file_watcher", "bevy/bevy_dev_tools", "bevy/bevy_remote"]

@@ -48,7 +48,7 @@ pub fn wait_textures_load(
 
             let (texture_atlas_layout, texture_atlas_sources, mut texture) =
                 texture_atlas_builder.build().unwrap();
-            texture.reinterpret_stacked_2d_as_array(n_textures);
+            let _ = texture.reinterpret_stacked_2d_as_array(n_textures);
             let texture = textures.add(texture);
             texture_atlases.add(texture_atlas_layout);
 
