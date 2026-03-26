@@ -184,6 +184,7 @@ pub fn spawn_ui(locale: Res<Locale>, ...) {
 | 600 мс | `update_dweller_needs` (еда/сон/здоровье) |
 | 800 мс | `update_terrain` (генерация тайлов в чанках) |
 | 1000 мс | `dwellers_load_chunks`, `update_pickups`, `update_hostile_mobs` |
+| 2000 мс | `run_scheduler` (лимиты ресурсов) |
 | 5000 мс | `update_unreachable_pathfinding_tasks` |
 
 ---
@@ -196,6 +197,8 @@ pub fn spawn_ui(locale: Res<Locale>, ...) {
 | M | Меню сохранения/загрузки |
 | C | Дебаг-панель (спавн объектов/мобов) |
 | F | Фокус на случайном болванчике |
+| L | Панель лимитов ресурсов (egui) |
+| J | Лог событий планировщика (egui) |
 | ЛКМ/ПКМ | Выделение территории для задачи |
 
 ---
@@ -273,15 +276,99 @@ fn score_task(task_pos, dweller_pos, zone_priority, task_base_priority) -> f32 {
 - `ZoneType::Forbidden`: болванчики обходят тайлы с этим тегом (изменить pathfinding cost)
 - Сохранение зон (добавить в save_load.rs сериализацию ZoneMap)
 
-### Фаза 3 — Глубина (запланировано)
+### Фаза 3 ✅ — Автономная производственная логика
+
+#### Модуль `src/production.rs`
+
+```rust
+pub enum AutoProductionMethod {
+    HarvestObject(&'static [ObjectId]),
+    DigWall(TileId),
+    Fish,
+    PickupLoose(ObjectId),
+}
+
+pub struct AutoRecipe { pub output: ObjectId, pub method: AutoProductionMethod }
+
+pub struct ResourceLimit {
+    pub resource: ObjectId,
+    pub min_stock: u32,
+    pub max_stock: u32,
+    pub priority: u8,   // 1–5
+    pub enabled: bool,
+}
+
+#[derive(Resource, Default)]
+pub struct ResourceLimits { pub limits: Vec<ResourceLimit>, ... }
+
+#[derive(Resource, Default)]
+pub struct ResourceInventory { pub counts: HashMap<ObjectId, u32> }
+
+#[derive(Resource, Default)]
+pub struct EventLog { pub entries: VecDeque<LogEntry>, pub visible: bool }
+
+#[derive(Component)]
+pub struct SchedulerTask(pub ObjectId);
+```
+
+**Рецепты AUTO_RECIPES (статическая таблица):**
+| Ресурс | Метод |
+|--------|-------|
+| Wood | HarvestObject([Tree, PalmTree]) |
+| Rock | DigWall(StoneWall) |
+| Fish | Fish (FishingSpot) |
+| Wheat | HarvestObject([WheatPlant]) |
+| Berries | HarvestObject([BerryBush]) |
+| Honeycomb | HarvestObject([Beehive]) |
+| CopperOre | PickupLoose |
+| Hide | PickupLoose |
+| Seeds | PickupLoose |
+
+**Системы:**
+- `update_resource_inventory` — пересчитывает объекты на карте при изменении тайлмапа
+- `run_scheduler` — каждые 2 секунды: если запас < min, создаёт задачи (макс 8 на лимит)
+
+**Дедупликация:** задачи планировщика помечаются `SchedulerTask(ObjectId)`. Scheduler считает существующие перед созданием новых.
+
+### Фаза 4 ✅ — UI управления (bevy_egui)
+
+#### Панель лимитов (клавиша L) — `src/ui/limits_ui.rs`
+
+```
+[Лимиты ресурсов]
+Ресурс   | Текущий | Мин | Макс | П | Вкл | ✕
+Wood     |    12   |  20 |  50  | 3 |  ✓  | ✕
+Rock     |     5   |  10 |  30  | 3 |  ✓  | ✕
+...
+[Добавить: <ComboBox>] мин [DragValue] макс [DragValue] [Добавить]
+```
+
+- Строки с дефицитом подсвечиваются красным
+- `egui::DragValue` для min/max/priority
+- `egui::ComboBox` для выбора ресурса
+
+#### Лог событий (клавиша J) — `src/ui/limits_ui.rs`
+
+```
+[Лог событий]
+[00:12] Запас Wood: 5 (мин: 20) → создано 8 задач
+[00:14] Запас Rock: 3 (мин: 10) → создано 7 задач
+...
+[Очистить]
+```
+
+- `egui::ScrollArea` с `stick_to_bottom(true)` — автопрокрутка к новым событиям
+
+#### Тики производства
+| Интервал | Системы |
+|---------|---------|
+| каждый кадр | `update_resource_inventory` (по изменению) |
+| 2000 мс | `run_scheduler` |
+
+### Фаза 5 — Глубина (запланировано)
 - Дерево технологий
 - Профессии и навыки болванчиков
 - Биомы, сезоны и голод
-
-### Фаза 3 — Глубина (запланировано)
-- Дерево технологий
-- Биомы
-- Сезоны и голод
 
 ---
 

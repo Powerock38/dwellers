@@ -5,8 +5,8 @@ use bevy::{
 };
 
 use crate::{
-    actions::*, camera::*, dwellers::*, dwellers_needs::*, locale::*, mobs::*, save_load::*,
-    sprites::*, state::*, tasks::*, tilemap::*, ui::*, zones::*,
+    actions::*, camera::*, dwellers::*, dwellers_needs::*, locale::*, mobs::*, production::*,
+    save_load::*, sprites::*, state::*, tasks::*, tilemap::*, ui::*, zones::*,
 };
 
 mod actions;
@@ -16,6 +16,7 @@ mod dwellers;
 mod dwellers_needs;
 mod locale;
 mod mobs;
+mod production;
 mod random_text;
 mod save_load;
 mod sprites;
@@ -37,6 +38,7 @@ fn main() {
                 }),
             bevy::remote::RemotePlugin::default(),
             bevy::remote::http::RemoteHttpPlugin::default(),
+            bevy_egui::EguiPlugin,
             // DebugPickingPlugin,
         ))
         // .insert_resource(bevy::dev_tools::picking_debug::DebugPickingMode::Normal)
@@ -89,6 +91,9 @@ fn main() {
                     // Зоны
                     sync_zone_overlays,
                     update_zone_priority_ui,
+                    // Панели egui
+                    show_limits_panel,
+                    show_event_log,
                 )
                     .in_set(GameplaySet),
             ),
@@ -99,6 +104,8 @@ fn main() {
                 // Game logic
                 (update_dwellers, update_mobs, assign_tasks_to_dwellers)
                     .run_if(on_timer(Duration::from_millis(200))),
+                update_resource_inventory,
+                run_scheduler.run_if(on_timer(Duration::from_millis(2000))),
                 (update_dweller_needs).run_if(on_timer(Duration::from_millis(600))),
                 (dwellers_load_chunks).run_if(on_timer(Duration::from_millis(1000))),
                 (update_terrain).run_if(on_timer(Duration::from_millis(800))),
@@ -128,6 +135,9 @@ fn main() {
         .init_resource::<Locale>()
         .init_resource::<ZoneMap>()
         .init_resource::<ZoneSettings>()
+        .init_resource::<ResourceLimits>()
+        .init_resource::<ResourceInventory>()
+        .init_resource::<EventLog>()
         .init_resource::<CameraControl>()
         .init_resource::<CurrentAction>()
         .init_resource::<DwellersSelected>()
