@@ -5,6 +5,8 @@ edition = "2024"
 
 [dependencies]
 bevy = "0.18.0"
+# bevy_egui version для bevy 0.18 — если сборка упадёт, замените на совместимую
+bevy_egui = "0.34"
 bitcode = "0.6"
 dashmap = "6.1"
 noise = "0.9"

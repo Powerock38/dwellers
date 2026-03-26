@@ -1,5 +1,3 @@
-use std::collections::BinaryHeap;
-
 use bevy::{platform::collections::HashSet, prelude::*, sprite::Anchor};
 use rand::{Rng, seq::IndexedRandom};
 use uuid::Uuid;
@@ -14,6 +12,7 @@ use crate::{
     random_text::{NAMES, generate_word},
     tasks::TaskBundle,
     utils::transform_to_pos,
+    zones::ZoneMap,
 };
 
 const Z_INDEX: f32 = 10.0;
@@ -343,12 +342,33 @@ pub fn update_dwellers(
     }
 }
 
+/// Вычисляет utility score задачи для болванчика.
+///
+/// Формула (по концепту Фазы 2):
+/// ```text
+/// score = zone_priority * 2.0          ← зональный приоритет (0..10)
+///       + (base_priority + 2)           ← тип задачи (-1..2 → 1..4)
+///       + 1.0 / distance.max(1.0)      ← близость (0..1)
+///       + 0.5                          ← заглушка skill_score (Фаза 3)
+/// ```
+fn score_task(task_pos: IVec2, dweller_pos: IVec2, zone_priority: u8, task_base_priority: i32) -> f32 {
+    let priority_score = zone_priority as f32 * 2.0;
+    let base_score = (task_base_priority + 2) as f32; // сдвиг -1..2 → 1..4
+    let distance =
+        ((dweller_pos.x - task_pos.x).abs() + (dweller_pos.y - task_pos.y).abs()) as f32;
+    let distance_score = 1.0 / distance.max(1.0);
+    let skill_score = 0.5; // TODO Фаза 3: dweller.skills[task.skill_required]
+
+    priority_score + base_score + distance_score + skill_score
+}
+
 pub fn assign_tasks_to_dwellers(
     tilemap_data: Res<TilemapData>,
+    zone_map: Res<ZoneMap>,
     mut q_dwellers: Query<(&mut Dweller, &Transform)>,
     mut q_tasks: Query<(Entity, &mut Task, &TaskNeeds)>,
 ) {
-    // Collect unassigned dwellers and tasks
+    // Собираем уже занятых болванчиков
     let assigned_dwellers = q_tasks
         .iter()
         .filter_map(|(_, task, _)| task.dweller_id)
@@ -360,7 +380,7 @@ pub fn assign_tasks_to_dwellers(
             task.dweller_id.is_none()
                 && !task.reachable_positions.is_empty()
                 && task.reachable_pathfinding
-                // Do not assign tasks that will produce a blocking object where a dweller is standing
+                // Не назначать задачи, которые заблокируют позицию болванчика
                 && (!matches!(task.kind, TaskKind::Build { result } if result.is_blocking())
                     || !q_dwellers
                         .iter()
@@ -379,21 +399,29 @@ pub fn assign_tasks_to_dwellers(
         })
         .collect::<Vec<_>>();
 
-    // Compute all distances
-    let mut heap = BinaryHeap::new();
+    // Вычисляем utility score для каждой пары (болванчик, задача)
+    let mut pairs: Vec<(f32, usize, usize)> = Vec::new();
 
     for (dweller_i, (_, dweller_pos)) in dwellers.iter().enumerate() {
         for (task_i, (_, task, _)) in tasks.iter().enumerate() {
-            let distance = (dweller_pos.x - task.pos.x).abs() + (dweller_pos.y - task.pos.y).abs();
-            heap.push((task.kind.priority(), -distance, dweller_i, task_i));
+            let zone_priority = zone_map.get_priority(task.pos);
+            let score = score_task(
+                task.pos,
+                *dweller_pos,
+                zone_priority,
+                task.kind.priority(),
+            );
+            pairs.push((score, dweller_i, task_i));
         }
     }
+
+    // Сортируем по убыванию score (лучшие назначения первыми)
+    pairs.sort_unstable_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
 
     let mut assigned_dwellers = HashSet::new();
     let mut assigned_tasks = HashSet::new();
 
-    // Process the heap until it is empty or all tasks/dwellers are assigned
-    while let Some((_, _, dweller_i, task_i)) = heap.pop() {
+    for (score, dweller_i, task_i) in pairs {
         if assigned_dwellers.contains(&dweller_i) || assigned_tasks.contains(&task_i) {
             continue;
         }
@@ -405,14 +433,16 @@ pub fn assign_tasks_to_dwellers(
             continue;
         }
 
-        // Try pathfinding to task
         if let Some(path) = task.pathfind(*dweller_pos, &tilemap_data) {
             task.dweller_id = Some(dweller.uuid);
             dweller.move_queue = path;
 
             assigned_dwellers.insert(dweller_i);
             assigned_tasks.insert(task_i);
-            debug!("Dweller {} got task {:?}", dweller.name, task);
+            debug!(
+                "Болванчик {} → задача {:?} (score: {:.2})",
+                dweller.name, task, score
+            );
         } else {
             task.reachable_pathfinding = false;
         }

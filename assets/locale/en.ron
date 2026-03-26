@@ -1,0 +1,92 @@
+# Localization: English (fallback)
+# Format: key = value  (lines with # are comments)
+
+# --- Dweller tasks ---
+task.dig = Dig
+task.smoothen = Smoothen
+task.harvest = Harvest
+task.pickup = Pick Up
+task.attack = Attack
+task.fish = Fish
+task.stockpile = Stockpile
+task.build = Build
+task.workstation = Workstation
+task.walk = Walk
+task.eat = Eat
+task.sleep = Sleep
+task.flood = Flood
+task.scoop = Scoop
+
+# --- Objects (ObjectId) ---
+object.Wood = Wood
+object.Hide = Hide
+object.Tree = Tree
+object.Table = Table
+object.Stool = Stool
+object.Bed = Bed
+object.Door = Door
+object.Rock = Rock
+object.TallGrass = Tall Grass
+object.Seeds = Seeds
+object.Farm = Farm
+object.WheatPlant = Wheat Plant
+object.Wheat = Wheat
+object.Furnace = Furnace
+object.Bread = Bread
+object.PalmTree = Palm Tree
+object.Cactus = Cactus
+object.CopperOre = Copper Ore
+object.CopperIngot = Copper Ingot
+object.Forge = Forge
+object.Anvil = Anvil
+object.Grindstone = Grindstone
+object.Sword = Sword
+object.Armor = Armor
+object.Scarecrow = Scarecrow
+object.Haystack = Haystack
+object.FishingSpot = Fishing Spot
+object.Fish = Fish
+object.WaterBucket = Water Bucket
+object.Bush = Bush
+object.BerryBush = Berry Bush
+object.Berries = Berries
+object.Honeycomb = Honeycomb
+object.Beehive = Beehive
+object.MeadVat = Mead Vat
+object.Hydromel = Hydromel
+object.MobLair = Mob Lair
+
+# --- Tiles (TileId) ---
+tile.GrassFloor = Grass
+tile.StoneFloor = Stone Floor
+tile.DungeonFloor = Dungeon Floor
+tile.Bridge = Bridge
+tile.SandFloor = Sand
+tile.WoodFloor = Wood Floor
+tile.ShallowWater = Shallow Water
+tile.Water = Water
+tile.Lava = Lava
+tile.DirtWall = Dirt Wall
+tile.StoneWall = Stone Wall
+tile.DungeonWall = Dungeon Wall
+tile.WoodWall = Wood Wall
+
+# --- Mobs (MobId) ---
+mob.Sheep = Sheep
+mob.Boar = Boar
+mob.Undead = Undead
+mob.Snake = Snake
+
+# --- UI ---
+ui.cancel = Cancel
+ui.save = Save
+ui.load = Load
+ui.quantity = x{0}
+
+# --- Zones ---
+zone.priority = Priority
+zone.mining = Mining
+zone.construction = Build
+zone.storage = Storage
+zone.forbidden = Forbid
+zone.clear = Clear Zone

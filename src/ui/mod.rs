@@ -2,11 +2,13 @@ use bevy::prelude::*;
 
 mod actions_ui;
 mod cheats_ui;
+mod limits_ui;
 mod save_load_ui;
 mod workstation_ui;
 
 pub use actions_ui::*;
 pub use cheats_ui::*;
+pub use limits_ui::*;
 pub use save_load_ui::*;
 pub use workstation_ui::*;
 

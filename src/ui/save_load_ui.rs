@@ -2,6 +2,7 @@ use bevy::prelude::*;
 
 use crate::{
     GameState, LoadGame, SAVE_DIR, SaveChunk, SaveName, TilemapData, UiButton, UiWindow,
+    locale::Locale,
     save_load::SaveResources,
 };
 
@@ -11,6 +12,7 @@ pub fn spawn_load_save_ui(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     q_windows: Query<Entity, With<UiWindow>>,
     save_name: Res<SaveName>,
+    locale: Res<Locale>,
 ) {
     if keyboard_input.just_pressed(KeyCode::KeyM) {
         if let Some(window) = q_windows.iter().next() {
@@ -18,29 +20,27 @@ pub fn spawn_load_save_ui(
             next_state.set(GameState::Running);
         } else {
             commands.spawn(UiWindow).with_children(|c| {
-                // Save button
+                // Кнопка сохранения
+                let save_label = format!("{} {}", locale.t("ui.save"), save_name.0);
                 c.spawn(UiButton)
-                    .with_child(Text::new(format!("Save {}", save_name.0)))
+                    .with_child(Text::new(save_label))
                     .observe(
                         |_: On<Pointer<Click>>,
                          mut commands: Commands,
                          tilemap_data: Res<TilemapData>,
                          q_windows: Query<Entity, With<UiWindow>>| {
-                            // Unload all chunks to save them to disk
                             for chunk_pos in tilemap_data.chunks.keys() {
                                 commands.write_message(SaveChunk(*chunk_pos, false));
                             }
-                            // Trigger saving of resources
                             commands.trigger(SaveResources);
 
-                            // Close the load/save window
                             if let Some(window) = q_windows.iter().next() {
                                 commands.entity(window).despawn();
                             }
                         },
                     );
 
-                // Saves list
+                // Список сохранений
                 if let Ok(save_files) = std::fs::read_dir(format!("assets/{SAVE_DIR}")).map(|dir| {
                     let mut saves = dir
                         .filter_map(|entry| {
@@ -56,17 +56,17 @@ pub fn spawn_load_save_ui(
                     saves.sort_by(|a, b| b.cmp(a));
                     saves
                 }) {
+                    let load_prefix = locale.t("ui.load");
                     for save_file in save_files {
+                        let load_label = format!("{} {save_file}", load_prefix);
                         c.spawn(UiButton)
-                            .with_child(Text::new(format!("Load {save_file}")))
+                            .with_child(Text::new(load_label))
                             .observe(
                                 move |_: On<Pointer<Click>>,
                                 mut commands: Commands,
                                 q_windows: Query<Entity, With<UiWindow>>| {
-                                    // Trigger the loading of the selected save
                                     commands.trigger(LoadGame(save_file.clone()));
 
-                                    // Close the load/save window
                                     if let Some(window) = q_windows.iter().next() {
                                         commands.entity(window).despawn();
                                     }
@@ -74,7 +74,7 @@ pub fn spawn_load_save_ui(
                             );
                     }
                 } else {
-                    error!("Failed to read save files");
+                    error!("Не удалось прочитать файлы сохранений");
                 }
             });
 
