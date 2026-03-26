@@ -1,8 +1,12 @@
 use bevy::prelude::*;
 
 use crate::{
-    ActionKind, Dweller, DwellersSelected, TaskKind, TaskNeeds, UiButton, actions::CurrentAction,
-    data::BUILD_RECIPES, extract_ok, utils::pascal_case_to_title_case,
+    ActionKind, Dweller, DwellersSelected, TaskKind, TaskNeeds, UiButton,
+    actions::CurrentAction,
+    data::BUILD_RECIPES,
+    extract_ok,
+    locale::Locale,
+    tasks::BuildResult,
 };
 
 #[derive(Component)]
@@ -11,7 +15,7 @@ pub struct DwellersSelectedUi;
 #[derive(Component)]
 pub struct CoordinatesUi;
 
-pub fn spawn_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
+pub fn spawn_ui(mut commands: Commands, asset_server: Res<AssetServer>, locale: Res<Locale>) {
     commands
         .spawn((
             Node {
@@ -38,6 +42,7 @@ pub fn spawn_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
                 BackgroundColor(Color::BLACK.with_alpha(0.5)),
             ));
 
+            // Кнопки строительства
             c.spawn(Node {
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
@@ -46,8 +51,9 @@ pub fn spawn_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
             })
             .with_children(|c| {
                 for (result, cost) in BUILD_RECIPES {
+                    let label = build_result_label(result, &locale);
                     c.spawn(UiButton)
-                        .with_child(Text::new(pascal_case_to_title_case(&result.debug_name())))
+                        .with_child(Text::new(label))
                         .with_child(ImageNode::new(asset_server.load(result.sprite_path())))
                         .observe(get_observer_action_button(ActionKind::TaskWithNeeds(
                             TaskKind::Build { result: *result },
@@ -56,6 +62,7 @@ pub fn spawn_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
                 }
             });
 
+            // Кнопки задач
             c.spawn(Node {
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
@@ -75,19 +82,26 @@ pub fn spawn_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
                     TaskKind::Smoothen,
                     TaskKind::Walk,
                 ] {
+                    let label = locale.t(&format!("task.{}", task_kind.id()));
                     c.spawn(UiButton)
-                        .with_child(Text::new(pascal_case_to_title_case(
-                            format!("{task_kind:?}").split_whitespace().next().unwrap(),
-                        )))
+                        .with_child(Text::new(label))
                         .with_child(ImageNode::new(asset_server.load(task_kind.sprite_path())))
                         .observe(get_observer_action_button(ActionKind::Task(task_kind)));
                 }
 
                 c.spawn(UiButton)
-                    .with_child(Text::new("Cancel"))
+                    .with_child(Text::new(locale.t("ui.cancel")))
                     .observe(get_observer_action_button(ActionKind::Cancel));
             });
         });
+}
+
+fn build_result_label(result: &BuildResult, locale: &Locale) -> String {
+    let key = match result {
+        BuildResult::Object(obj) => format!("object.{obj:?}"),
+        BuildResult::Tile(tile) => format!("tile.{tile:?}"),
+    };
+    locale.t(&key)
 }
 
 pub fn get_observer_action_button(

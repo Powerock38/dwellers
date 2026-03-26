@@ -1,0 +1,84 @@
+# Локализация: Русский
+# Формат: ключ = значение  (строки с # — комментарии)
+
+# --- Задачи болванчиков ---
+task.dig = Копать
+task.smoothen = Сглаживать
+task.harvest = Собирать
+task.pickup = Подобрать
+task.attack = Атаковать
+task.fish = Рыбачить
+task.stockpile = Склад
+task.build = Строить
+task.workstation = Верстак
+task.walk = Идти
+task.eat = Есть
+task.sleep = Спать
+task.flood = Затопить
+task.scoop = Черпать
+
+# --- Предметы (ObjectId) ---
+object.Wood = Дерево
+object.Hide = Шкура
+object.Tree = Дерево (объект)
+object.Table = Стол
+object.Stool = Табурет
+object.Bed = Кровать
+object.Door = Дверь
+object.Rock = Камень
+object.TallGrass = Высокая трава
+object.Seeds = Семена
+object.Farm = Ферма
+object.WheatPlant = Пшеница
+object.Wheat = Зерно
+object.Furnace = Печь
+object.Bread = Хлеб
+object.PalmTree = Пальма
+object.Cactus = Кактус
+object.CopperOre = Медная руда
+object.CopperIngot = Медный слиток
+object.Forge = Кузница
+object.Anvil = Наковальня
+object.Grindstone = Точило
+object.Sword = Меч
+object.Armor = Броня
+object.Scarecrow = Пугало
+object.Haystack = Стог сена
+object.FishingSpot = Рыбное место
+object.Fish = Рыба
+object.WaterBucket = Ведро воды
+object.Bush = Куст
+object.BerryBush = Ягодный куст
+object.Berries = Ягоды
+object.Honeycomb = Соты
+object.Beehive = Улей
+object.MeadVat = Чан для медовухи
+object.Hydromel = Медовуха
+object.MobLair = Логово
+
+# --- Тайлы (TileId) ---
+tile.GrassFloor = Трава
+tile.StoneFloor = Каменный пол
+tile.DungeonFloor = Пол подземелья
+tile.Bridge = Мост
+tile.SandFloor = Песок
+tile.WoodFloor = Деревянный пол
+tile.ShallowWater = Мелководье
+tile.Water = Вода
+tile.Lava = Лава
+tile.DirtWall = Земляная стена
+tile.StoneWall = Каменная стена
+tile.DungeonWall = Стена подземелья
+tile.WoodWall = Деревянная стена
+
+# --- Мобы (MobId) ---
+mob.Sheep = Овца
+mob.Boar = Кабан
+mob.Undead = Нежить
+mob.Snake = Змея
+
+# --- Интерфейс ---
+ui.cancel = Отмена
+ui.save = Сохранить
+ui.load = Загрузить
+ui.quantity = x{0}

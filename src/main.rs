@@ -5,8 +5,8 @@ use bevy::{
 };
 
 use crate::{
-    actions::*, camera::*, dwellers::*, dwellers_needs::*, mobs::*, save_load::*, sprites::*,
-    state::*, tasks::*, tilemap::*, ui::*,
+    actions::*, camera::*, dwellers::*, dwellers_needs::*, locale::*, mobs::*, save_load::*,
+    sprites::*, state::*, tasks::*, tilemap::*, ui::*,
 };
 
 mod actions;
@@ -14,6 +14,7 @@ mod camera;
 mod data;
 mod dwellers;
 mod dwellers_needs;
+mod locale;
 mod mobs;
 mod random_text;
 mod save_load;
@@ -51,7 +52,7 @@ fn main() {
         )
         .add_systems(
             Startup,
-            (spawn_camera, spawn_new_terrain, spawn_ui, init_tileset),
+            (load_locale, (spawn_camera, spawn_new_terrain, spawn_ui, init_tileset)).chain(),
         )
         .add_systems(
             Update,
@@ -119,6 +120,8 @@ fn main() {
         .add_observer(load_game)
         .add_observer(save_resources)
         .init_state::<GameState>()
+        .init_resource::<ActiveLang>()
+        .init_resource::<Locale>()
         .init_resource::<CameraControl>()
         .init_resource::<CurrentAction>()
         .init_resource::<DwellersSelected>()

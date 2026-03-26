@@ -3,9 +3,9 @@ use bevy::prelude::*;
 use crate::{
     actions::ActionKind,
     data::{MobId, ObjectId, TileId},
+    locale::Locale,
     tasks::BuildResult,
     ui::{get_observer_action_button, UiButton, UiWindow},
-    utils::pascal_case_to_title_case,
 };
 
 pub fn spawn_cheats_ui(
@@ -13,6 +13,7 @@ pub fn spawn_cheats_ui(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     q_windows: Query<Entity, With<UiWindow>>,
     asset_server: Res<AssetServer>,
+    locale: Res<Locale>,
 ) {
     if keyboard_input.just_pressed(KeyCode::KeyC) {
         if let Some(window) = q_windows.iter().next() {
@@ -34,15 +35,20 @@ pub fn spawn_cheats_ui(
                         .chain(TileId::ALL.iter().map(|&tile| BuildResult::Tile(tile)));
 
                     for result in results {
+                        let label = match result {
+                            BuildResult::Object(obj) => locale.t(&format!("object.{obj:?}")),
+                            BuildResult::Tile(tile) => locale.t(&format!("tile.{tile:?}")),
+                        };
                         c.spawn(UiButton)
-                            .with_child(Text::new(pascal_case_to_title_case(&result.debug_name())))
+                            .with_child(Text::new(label))
                             .with_child(ImageNode::new(asset_server.load(result.sprite_path())))
                             .observe(get_observer_action_button(ActionKind::DebugBuild(result)));
                     }
 
                     for mob in MobId::ALL {
+                        let label = locale.t(&format!("mob.{mob:?}"));
                         c.spawn(UiButton)
-                            .with_child(Text::new(pascal_case_to_title_case(&format!("{mob:?}"))))
+                            .with_child(Text::new(label))
                             .with_child(ImageNode::new(asset_server.load(mob.data().sprite_path())))
                             .observe(get_observer_action_button(ActionKind::DebugSpawn(*mob)));
                     }
