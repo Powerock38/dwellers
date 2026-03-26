@@ -211,10 +211,72 @@ pub fn spawn_ui(locale: Res<Locale>, ...) {
 - Строки вынесены в `assets/locale/ru.ron`
 - UI переведён на русский
 
-### Фаза 2 — Улучшенный ИИ (запланировано)
-- Разделение труда (профессии болванчиков)
-- Очереди производства
-- Реакция на угрозы
+### Фаза 2 ✅ — Система приоритетов
+
+#### Зоны (`src/zones.rs`)
+
+```rust
+pub enum ZoneType { Mining, Construction, Storage, Forbidden }
+
+pub struct ZoneInfo {
+    pub zone_type: ZoneType,
+    pub priority: u8,  // 1–5
+}
+
+pub struct ZoneMap {
+    pub tiles: HashMap<IVec2, ZoneInfo>,  // тайловая позиция → зона
+}
+```
+
+**Ресурсы:**
+- `ZoneMap` — источник истины; содержит приоритет каждого тайла
+- `ZoneSettings` — текущий тип и приоритет для рисования (дефолт: Mining, П3)
+
+**Визуализация:** `sync_zone_overlays()` — создаёт полупрозрачные спрайты для каждого тайла. Цвет: оранжевый (Добыча), синий (Стройка), зелёный (Склад), красный (Запрет). Прозрачность растёт с приоритетом (П1=0.22α, П5=0.50α).
+
+#### Utility Score (`src/dwellers.rs`)
+
+Вместо `BinaryHeap<(priority, -distance)>`:
+
+```rust
+fn score_task(task_pos, dweller_pos, zone_priority, task_base_priority) -> f32 {
+    zone_priority as f32 * 2.0        // зональный приоритет (0..10)
+    + (task_base_priority + 2) as f32  // тип задачи (1..4)
+    + 1.0 / distance.max(1.0)         // близость (0..1)
+    + 0.5                             // skill placeholder (Фаза 3)
+}
+```
+
+Зона П5 (score +10) beats расстояние (max +1) → болванчик бросает всё и идёт в срочную зону.
+
+#### UI зон (Ряд 3 в нижней панели)
+```
+[Приоритет: 3]  [П1][П2][П3][П4][П5] | [Добыча][Стройка][Склад][Запрет][Очистить зону]
+```
+
+**ActionKind добавлены:**
+- `DrawZone(ZoneType)` — рисует зону с приоритетом из `ZoneSettings`
+- `ClearZone` — стирает зону с тайлов
+
+#### Файлы изменены
+| Файл | Изменения |
+|------|-----------|
+| `src/zones.rs` | Новый файл: ZoneType, ZoneInfo, ZoneMap, ZoneSettings, sync_zone_overlays |
+| `src/actions.rs` | DrawZone/ClearZone в ActionKind, обработка в terrain_pointer_up |
+| `src/dwellers.rs` | score_task(), assign_tasks заменён на sort-by-score |
+| `src/ui/actions_ui.rs` | Ряд зон: приоритет П1-П5 + кнопки типов |
+| `src/main.rs` | Регистрация зон, ресурсов, систем |
+| `assets/locale/*.ron` | zone.* строки |
+
+#### TODO (Фаза 3)
+- `skill_score` сейчас = 0.5 (заглушка). Реализовать `Dweller.skills` как `HashMap<TaskKind, u8>`
+- `ZoneType::Forbidden`: болванчики обходят тайлы с этим тегом (изменить pathfinding cost)
+- Сохранение зон (добавить в save_load.rs сериализацию ZoneMap)
+
+### Фаза 3 — Глубина (запланировано)
+- Дерево технологий
+- Профессии и навыки болванчиков
+- Биомы, сезоны и голод
 
 ### Фаза 3 — Глубина (запланировано)
 - Дерево технологий

@@ -6,7 +6,7 @@ use bevy::{
 
 use crate::{
     actions::*, camera::*, dwellers::*, dwellers_needs::*, locale::*, mobs::*, save_load::*,
-    sprites::*, state::*, tasks::*, tilemap::*, ui::*,
+    sprites::*, state::*, tasks::*, tilemap::*, ui::*, zones::*,
 };
 
 mod actions;
@@ -24,6 +24,7 @@ mod tasks;
 mod tilemap;
 mod ui;
 mod utils;
+mod zones;
 
 fn main() {
     App::new()
@@ -85,6 +86,9 @@ fn main() {
                     update_taking_damage,
                     update_sprite_animation,
                     update_weather,
+                    // Зоны
+                    sync_zone_overlays,
+                    update_zone_priority_ui,
                 )
                     .in_set(GameplaySet),
             ),
@@ -122,6 +126,8 @@ fn main() {
         .init_state::<GameState>()
         .init_resource::<ActiveLang>()
         .init_resource::<Locale>()
+        .init_resource::<ZoneMap>()
+        .init_resource::<ZoneSettings>()
         .init_resource::<CameraControl>()
         .init_resource::<CurrentAction>()
         .init_resource::<DwellersSelected>()

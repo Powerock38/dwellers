@@ -82,3 +82,11 @@ ui.cancel = Отмена
 ui.save = Сохранить
 ui.load = Загрузить
 ui.quantity = x{0}
+
+# --- Зоны ---
+zone.priority = Приоритет
+zone.mining = Добыча
+zone.construction = Стройка
+zone.storage = Склад
+zone.forbidden = Запрет
+zone.clear = Очистить зону

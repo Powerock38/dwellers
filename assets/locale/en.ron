@@ -82,3 +82,11 @@ ui.cancel = Cancel
 ui.save = Save
 ui.load = Load
 ui.quantity = x{0}
+
+# --- Zones ---
+zone.priority = Priority
+zone.mining = Mining
+zone.construction = Build
+zone.storage = Storage
+zone.forbidden = Forbid
+zone.clear = Clear Zone

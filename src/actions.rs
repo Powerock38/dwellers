@@ -8,6 +8,7 @@ use crate::{
     tasks::{BuildResult, Task, TaskBundle, TaskKind, TaskNeeds},
     ui::{CoordinatesUi, UiButton},
     utils::transform_to_pos,
+    zones::{ZoneInfo, ZoneMap, ZoneSettings, ZoneType},
 };
 
 const MAX_ACTIONS: usize = 2048;
@@ -19,6 +20,10 @@ pub enum ActionKind {
     Cancel,
     Task(TaskKind),
     TaskWithNeeds(TaskKind, TaskNeeds),
+    /// Нарисовать зону заданного типа. Приоритет берётся из `ZoneSettings`.
+    DrawZone(ZoneType),
+    /// Стереть зону с тайлов.
+    ClearZone,
     DebugBuild(BuildResult),
     DebugSpawn(MobId),
 }
@@ -83,13 +88,10 @@ pub fn terrain_pointer_down(
             let pos = (world_position / TILE_SIZE).floor().as_ivec2();
 
             coordinates_ui.0 = format!("({}, {})", pos.x, pos.y);
-
-            // Start selection
             current_action.pos_start = Some(pos);
         }
 
         PointerButton::Secondary => {
-            // Cancel selection
             current_action.pos_start = None;
         }
 
@@ -103,6 +105,8 @@ pub fn terrain_pointer_up(
     mut current_action: ResMut<CurrentAction>,
     mut dwellers_selected: ResMut<DwellersSelected>,
     mut tilemap_data: ResMut<TilemapData>,
+    mut zone_map: ResMut<ZoneMap>,
+    zone_settings: Res<ZoneSettings>,
     q_camera: Query<(&Camera, &GlobalTransform)>,
     q_tasks: Query<(Entity, &Task)>,
     q_mobs: Query<(Entity, &Transform), With<Mob>>,
@@ -116,7 +120,6 @@ pub fn terrain_pointer_up(
         );
         let pos_end = (world_position / TILE_SIZE).floor().as_ivec2();
 
-        // Confirm selection
         let pos_start = extract_some!(current_action.pos_start);
 
         let pos_min = IVec2::new(pos_start.x.min(pos_end.x), pos_start.y.min(pos_end.y));
@@ -145,12 +148,31 @@ pub fn terrain_pointer_up(
                     break 'positions;
                 }
 
-                // Make sure there is a tile at this position
+                // Зонам тайл нужен только для проверки существования
                 let Some(tile) = tilemap_data.get(pos) else {
                     continue;
                 };
 
-                // If Task, check validity
+                // Зоны обрабатываем отдельно — без проверок задач
+                match &current_action.kind {
+                    ActionKind::DrawZone(zone_type) => {
+                        zone_map.tiles.insert(
+                            pos,
+                            ZoneInfo {
+                                zone_type: *zone_type,
+                                priority: zone_settings.priority,
+                            },
+                        );
+                        continue;
+                    }
+                    ActionKind::ClearZone => {
+                        zone_map.tiles.remove(&pos);
+                        continue;
+                    }
+                    _ => {}
+                }
+
+                // Для задач — проверяем валидность тайла
                 if let ActionKind::Task(task_kind) | ActionKind::TaskWithNeeds(task_kind, _) =
                     current_action.kind
                 {
@@ -158,12 +180,10 @@ pub fn terrain_pointer_up(
                         continue;
                     }
 
-                    // Abort if an incompatible task already exists at this position
                     if q_tasks.iter().filter(|(_, t)| t.pos == pos).any(
                         |(entity_other_task, other_task)| match (task_kind, other_task.kind) {
                             (TaskKind::Stockpile, TaskKind::Pickup) => {
                                 commands.entity(entity_other_task).despawn();
-                                // Stockpile task will be correctly marked TaskNeeds::Impossible below
                                 false
                             }
                             (TaskKind::Pickup, TaskKind::Stockpile)
@@ -197,7 +217,6 @@ pub fn terrain_pointer_up(
                                 Task::new(pos, *task_kind, dweller_id),
                                 TaskNeeds::Nothing,
                             ));
-
                             max_tasks = max_tasks.saturating_sub(1);
                             debug!("Digging task at {pos:?}");
                         }
@@ -225,7 +244,6 @@ pub fn terrain_pointer_up(
 
                             if !task.reachable_positions.is_empty() {
                                 commands.spawn(TaskBundle::new(task, TaskNeeds::Nothing));
-
                                 max_tasks = max_tasks.saturating_sub(1);
                                 debug!("Smoothening task at {pos:?}");
                             }
@@ -243,7 +261,6 @@ pub fn terrain_pointer_up(
                                 Task::new(pos, *task_kind, dweller_id),
                                 needs,
                             ));
-
                             max_tasks = max_tasks.saturating_sub(1);
                             debug!("Harvesting task at {pos:?}");
                         }
@@ -253,7 +270,6 @@ pub fn terrain_pointer_up(
                                 Task::new(pos, *task_kind, dweller_id),
                                 TaskNeeds::EmptyHands,
                             ));
-
                             max_tasks = max_tasks.saturating_sub(1);
                             debug!("Picking up task at {pos:?}");
                         }
@@ -273,7 +289,6 @@ pub fn terrain_pointer_up(
                                     ))
                                     .id();
                                 commands.entity(entity_mob).add_child(task_entity);
-
                                 max_tasks = max_tasks.saturating_sub(1);
                                 debug!("Attacking task at {pos:?}");
                             }
@@ -284,7 +299,6 @@ pub fn terrain_pointer_up(
                                 Task::new(pos, *task_kind, dweller_id),
                                 TaskNeeds::Nothing,
                             ));
-
                             max_tasks = max_tasks.saturating_sub(1);
                             debug!("Fishing task at {pos:?}");
                         }
@@ -300,7 +314,6 @@ pub fn terrain_pointer_up(
                                 Task::new(pos, *task_kind, dweller_id),
                                 needs,
                             ));
-
                             max_tasks = max_tasks.saturating_sub(1);
                             debug!("Stockpiling task at {pos:?}");
                         }
@@ -310,7 +323,6 @@ pub fn terrain_pointer_up(
                                 Task::new(pos, *task_kind, dweller_id),
                                 TaskNeeds::Nothing,
                             ));
-
                             max_tasks = max_tasks.saturating_sub(1);
                             debug!("Walk task at {pos:?}");
                         }
@@ -320,7 +332,6 @@ pub fn terrain_pointer_up(
                                 Task::new(pos, *task_kind, dweller_id),
                                 TaskNeeds::EmptyHands,
                             ));
-
                             max_tasks = max_tasks.saturating_sub(1);
                             debug!("Scooping task at {pos:?}");
                         }
@@ -334,7 +345,6 @@ pub fn terrain_pointer_up(
                                 Task::new(pos, *task_kind, dweller_id),
                                 needs.clone(),
                             ));
-
                             max_tasks = max_tasks.saturating_sub(1);
                             debug!("Building task at {pos:?}");
                         }
@@ -348,7 +358,6 @@ pub fn terrain_pointer_up(
                         {
                             commands.entity(entity_task).despawn();
 
-                            // stop dweller from moving towards this task
                             if let Some(dweller_id) = task.dweller_id
                                 && let Some((_, mut dweller, _)) = q_dwellers
                                     .iter_mut()
@@ -357,7 +366,6 @@ pub fn terrain_pointer_up(
                                 dweller.move_queue = Vec::new();
                             }
 
-                            // if we are cancelling a Stockpile or Workstation task, mark object for pickup (if not already marked)
                             if matches!(
                                 task.kind,
                                 TaskKind::Stockpile | TaskKind::Workstation { .. }
@@ -381,7 +389,6 @@ pub fn terrain_pointer_up(
                     }
 
                     ActionKind::Select => {
-                        // if single click on workstation, open workstation ui
                         if pos_min == pos_max
                             && let Some(entity) = q_tasks.iter().find_map(|(entity, task)| {
                                 if task.pos == pos { Some(entity) } else { None }
@@ -391,7 +398,6 @@ pub fn terrain_pointer_up(
                             break;
                         }
 
-                        // else select dwellers
                         for (entity, _, transform) in &q_dwellers {
                             if pos == transform_to_pos(transform) {
                                 dwellers_selected.add(entity);
@@ -415,6 +421,9 @@ pub fn terrain_pointer_up(
                     ActionKind::DebugSpawn(mob_id) => {
                         commands.spawn(MobBundle::new(*mob_id, pos));
                     }
+
+                    // Зоны уже обработаны выше через continue
+                    ActionKind::DrawZone(_) | ActionKind::ClearZone => {}
                 }
             }
         }
@@ -443,6 +452,14 @@ pub fn terrain_draw_selection(
         let center = (from + to) / 2. + TILE_SIZE / 2.;
         let size = (to - from).abs() + TILE_SIZE / 2.;
 
-        gizmos.rect_2d(center, size, Color::WHITE);
+        // Цвет рамки зависит от режима действия
+        let color = match &current_action.kind {
+            ActionKind::DrawZone(_) | ActionKind::ClearZone => {
+                bevy::color::palettes::css::LIME_GREEN.into()
+            }
+            _ => Color::WHITE,
+        };
+
+        gizmos.rect_2d(center, size, color);
     }
 }

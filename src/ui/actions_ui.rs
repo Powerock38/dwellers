@@ -7,6 +7,7 @@ use crate::{
     extract_ok,
     locale::Locale,
     tasks::BuildResult,
+    zones::{ZoneSettings, ZoneType, ZonePriorityUi},
 };
 
 #[derive(Component)]
@@ -30,19 +31,21 @@ pub fn spawn_ui(mut commands: Commands, asset_server: Res<AssetServer>, locale: 
             Pickable::IGNORE,
         ))
         .with_children(|c| {
+            // Информация о выбранных болванчиках
             c.spawn((
                 DwellersSelectedUi,
                 Text::new(""),
                 BackgroundColor(Color::BLACK.with_alpha(0.5)),
             ));
 
+            // Координаты курсора
             c.spawn((
                 CoordinatesUi,
                 Text::new(""),
                 BackgroundColor(Color::BLACK.with_alpha(0.5)),
             ));
 
-            // Кнопки строительства
+            // ── Ряд 1: Кнопки строительства ─────────────────────────────────
             c.spawn(Node {
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
@@ -62,7 +65,7 @@ pub fn spawn_ui(mut commands: Commands, asset_server: Res<AssetServer>, locale: 
                 }
             });
 
-            // Кнопки задач
+            // ── Ряд 2: Кнопки задач ─────────────────────────────────────────
             c.spawn(Node {
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
@@ -92,6 +95,75 @@ pub fn spawn_ui(mut commands: Commands, asset_server: Res<AssetServer>, locale: 
                 c.spawn(UiButton)
                     .with_child(Text::new(locale.t("ui.cancel")))
                     .observe(get_observer_action_button(ActionKind::Cancel));
+            });
+
+            // ── Ряд 3: Зоны ─────────────────────────────────────────────────
+            c.spawn(Node {
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                column_gap: Val::Px(6.0),
+                ..default()
+            })
+            .with_children(|c| {
+                // Метка + текущий приоритет
+                c.spawn((
+                    Text::new(format!("{}: ", locale.t("zone.priority"))),
+                    BackgroundColor(Color::BLACK.with_alpha(0.4)),
+                ));
+                c.spawn((
+                    ZonePriorityUi,
+                    Text::new("3"),
+                    BackgroundColor(Color::BLACK.with_alpha(0.4)),
+                ));
+
+                // Кнопки приоритета П1…П5
+                for priority in 1u8..=5 {
+                    c.spawn(UiButton)
+                        .with_child(Text::new(format!("П{priority}")))
+                        .observe(
+                            move |_: On<Pointer<Click>>, mut zone_settings: ResMut<ZoneSettings>| {
+                                zone_settings.priority = priority;
+                            },
+                        );
+                }
+
+                // Разделитель
+                c.spawn(Text::new(" | "));
+
+                // Кнопки типов зон
+                for (zone_type, key) in [
+                    (ZoneType::Mining, "zone.mining"),
+                    (ZoneType::Construction, "zone.construction"),
+                    (ZoneType::Storage, "zone.storage"),
+                    (ZoneType::Forbidden, "zone.forbidden"),
+                ] {
+                    let label = locale.t(key);
+                    c.spawn(UiButton)
+                        .with_child(Text::new(label))
+                        .observe(
+                            move |_: On<Pointer<Click>>,
+                                  mut commands: Commands,
+                                  zone_settings: Res<ZoneSettings>,
+                                  mut q_borders: Query<
+                                &mut BorderColor,
+                                With<UiButton>,
+                            >| {
+                                commands.insert_resource(CurrentAction::new(
+                                    ActionKind::DrawZone(zone_type),
+                                ));
+                                // Сбрасываем все рамки
+                                for mut border in &mut q_borders {
+                                    *border = Color::BLACK.into();
+                                }
+                                let _ = zone_settings; // используется для чтения типа
+                            },
+                        );
+                }
+
+                // Кнопка очистки зоны
+                c.spawn(UiButton)
+                    .with_child(Text::new(locale.t("zone.clear")))
+                    .observe(get_observer_action_button(ActionKind::ClearZone));
             });
         });
 }
