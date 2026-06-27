@@ -68,12 +68,12 @@ impl Mob {
         }
     }
 
-    pub fn pathfind(&mut self, pos: IVec2, tilemap_data: &TilemapData) {
+    pub fn pathfind(&mut self, start_pos: IVec2, goal_pos: IVec2, tilemap_data: &TilemapData) {
         let path = astar(
-            &pos,
+            &start_pos,
             tilemap_data.astar_successors(),
-            |p| (p.x - pos.x).abs() + (p.y - pos.y).abs(),
-            |p| *p == pos,
+            |p| (p.x - goal_pos.x).abs() + (p.y - goal_pos.y).abs(),
+            |p| *p == goal_pos,
         )
         .map(|(mut path, _)| {
             path.reverse();
@@ -259,7 +259,7 @@ pub fn update_hostile_mobs(
                         .choose(&mut rng)
                         .unwrap_or(&dweller_pos);
 
-                    mob.pathfind(target_pos, &tilemap_data);
+                    mob.pathfind(pos, target_pos, &tilemap_data);
                 }
             }
         }
