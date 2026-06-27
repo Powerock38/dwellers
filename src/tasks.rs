@@ -31,7 +31,7 @@ pub enum TaskKind {
         result: BuildResult,
     },
     Workstation {
-        amount: u32,
+        amount: WorkstationAmount,
     },
     Walk,
     Eat,
@@ -145,6 +145,51 @@ impl BuildResult {
         match self {
             BuildResult::Object(object) => object.data().is_blocking(),
             BuildResult::Tile(tile) => tile.data().is_wall(),
+        }
+    }
+}
+
+#[derive(PartialEq, Clone, Copy, Reflect, Debug)]
+pub enum WorkstationAmount {
+    Infinite,
+    Finite(u32),
+}
+
+impl WorkstationAmount {
+    pub fn decrease(&mut self) {
+        if let WorkstationAmount::Finite(amount) = self {
+            *amount = amount.saturating_sub(1);
+        }
+    }
+
+    pub fn scroll_up(&mut self) {
+        match self {
+            WorkstationAmount::Infinite => *self = WorkstationAmount::Finite(1),
+            WorkstationAmount::Finite(amount) => {
+                *self = WorkstationAmount::Finite(amount.saturating_add(1));
+            }
+        }
+    }
+
+    pub fn scroll_down(&mut self) {
+        match self {
+            WorkstationAmount::Infinite => {}
+            WorkstationAmount::Finite(amount) => {
+                if *amount > 1 {
+                    *self = WorkstationAmount::Finite(amount.saturating_sub(1));
+                } else {
+                    *self = WorkstationAmount::Infinite;
+                }
+            }
+        }
+    }
+}
+
+impl std::fmt::Display for WorkstationAmount {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            WorkstationAmount::Infinite => write!(f, "inf"),
+            WorkstationAmount::Finite(amount) => write!(f, "x{amount}"),
         }
     }
 }
@@ -545,7 +590,13 @@ pub fn event_task_completion(
 
                             if let Some(workstation) = WORKSTATIONS.get(&object) {
                                 commands.spawn(TaskBundle::new(
-                                    Task::new(task.pos, TaskKind::Workstation { amount: 1 }, None),
+                                    Task::new(
+                                        task.pos,
+                                        TaskKind::Workstation {
+                                            amount: WorkstationAmount::Finite(1),
+                                        },
+                                        None,
+                                    ),
                                     TaskNeeds::Objects(workstation.1.clone()),
                                 ));
                             }
@@ -796,7 +847,7 @@ pub fn event_task_completion(
 
                 TaskKind::Workstation { ref mut amount } if remove_task => {
                     if let Some(recipe) = tile.object.and_then(|object| WORKSTATIONS.get(&object)) {
-                        *amount = amount.saturating_sub(1);
+                        amount.decrease();
                         *task_needs = TaskNeeds::Objects(recipe.1.clone());
                     }
                     remove_task = false;
@@ -907,7 +958,10 @@ pub fn update_pickups(
         if task.dweller_id.is_some()
             || matches!(
                 task.kind,
-                TaskKind::Stockpile | TaskKind::Workstation { amount: 0 }
+                TaskKind::Stockpile
+                    | TaskKind::Workstation {
+                        amount: WorkstationAmount::Finite(0)
+                    }
             )
         {
             return;

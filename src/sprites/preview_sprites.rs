@@ -1,6 +1,6 @@
 use bevy::{platform::collections::HashMap, prelude::*, sprite::Anchor};
 
-use crate::{Dweller, TILE_SIZE, Task, TaskKind, TaskNeeds};
+use crate::{Dweller, TILE_SIZE, Task, TaskKind, TaskNeeds, tasks::WorkstationAmount};
 
 #[derive(Component)]
 pub enum DwellerEquipmentPreview {
@@ -161,7 +161,7 @@ pub fn update_task_workstation_preview(
     mut commands: Commands,
     q_tasks: Query<(Entity, &Task, Option<&Children>), Changed<Task>>,
     q_workstation_previews: Query<(), With<TaskWorkstationPreview>>,
-    mut changes: Local<HashMap<Entity, u32>>,
+    mut changes: Local<HashMap<Entity, WorkstationAmount>>,
 ) {
     for (entity, task, children) in &q_tasks {
         match task.kind {

@@ -3,8 +3,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use bevy::{platform::collections::HashMap, prelude::*};
 
 use crate::{
-    BG_PRIMARY, Task, TaskKind, TilePlaced, data::WORKSTATIONS, extract_ok,
-    TilemapData,
+    BG_PRIMARY, Task, TaskKind, TilePlaced, TilemapData, data::WORKSTATIONS, extract_ok,
+    tasks::WorkstationAmount,
 };
 
 #[derive(Event)]
@@ -80,7 +80,7 @@ pub fn update_workstation_ui(
     tilemap_data: Res<TilemapData>,
     q_workstation_ui: Query<(Entity, &WorkstationUi)>,
     q_tasks: Query<&Task>,
-    mut changes: Local<HashMap<u128, u32>>,
+    mut changes: Local<HashMap<u128, WorkstationAmount>>,
 ) {
     for (ui_entity, workstation_ui) in &q_workstation_ui {
         let entity = workstation_ui.0;
@@ -135,7 +135,7 @@ pub fn update_workstation_ui(
                     pointer_click.propagate(false);
                     let mut task = extract_ok!(q_tasks.get_mut(entity));
                     if let TaskKind::Workstation { ref mut amount, .. } = task.kind {
-                        *amount = amount.saturating_sub(1);
+                        amount.scroll_down();
                     }
                 },
             );
@@ -143,7 +143,7 @@ pub fn update_workstation_ui(
             c.spawn(ImageNode::new(
                 asset_server.load(recipe.0.data().sprite_path()),
             ));
-            c.spawn(Text::new(format!("x{amount}")));
+            c.spawn(Text::new(format!("{amount}")));
 
             // Plus button
             c.spawn((
@@ -162,7 +162,7 @@ pub fn update_workstation_ui(
                     pointer_click.propagate(false);
                     let mut task = extract_ok!(q_tasks.get_mut(entity));
                     if let TaskKind::Workstation { ref mut amount, .. } = task.kind {
-                        *amount = amount.saturating_add(1);
+                        amount.scroll_up();
                     }
                 },
             );

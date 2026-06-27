@@ -46,9 +46,7 @@ pub fn spawn_load_save_ui(
                         .filter_map(|entry| {
                             entry
                                 .ok()
-                                .filter(|entry| {
-                                    entry.file_type().ok().is_some_and(|ft| ft.is_dir())
-                                })
+                                .filter(|entry| entry.file_type().is_ok_and(|ft| ft.is_dir()))
                                 .and_then(|entry| entry.file_name().into_string().ok())
                         })
                         .collect::<Vec<_>>();

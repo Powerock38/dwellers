@@ -12,7 +12,7 @@ use crate::{
     mobs::Mob,
     observe_dweller_hover,
     random_text::{NAMES, generate_word},
-    tasks::TaskBundle,
+    tasks::{TaskBundle, WorkstationAmount},
     utils::transform_to_pos,
 };
 
@@ -64,7 +64,9 @@ impl Dweller {
 
     pub fn can_do(&self, task_kind: TaskKind, task_needs: &TaskNeeds) -> bool {
         match task_kind {
-            TaskKind::Workstation { amount: 0 } => return false,
+            TaskKind::Workstation {
+                amount: WorkstationAmount::Finite(0),
+            } => return false,
             _ => {}
         }
 
