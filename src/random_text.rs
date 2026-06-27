@@ -1,10 +1,7 @@
 use std::{io::BufRead, sync::LazyLock};
 
 use bevy::platform::collections::HashMap;
-use rand::{
-    distr::{weighted::WeightedIndex, Distribution},
-    rngs::ThreadRng,
-};
+use rand::{distr::weighted::WeightedIndex, prelude::*};
 
 pub static NAMES: LazyLock<ProbabilityTable> = LazyLock::new(|| {
     ProbabilityTable::from_reader(include_bytes!("../assets/names.txt").as_ref(), 3)

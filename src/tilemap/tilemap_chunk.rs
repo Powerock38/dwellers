@@ -102,7 +102,7 @@ pub fn manage_chunks(
         created_chunks.push(chunk_pos);
     }
 
-    let chunks_to_remove = tilemap_data.chunks_to_remove.drain(..).collect::<Vec<_>>();
+    let chunks_to_remove = std::mem::take(&mut tilemap_data.chunks_to_remove);
 
     for chunk_pos in chunks_to_remove {
         for (entity, transform) in q_chunk_layers {

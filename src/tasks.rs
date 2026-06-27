@@ -3,7 +3,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use bevy::{platform::collections::HashSet, prelude::*};
 use dashmap::DashSet;
 use pathfinding::directed::astar::astar;
-use rand::Rng;
+use rand::prelude::*;
 use uuid::Uuid;
 
 use crate::{
@@ -794,16 +794,12 @@ pub fn event_task_completion(
                     remove_task = false;
                 }
 
-                TaskKind::Workstation { ref mut amount } => {
-                    if remove_task {
-                        if let Some(recipe) =
-                            tile.object.and_then(|object| WORKSTATIONS.get(&object))
-                        {
-                            *amount = amount.saturating_sub(1);
-                            *task_needs = TaskNeeds::Objects(recipe.1.clone());
-                        }
-                        remove_task = false;
+                TaskKind::Workstation { ref mut amount } if remove_task => {
+                    if let Some(recipe) = tile.object.and_then(|object| WORKSTATIONS.get(&object)) {
+                        *amount = amount.saturating_sub(1);
+                        *task_needs = TaskNeeds::Objects(recipe.1.clone());
                     }
+                    remove_task = false;
                 }
 
                 _ => {}

@@ -12,7 +12,7 @@ pub use workstation_ui::*;
 
 pub fn init_font(asset_server: Res<AssetServer>, mut query: Query<&mut TextFont, Added<TextFont>>) {
     for mut font in &mut query {
-        font.font = asset_server.load("alagard.ttf");
+        font.font = asset_server.load("alagard.ttf").into();
     }
 }
 

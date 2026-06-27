@@ -49,15 +49,16 @@ pub fn save_resources(
     // Save resources with bevy reflection
     debug!("Saving resources: {}", save_name.0);
 
-    let scene = DynamicSceneBuilder::from_world(world)
+    let app_type_registry = world.resource::<AppTypeRegistry>().clone();
+    let type_registry = app_type_registry.read();
+
+    let scene = DynamicWorldBuilder::from_world(world, &type_registry)
         .deny_all_resources()
         .allow_resource::<Weather>()
         .allow_resource::<ChunksWithDwellers>()
         .extract_resources()
         .build();
 
-    let app_type_registry = world.resource::<AppTypeRegistry>().clone();
-    let type_registry = app_type_registry.read();
     match scene.serialize(&type_registry) {
         Ok(serialized) => {
             // Save tasks & entities with Bevy reflection
@@ -78,7 +79,7 @@ pub fn save_resources(
 pub fn load_game(
     load_game: On<LoadGame>,
     mut commands: Commands,
-    mut scene_spawner: ResMut<SceneSpawner>,
+    mut scene_spawner: ResMut<WorldInstanceSpawner>,
     asset_server: Res<AssetServer>,
     q_save_scoped: Query<Entity, With<SaveScoped>>,
     mut next_state: ResMut<NextState<GameState>>,

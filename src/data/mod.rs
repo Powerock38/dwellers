@@ -75,8 +75,15 @@ enum_map! {
         Boar = MobData::new("boar", 3, 50.0, 0, ObjectId::Hide),
         Undead = MobData::new("undead", 5, 40.0, 2, ObjectId::CopperIngot),
         Snake = MobData::new("snake", 1, 70.0, 1, ObjectId::Hide),
+        Moose = MobData::new("moose", 6, 30.0, 0, ObjectId::Hide),
     }
 }
+
+pub static SPRITE_ANIMATIONS: LazyLock<HashMap<&'static str, (u32, f32)>> =
+    LazyLock::new(|| HashMap::from([("sprites/snake.png", (4, 0.2))]));
+
+pub static SPRITE_SIZE: LazyLock<HashMap<&'static str, (u32, u32)>> =
+    LazyLock::new(|| HashMap::from([("sprites/moose.png", (32, 32))]));
 
 #[rustfmt::skip]
 pub const BUILD_RECIPES: &[(BuildResult, &[ObjectId])] = &[
@@ -126,6 +133,3 @@ pub static SLEEP_VALUES: LazyLock<HashMap<ObjectId, i32>> = LazyLock::new(|| {
         (ObjectId::Table, 20),
     ])
 });
-
-pub static SPRITE_ANIMATIONS: LazyLock<HashMap<&'static str, (u32, f32)>> =
-    LazyLock::new(|| HashMap::from([("sprites/snake.png", (4, 0.2))]));

@@ -3,7 +3,7 @@ use noise::{
     Abs, Billow, Fbm, NoiseFn, OpenSimplex, Perlin, Simplex, Worley,
     core::worley::distance_functions::euclidean_squared,
 };
-use rand::{Rng, SeedableRng, rngs::StdRng};
+use rand::prelude::*;
 
 use crate::{
     CHUNK_SIZE, MobBundle, SpawnMobsOnChunk, TilePlaced, TilemapData,
@@ -320,7 +320,7 @@ pub fn update_terrain(
                         }
                     }
 
-                    ObjectId::Beehive => {
+                    ObjectId::Beehive
                         if TilemapData::find_from_center(pos, 5, |pos| {
                             matches!(
                                 tilemap_data.get(pos),
@@ -331,17 +331,16 @@ pub fn update_terrain(
                             )
                         })
                         .is_some()
-                            && rng.random_bool(0.1)
-                        {
-                            for (pos, tile) in tilemap_data.neighbours(pos) {
-                                if tile.is_floor_free() && !tasks_positions.contains(&pos) {
-                                    to_set.push((pos, tile.id.with(ObjectId::Honeycomb)));
-                                    commands.spawn(TaskBundle::new(
-                                        Task::new(pos, TaskKind::Pickup, None),
-                                        TaskNeeds::EmptyHands,
-                                    ));
-                                    break;
-                                }
+                            && rng.random_bool(0.1) =>
+                    {
+                        for (pos, tile) in tilemap_data.neighbours(pos) {
+                            if tile.is_floor_free() && !tasks_positions.contains(&pos) {
+                                to_set.push((pos, tile.id.with(ObjectId::Honeycomb)));
+                                commands.spawn(TaskBundle::new(
+                                    Task::new(pos, TaskKind::Pickup, None),
+                                    TaskNeeds::EmptyHands,
+                                ));
+                                break;
                             }
                         }
                     }

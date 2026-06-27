@@ -53,7 +53,7 @@ pub fn spawn_new_terrain(
 pub fn load_chunks(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut scene_spawner: ResMut<SceneSpawner>,
+    mut scene_spawner: ResMut<WorldInstanceSpawner>,
     mut ev_load: MessageReader<LoadChunk>,
     mut ev_save: MessageReader<SaveChunk>,
     save_name: Res<SaveName>,
@@ -124,8 +124,9 @@ pub fn load_chunks(
         let despawn = *despawn;
         commands.queue(move |world: &mut World| {
             let app_type_registry = world.resource::<AppTypeRegistry>().clone();
+            let type_registry = app_type_registry.read();
 
-            let scene = DynamicSceneBuilder::from_world(world)
+            let scene = DynamicWorldBuilder::from_world(world, &type_registry)
                 .deny_all_resources()
                 .deny_all_components()
                 .allow_component::<Dweller>()
@@ -141,7 +142,6 @@ pub fn load_chunks(
                 .remove_empty_entities()
                 .build();
 
-            let type_registry = app_type_registry.read();
             match scene.serialize(&type_registry) {
                 Ok(serialized) => {
                     // blocking write to file to ensure data is saved before proceeding

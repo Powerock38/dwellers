@@ -1,7 +1,7 @@
 use std::collections::BinaryHeap;
 
 use bevy::{platform::collections::HashSet, prelude::*, sprite::Anchor};
-use rand::{Rng, seq::IndexedRandom};
+use rand::prelude::*;
 use uuid::Uuid;
 
 use crate::{

@@ -4,7 +4,7 @@ use bevy::{
     shader::ShaderRef,
     sprite_render::{AlphaMode2d, Material2d},
 };
-use rand::{Rng, SeedableRng, rngs::StdRng};
+use rand::prelude::*;
 
 use crate::save_load::SaveName;
 
@@ -92,7 +92,7 @@ pub fn update_weather(
     let time_of_day = (weather.elapsed_secs + DAY_LENGTH_SECS / 4.0) / DAY_LENGTH_SECS % 1.0;
 
     for material in query.iter() {
-        let material = materials.get_mut(material).unwrap();
+        let mut material = materials.get_mut(material).unwrap();
         material.wind = weather.wind * weather.elapsed_secs;
         material.time_of_day = time_of_day;
     }
@@ -108,7 +108,7 @@ pub fn update_cloud_opacity(
     };
 
     for material in query.iter() {
-        let material = materials.get_mut(material).unwrap();
+        let mut material = materials.get_mut(material).unwrap();
 
         // Cloud opacity based on zoom level
         material.cloud_opacity = (projection.scale.powf(2.0) - 0.3).clamp(0.0, 1.0);

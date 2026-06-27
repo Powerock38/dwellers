@@ -1,6 +1,9 @@
 use bevy::{prelude::*, sprite::Anchor};
 
-use crate::{TILE_SIZE, TILE_SIZE_U, data::SPRITE_ANIMATIONS};
+use crate::{
+    TILE_SIZE_U,
+    data::{SPRITE_ANIMATIONS, SPRITE_SIZE},
+};
 
 #[derive(Component, Reflect, Default)]
 #[reflect(Component, Default)]
@@ -29,9 +32,15 @@ pub fn scan_sprites_loaders(
             .copied()
             .unwrap_or((1, 0.2));
 
+        let size = UVec2::from(
+            SPRITE_SIZE
+                .get(sprite_loader.texture_path.as_str())
+                .copied()
+                .unwrap_or((TILE_SIZE_U, TILE_SIZE_U)),
+        );
+
         if n_frames > 1 {
-            let layout =
-                TextureAtlasLayout::from_grid(UVec2::splat(TILE_SIZE_U), n_frames, 1, None, None);
+            let layout = TextureAtlasLayout::from_grid(size, n_frames, 1, None, None);
 
             commands.entity(entity).insert((
                 Sprite::from_atlas_image(
@@ -49,7 +58,7 @@ pub fn scan_sprites_loaders(
         } else {
             commands.entity(entity).insert(Sprite {
                 image,
-                custom_size: Some(Vec2::splat(TILE_SIZE)),
+                custom_size: Some(size.as_vec2()),
                 ..default()
             });
         }
